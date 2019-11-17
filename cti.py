@@ -114,3 +114,31 @@ class TrapSpecies(object):
                     The number of released electrons.
         """
         return e_init * self.exponential_factor
+
+
+# //////////////////////////////////////////////////////////////////////////// #
+#                               Support Functions                              #
+# //////////////////////////////////////////////////////////////////////////// #
+def init_A2_trap_wmk_height_fill(num_column, num_species):
+    """ Initialise the watermark array of trap states.
+    
+        Args:
+            num_column (int)
+                The number of columns in the image. i.e. the maximum number of 
+                possible electron trap/release events.
+            
+            num_species (int)
+                The number of trap species being modelled.
+    
+        Returns:
+            A2_trap_wmk_height_fill : [[float]]
+                Array of watermark heights and fill fractions to describe the 
+                trap states. Lists each (active) watermark height_e fraction and  
+                the corresponding fill fractions of each trap species. Inactive 
+                elements are set to 0.
+                
+                [[height_e, fill, fill, ...], 
+                 [height_e, fill, fill, ...],
+                 ...                       ]
+    """
+    return np.zeros((num_column, 1 + num_species), dtype=float)

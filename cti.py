@@ -147,6 +147,9 @@ def init_A2_trap_wmk_height_fill(num_column, num_species):
 def release_electrons_in_pixel(A2_trap_wmk_height_fill, A1_trap_species):
     """ Release electrons from traps.
     
+        Find the total number of electrons that the traps release and update the 
+        trap watermarks.
+    
         Args:
             A2_trap_wmk_height_fill : [[float]]
                 The initial watermarks. See init_A2_trap_wmk_height_fill().
@@ -192,3 +195,60 @@ def release_electrons_in_pixel(A2_trap_wmk_height_fill, A1_trap_species):
         e_rele += e_rele_wmk * A2_trap_wmk_height_fill[i_wmk, 0]
 
     return e_rele, A2_trap_wmk_height_fill
+
+
+def capture_electrons(height_e, A2_trap_wmk_height_fill, A1_trap_species):
+    """ Find the total number of electrons that the traps can capture.
+    
+        Args:
+            height_e : float
+                The fractional height of the electron cloud in the pixel.
+        
+            A2_trap_wmk_height_fill : [[float]]
+                The initial watermarks. See init_A2_trap_wmk_height_fill().
+                
+            A1_trap_species : [TrapSpecies]
+                An array of one or more objects describing a species of trap.
+            
+        Returns:
+            e_capt : float
+                The number of captured electrons.
+    """
+    # Initialise the number of captured electrons
+    e_capt = 0
+
+    # The number of traps of each species
+    A1_trap_density = [trap_species.density for trap_species in A1_trap_species]
+
+    # Find the highest active watermark
+    i_wmk_max = np.argmax(A2_trap_wmk_height_fill[:, 0] == 0) - 1
+
+    # Initialise cumulative watermark height
+    height_wmk_cum = 0
+
+    # Capture electrons above each existing watermark level below the highest
+    for i_wmk in range(i_wmk_max + 1):
+        # Update cumulative watermark height
+        height_wmk = A2_trap_wmk_height_fill[i_wmk, 0]
+        height_wmk_cum += height_wmk
+
+        # Capture electrons all the way to this watermark (for all trap species)
+        if height_wmk_cum < height_e:
+            e_capt += height_wmk * np.sum(
+                (1 - A2_trap_wmk_height_fill[i_wmk, 1:]) * A1_trap_density
+            )
+
+        # Capture electrons part-way between the previous and this watermark
+        else:
+            e_capt += (height_e - (height_wmk_cum - height_wmk)) * np.sum(
+                (1 - A2_trap_wmk_height_fill[i_wmk, 1:]) * A1_trap_density
+            )
+
+            # No point in checking even higher watermarks
+            return e_capt
+
+    # Capture any electrons above the highest existing watermark
+    if A2_trap_wmk_height_fill[i_wmk_max, 0] < height_e:
+        e_capt += (height_e - height_wmk_cum) * np.sum(A1_trap_density)
+
+    return e_capt

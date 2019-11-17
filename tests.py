@@ -93,8 +93,112 @@ def test_release_electrons_in_pixel():
     return 0
 
 
+def test_capture_electrons():
+    print("Test capture_electrons()")
+
+    # ========
+    print("  First capture ", end="")
+    A2_trap_wmk_height_fill = init_A2_trap_wmk_height_fill(
+        num_column=6, num_species=1
+    )
+    A1_trap_species = [test_species_1]
+    height_e = 0.5
+
+    e_capt = capture_electrons(
+        height_e, A2_trap_wmk_height_fill, A1_trap_species
+    )
+
+    assert np.isclose(e_capt, 0.5 * 10)
+    print("[PASS]")
+
+    # ========
+    print("  New highest watermark ", end="")
+    A2_trap_wmk_height_fill = np.array(
+        [[0.5, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0], [0, 0]]
+    )
+    A1_trap_species = [test_species_1]
+    height_e = 0.9
+
+    e_capt = capture_electrons(
+        height_e, A2_trap_wmk_height_fill, A1_trap_species
+    )
+
+    assert np.isclose(e_capt, (0.1 + 0.12 + 0.07 + 0.1) * 10)
+    print("[PASS]")
+
+    # ========
+    print("  Middle new watermark (a) ", end="")
+    A2_trap_wmk_height_fill = np.array(
+        [[0.5, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0], [0, 0]]
+    )
+    A1_trap_species = [test_species_1]
+    height_e = 0.6
+
+    e_capt = capture_electrons(
+        height_e, A2_trap_wmk_height_fill, A1_trap_species
+    )
+
+    assert np.isclose(e_capt, (0.1 + 0.06) * 10)
+    print("[PASS]")
+
+    # ========
+    print("  Middle new watermark (b) ", end="")
+    A2_trap_wmk_height_fill = np.array(
+        [[0.5, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0], [0, 0]]
+    )
+    A1_trap_species = [test_species_1]
+    height_e = 0.75
+
+    e_capt = capture_electrons(
+        height_e, A2_trap_wmk_height_fill, A1_trap_species
+    )
+
+    assert np.isclose(e_capt, (0.1 + 0.12 + 0.035) * 10)
+    print("[PASS]")
+
+    # ========
+    print("  New lowest watermark ", end="")
+    A2_trap_wmk_height_fill = np.array(
+        [[0.5, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0], [0, 0]]
+    )
+    A1_trap_species = [test_species_1]
+    height_e = 0.3
+
+    e_capt = capture_electrons(
+        height_e, A2_trap_wmk_height_fill, A1_trap_species
+    )
+
+    assert np.isclose(e_capt, 0.3 * 0.2 * 10)
+    print("[PASS]")
+
+    # ========
+    print("  Multiple trap species ", end="")
+    A2_trap_wmk_height_fill = np.array(
+        [
+            [0.5, 0.8, 0.7],
+            [0.2, 0.4, 0.3],
+            [0.1, 0.3, 0.2],
+            [0, 0, 0],
+            [0, 0, 0],
+            [0, 0, 0],
+        ]
+    )
+    A1_trap_species = [test_species_1, test_species_2]
+    height_e = 0.6
+
+    e_capt = capture_electrons(
+        height_e, A2_trap_wmk_height_fill, A1_trap_species
+    )
+
+    assert np.isclose(e_capt, (0.1 + 0.06) * 10 + (0.15 + 0.07) * 8)
+    print("[PASS]")
+
+    return 0
+
+
 # //////////////////////////////////////////////////////////////////////////// #
 #                               Main                                           #
 # //////////////////////////////////////////////////////////////////////////// #
 if __name__ == "__main__":
     test_release_electrons_in_pixel()
+    test_capture_electrons()

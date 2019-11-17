@@ -1,0 +1,32 @@
+# General file types
+*.aux
+*.bbl
+*.blg
+*.cprof
+*.csv
+*.dat
+*.fits
+*.gz
+*.log
+*.mp4
+*.npy
+*.ods
+*.out
+*.pdf
+*.png
+*.pyc
+*.swp
+*.tar
+*.toc
+*.xmf
+*.zip
+*.*#
+*~
+
+# Folders (e.g. other projects)
+arctic/
+tables/
+
+# Misc
+*tmp*
+*debug*

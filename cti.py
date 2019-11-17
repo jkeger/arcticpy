@@ -142,3 +142,53 @@ def init_A2_trap_wmk_height_fill(num_column, num_species):
                  ...                       ]
     """
     return np.zeros((num_column, 1 + num_species), dtype=float)
+
+
+def release_electrons_in_pixel(A2_trap_wmk_height_fill, A1_trap_species):
+    """ Release electrons from traps.
+    
+        Args:
+            A2_trap_wmk_height_fill : [[float]]
+                The initial watermarks. See init_A2_trap_wmk_height_fill().
+                
+            A1_trap_species : [TrapSpecies]
+                An array of one or more objects describing a species of trap.
+                
+        Returns:
+            e_rele : float
+                The number of released electrons.
+                
+            A2_trap_wmk_height_fill : [[float]]
+                The updated watermarks. See init_A2_trap_wmk_height_fill().
+    """
+    # Initialise the number of released electrons
+    e_rele = 0
+
+    # The number of traps of each species
+    A1_trap_density = [trap_species.density for trap_species in A1_trap_species]
+
+    # Find the highest active watermark
+    i_wmk_max = np.argmax(A2_trap_wmk_height_fill[:, 0] == 0) - 1
+
+    # For each watermark
+    for i_wmk in range(i_wmk_max + 1):
+        # Initialise the number of released electrons from this watermark level
+        e_rele_wmk = 0
+
+        # For each trap species
+        for i_spec, species in enumerate(A1_trap_species):
+            # Number of released electrons (not yet including the trap density)
+            e_rele_spec = species.e_rele(
+                A2_trap_wmk_height_fill[i_wmk, 1 + i_spec]
+            )
+
+            # Update the watermark fill fraction
+            A2_trap_wmk_height_fill[i_wmk, 1 + i_spec] -= e_rele_spec
+
+            # Update the actual number of released electrons
+            e_rele_wmk += e_rele_spec * A1_trap_density[i_spec]
+
+        # Multiply the summed fill fractions by the height
+        e_rele += e_rele_wmk * A2_trap_wmk_height_fill[i_wmk, 0]
+
+    return e_rele, A2_trap_wmk_height_fill

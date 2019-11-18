@@ -119,6 +119,43 @@ class TrapSpecies(object):
 # //////////////////////////////////////////////////////////////////////////// #
 #                               Support Functions                              #
 # //////////////////////////////////////////////////////////////////////////// #
+def create_express_multiplier(express, num_row):
+    """ Calculate the values by which the effects of clocking each pixel must be 
+        multiplied when using the express algorithm. See Massey et al. (2014), 
+        section 2.1.5.
+        
+        Args:
+            express : int
+                The express parameter = (maximum number of transfers) / (number 
+                of computed tranfers), i.e. the number of computed transfers per 
+                pixel. So express = 1 --> maxmimum speed; express = (maximum 
+                number of transfers) --> maximum accuracy.
+            
+            num_row : int
+                The number of rows in the CCD and hence the maximum number of 
+                transfers.
+        
+        Returns:
+            A2_express_multiplier : [[float]]
+                The express multiplier values for each pixel.
+    """
+    # Initialise the array
+    A2_express_multiplier = np.empty((express, num_row), dtype=int)
+    A2_express_multiplier[:] = np.arange(1, num_row + 1)
+
+    express_max = int(num_row / express)
+
+    # Offset each row to account for the pixels that have already been read out
+    for i_exp in range(express):
+        A2_express_multiplier[i_exp] -= i_exp * express_max
+
+    # Set all values to between 0 and express_max
+    A2_express_multiplier[A2_express_multiplier < 0] = 0
+    A2_express_multiplier[express_max < A2_express_multiplier] = express_max
+
+    return A2_express_multiplier
+
+
 def init_A2_trap_wmk_height_fill(num_column, num_species):
     """ Initialise the watermark array of trap states.
     

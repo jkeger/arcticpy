@@ -352,6 +352,118 @@ def test_update_trap_wmk_capture():
     return 0
 
 
+def test_update_trap_wmk_capture_not_enough():
+    print("Test update_trap_wmk_capture_not_enough()")
+
+    # ========
+    print("    First capture ", end="")
+    A2_trap_wmk_height_fill = init_A2_trap_wmk_height_fill(
+        num_column=6, num_species=1
+    )
+    A1_trap_species = [test_species_1]
+    height_e = 0.5
+    enough = 0.7
+
+    A2_trap_wmk_height_fill = update_trap_wmk_capture_not_enough(
+        height_e, A2_trap_wmk_height_fill, enough
+    )
+
+    assert np.allclose(
+        A2_trap_wmk_height_fill,
+        [[0.5, 0.7], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],
+    )
+    print("[PASS]")
+
+    # ========
+    print("    New highest watermark ", end="")
+    A2_trap_wmk_height_fill = np.array(
+        [[0.5, 0.8], [0.2, 0.4], [0, 0], [0, 0], [0, 0], [0, 0]]
+    )
+    A1_trap_species = [test_species_1]
+    height_e = 0.8
+    enough = 0.5
+
+    A2_trap_wmk_height_fill = update_trap_wmk_capture_not_enough(
+        height_e, A2_trap_wmk_height_fill, enough
+    )
+
+    assert np.allclose(
+        A2_trap_wmk_height_fill,
+        [[0.25, 0.9], [0.25, 0.8], [0.1, 0.7], [0.1, 0.4], [0.1, 0.5], [0, 0]],
+    )
+    print("[PASS]")
+
+    # ========
+    print("    Middle new watermark ", end="")
+    A2_trap_wmk_height_fill = np.array(
+        [[0.5, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0], [0, 0]]
+    )
+    A1_trap_species = [test_species_1]
+    height_e = 0.6
+    enough = 0.5
+
+    A2_trap_wmk_height_fill = update_trap_wmk_capture_not_enough(
+        height_e, A2_trap_wmk_height_fill, enough
+    )
+
+    assert np.allclose(
+        A2_trap_wmk_height_fill,
+        [[0.25, 0.9], [0.25, 0.8], [0.1, 0.7], [0.1, 0.4], [0.1, 0.3], [0, 0]],
+    )
+    print("[PASS]")
+
+    # ========
+    print("    New lowest watermark ", end="")
+    A2_trap_wmk_height_fill = np.array(
+        [[0.5, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0], [0, 0]]
+    )
+    height_e = 0.3
+    enough = 0.5
+
+    A2_trap_wmk_height_fill = update_trap_wmk_capture_not_enough(
+        height_e, A2_trap_wmk_height_fill, enough
+    )
+
+    assert np.allclose(
+        A2_trap_wmk_height_fill,
+        [[0.3, 0.9], [0.2, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0]],
+    )
+    print("[PASS]")
+
+    # ========
+    print("    Multiple trap species ", end="")
+    A2_trap_wmk_height_fill = np.array(
+        [
+            [0.5, 0.8, 0.7, 0.6],
+            [0.2, 0.4, 0.3, 0.2],
+            [0.1, 0.3, 0.2, 0.1],
+            [0, 0, 0, 0],
+            [0, 0, 0, 0],
+            [0, 0, 0, 0],
+        ]
+    )
+    height_e = 0.6
+    enough = 0.5
+
+    A2_trap_wmk_height_fill = update_trap_wmk_capture_not_enough(
+        height_e, A2_trap_wmk_height_fill, enough
+    )
+    assert np.allclose(
+        A2_trap_wmk_height_fill,
+        [
+            [0.25, 0.9, 0.85, 0.8],
+            [0.25, 0.8, 0.7, 0.6],
+            [0.1, 0.7, 0.65, 0.6],
+            [0.1, 0.4, 0.3, 0.2],
+            [0.1, 0.3, 0.2, 0.1],
+            [0, 0, 0, 0],
+        ],
+    )
+    print("[PASS]")
+
+    return 0
+
+
 # //////////////////////////////////////////////////////////////////////////// #
 #                               Main                                           #
 # //////////////////////////////////////////////////////////////////////////// #
@@ -362,3 +474,4 @@ if __name__ == "__main__":
 
     test_capture_electrons()
     test_update_trap_wmk_capture()
+    test_update_trap_wmk_capture_not_enough()

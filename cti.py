@@ -330,7 +330,7 @@ def update_trap_wmk_capture(height_e, A2_trap_wmk_height_fill):
 
         return A2_trap_wmk_height_fill
 
-    # Find the first watermark above the cloud that won't be fully overwritten
+    # Find the first watermark above the cloud, which won't be fully overwritten
     i_wmk_above = np.argmax(height_e < A1_trap_cum_height)
 
     # If some will be overwritten
@@ -363,5 +363,111 @@ def update_trap_wmk_capture(height_e, A2_trap_wmk_height_fill):
         # Edit the new first watermark
         A2_trap_wmk_height_fill[0, 0] = height_e
         A2_trap_wmk_height_fill[0, 1:] = 1
+
+    return A2_trap_wmk_height_fill
+
+
+def update_trap_wmk_capture_not_enough(
+    height_e, A2_trap_wmk_height_fill, enough
+):
+    """ Update the trap watermarks for capturing electrons when not enough are 
+        available to fill every trap up to the cloud height (rare!).
+    
+        Like update_trap_wmk_capture(), but instead of setting filled trap 
+        fractions to 1, increase them by the enough fraction towards 1.
+    
+        Args:
+            height_e : float
+                The fractional height of the electron cloud in the pixel.
+        
+            A2_trap_wmk_height_fill : [[float]]
+                The initial watermarks. See init_A2_trap_wmk_height_fill().
+        
+            enough : float
+                The ratio of available electrons to traps up to this height.
+        
+        Returns:
+            A2_trap_wmk_height_fill : [[float]]
+                The updated watermarks. See init_A2_trap_wmk_height_fill().
+    
+        TEST: test_update_trap_wmk_capture_not_enough()
+    """
+    # Find the highest active watermark
+    i_wmk_max = np.argmax(A2_trap_wmk_height_fill[:, 0] == 0) - 1
+    if i_wmk_max == -1:
+        i_wmk_max = 0
+
+    # If the first capture
+    if i_wmk_max == 0:
+        # Edit the new watermark
+        A2_trap_wmk_height_fill[0, 0] = height_e
+        A2_trap_wmk_height_fill[0, 1:] = enough
+
+        return A2_trap_wmk_height_fill
+
+    # Cumulative watermark heights
+    A1_trap_cum_height = np.cumsum(A2_trap_wmk_height_fill[: i_wmk_max + 1, 0])
+
+    # Find the first watermark above the cloud, which won't be fully overwritten
+    i_wmk_above = np.argmax(height_e < A1_trap_cum_height)
+
+    # If all watermarks will be overwritten
+    if A1_trap_cum_height[-1] < height_e:
+        # Do the same as the only-some case (unlike update_trap_wmk_capture())
+        i_wmk_above = i_wmk_max
+
+    # If some will be overwritten
+    if 0 < i_wmk_above:
+        # Move new empty watermarks to the start of the list
+        A2_trap_wmk_height_fill = np.roll(
+            A2_trap_wmk_height_fill, i_wmk_above + 1, axis=0
+        )
+
+        # Reorder the relevant watermarks near the start of the list
+        A2_trap_wmk_height_fill[: 2 * i_wmk_above + 1][
+            1::2
+        ] = A2_trap_wmk_height_fill[i_wmk_above + 1 : 2 * i_wmk_above + 1]
+        A2_trap_wmk_height_fill[2 * i_wmk_above, :] = 0
+
+        # Edit the new watermarks' heights
+        A2_trap_wmk_height_fill[: 2 * i_wmk_above + 2][
+            ::2, 0
+        ] = A2_trap_wmk_height_fill[: 2 * i_wmk_above + 2][1::2, 0] * (
+            1 - enough
+        )
+
+        # Edit the new watermarks' fill fractions to the original fill plus (1 -
+        # original fill) * enough.
+        # e.g. enough = 0.5 --> fill half way to 1.
+        A2_trap_wmk_height_fill[: 2 * i_wmk_above + 2][::2, 1:] = (
+            A2_trap_wmk_height_fill[: 2 * i_wmk_above + 2][1::2, 1:]
+            * (1 - enough)
+            + enough
+        )
+
+        # Reduce the heights of the relevant original watermarks
+        A2_trap_wmk_height_fill[: 2 * i_wmk_above + 2][1::2, 0] *= enough
+
+        # If all watermarks will be overwritten
+        if A1_trap_cum_height[-1] < height_e:
+            # Edit the new highest watermark
+            A2_trap_wmk_height_fill[2 * i_wmk_max + 2, 0] = (
+                height_e - A1_trap_cum_height[-1]
+            )
+            A2_trap_wmk_height_fill[2 * i_wmk_max + 2, 1:] = enough
+
+    # If none will be overwritten
+    else:
+        # Move an empty watermark to the start of the list
+        A2_trap_wmk_height_fill = np.roll(A2_trap_wmk_height_fill, 1, axis=0)
+
+        # Edit the partially overwritten watermark
+        A2_trap_wmk_height_fill[1, 0] -= height_e
+
+        # Edit the new first watermark
+        A2_trap_wmk_height_fill[0, 0] = height_e
+        A2_trap_wmk_height_fill[0, 1:] = (
+            A2_trap_wmk_height_fill[1, 1:] * (1 - enough) + enough
+        )
 
     return A2_trap_wmk_height_fill

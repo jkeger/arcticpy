@@ -10,6 +10,14 @@ from cti import *
 # //////////////////////////////////////////////////////////////////////////// #
 #                               Test objects                                   #
 # //////////////////////////////////////////////////////////////////////////// #
+test_ccd_1 = CCD(
+    well_fill_alpha=None,
+    well_fill_beta=0.5,
+    well_fill_gamma=None,
+    well_max_height=10000,
+    well_notch_height=1e-7,
+)
+
 test_species_1 = TrapSpecies(density=10, lifetime=-1 / np.log(0.5))
 test_species_2 = TrapSpecies(density=8, lifetime=-1 / np.log(0.2))
 
@@ -464,6 +472,115 @@ def test_update_trap_wmk_capture_not_enough():
     return 0
 
 
+def test_capture_electrons_in_pixel():
+    print("Test capture_electrons_in_pixel()")
+
+    # ========
+    print("    First capture ", end="")
+    A2_trap_wmk_height_fill = init_A2_trap_wmk_height_fill(
+        num_column=6, num_species=1
+    )
+    A1_trap_species = [test_species_1]
+    e_avai = 2500  # --> height_e = 0.5
+
+    e_capt, A2_trap_wmk_height_fill = capture_electrons_in_pixel(
+        e_avai, A2_trap_wmk_height_fill, A1_trap_species, test_ccd_1
+    )
+
+    assert np.isclose(e_capt, 5)
+    assert np.allclose(
+        A2_trap_wmk_height_fill,
+        [[0.5, 1], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],
+    )
+    print("[PASS]")
+
+    # ========
+    print("    Multiple trap species ", end="")
+    A2_trap_wmk_height_fill = np.array(
+        [
+            [0.5, 0.8, 0.7],
+            [0.2, 0.4, 0.3],
+            [0.1, 0.3, 0.2],
+            [0, 0, 0],
+            [0, 0, 0],
+            [0, 0, 0],
+        ]
+    )
+    A1_trap_species = [test_species_1, test_species_2]
+    e_avai = 3600  # --> height_e = 0.6
+
+    e_capt, A2_trap_wmk_height_fill = capture_electrons_in_pixel(
+        e_avai, A2_trap_wmk_height_fill, A1_trap_species, test_ccd_1
+    )
+
+    assert np.isclose(e_capt, (0.1 + 0.06) * 10 + (0.15 + 0.07) * 8)
+    assert np.allclose(
+        A2_trap_wmk_height_fill,
+        [
+            [0.6, 1, 1],
+            [0.1, 0.4, 0.3],
+            [0.1, 0.3, 0.2],
+            [0, 0, 0],
+            [0, 0, 0],
+            [0, 0, 0],
+        ],
+    )
+    print("[PASS]")
+
+    # ========
+    print("    Not enough, first capture ", end="")
+    A2_trap_wmk_height_fill = init_A2_trap_wmk_height_fill(
+        num_column=6, num_species=1
+    )
+    A1_trap_species = [test_species_1]
+    e_avai = 2.5e-3  # --> height_e = 5e-4, enough = 0.50001
+
+    e_capt, A2_trap_wmk_height_fill = capture_electrons_in_pixel(
+        e_avai, A2_trap_wmk_height_fill, A1_trap_species, test_ccd_1
+    )
+
+    assert np.isclose(e_capt, 0.0025)
+    assert np.allclose(
+        A2_trap_wmk_height_fill,
+        [[5e-4, 0.50001], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]],
+    )
+    print("[PASS]")
+
+    # ========
+    print("    Not enough, Multiple trap species ", end="")
+    A2_trap_wmk_height_fill = np.array(
+        [
+            [0.5, 0.8, 0.7],
+            [0.2, 0.4, 0.3],
+            [0.1, 0.3, 0.2],
+            [0, 0, 0],
+            [0, 0, 0],
+            [0, 0, 0],
+        ]
+    )
+    A1_trap_species = [test_species_1, test_species_2]
+    e_avai = 4.839e-4  # --> height_e = 2.1995e-4, enough = 0.5
+
+    e_capt, A2_trap_wmk_height_fill = capture_electrons_in_pixel(
+        e_avai, A2_trap_wmk_height_fill, A1_trap_species, test_ccd_1
+    )
+    assert np.isclose(e_capt, 2.1995e-4 * (0.1 * 10 + 0.15 * 8))
+    assert np.allclose(
+        A2_trap_wmk_height_fill,
+        [
+            [2.1995e-4, 0.9, 0.85],
+            [0.5 - 2.1995e-4, 0.8, 0.7],
+            [0.2, 0.4, 0.3],
+            [0.1, 0.3, 0.2],
+            [0, 0, 0],
+            [0, 0, 0],
+        ],
+    )
+    print("[PASS]")
+
+    return 0
+
+
 # //////////////////////////////////////////////////////////////////////////// #
 #                               Main                                           #
 # //////////////////////////////////////////////////////////////////////////// #
@@ -475,3 +592,4 @@ if __name__ == "__main__":
     test_capture_electrons()
     test_update_trap_wmk_capture()
     test_update_trap_wmk_capture_not_enough()
+    test_capture_electrons_in_pixel()

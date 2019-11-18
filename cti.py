@@ -471,3 +471,63 @@ def update_trap_wmk_capture_not_enough(
         )
 
     return A2_trap_wmk_height_fill
+
+
+def capture_electrons_in_pixel(
+    e_avai, A2_trap_wmk_height_fill, A1_trap_species, ccd
+):
+    """ Capture electrons in traps.
+    
+        Args:
+            e_avai : float
+            The number of available electrons for trapping.
+            
+            A2_trap_wmk_height_fill : [[float]]
+                The initial watermarks. See init_A2_trap_wmk_height_fill().
+                
+            A1_trap_species : [TrapSpecies]
+                An array of one or more objects describing a species of trap.
+            
+            ccd : CCD
+                The object describing the CCD.
+            
+        Returns:
+            e_capt : float
+                The number of captured electrons.
+                
+            A2_trap_wmk_height_fill : [[float]]
+                The updated watermarks. See init_A2_trap_wmk_height_fill().
+    
+        TEST: test_capture_electrons_in_pixel()
+    """
+    # Initialise the number of captured electrons
+    e_capt = 0
+
+    # Zero capture if no electrons are high enough to be trapped
+    if e_avai < ccd.well_notch_height:
+        return 0
+
+    # The fractional height the electron cloud reaches in the pixel well
+    height_e = ccd.height_e(e_avai)
+
+    # Find the number of electrons that should be captured
+    e_capt = capture_electrons(
+        height_e, A2_trap_wmk_height_fill, A1_trap_species
+    )
+
+    # Check whether enough electrons are available to be captured
+    enough = e_avai / e_capt
+
+    # Update watermark levels
+    if 1 < enough:
+        A2_trap_wmk_height_fill = update_trap_wmk_capture(
+            height_e, A2_trap_wmk_height_fill
+        )
+    else:
+        A2_trap_wmk_height_fill = update_trap_wmk_capture_not_enough(
+            height_e, A2_trap_wmk_height_fill, enough
+        )
+        # Reduce the final number of captured electrons
+        e_capt *= enough
+
+    return e_capt, A2_trap_wmk_height_fill

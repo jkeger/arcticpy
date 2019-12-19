@@ -394,16 +394,7 @@ def test_update_trap_wmk_capture_not_enough():
     )
 
     assert A2_trap_wmk_height_fill == pytest.approx(
-        np.array(
-            [
-                [0.25, 0.9],
-                [0.25, 0.8],
-                [0.1, 0.7],
-                [0.1, 0.4],
-                [0.1, 0.5],
-                [0, 0],
-            ],
-        )
+        np.array([[0.5, 0.9], [0.2, 0.7], [0.1, 0.5], [0, 0], [0, 0], [0, 0],],)
     )
 
     # ========
@@ -422,14 +413,7 @@ def test_update_trap_wmk_capture_not_enough():
 
     assert A2_trap_wmk_height_fill == pytest.approx(
         np.array(
-            [
-                [0.25, 0.9],
-                [0.25, 0.8],
-                [0.1, 0.7],
-                [0.1, 0.4],
-                [0.1, 0.3],
-                [0, 0],
-            ],
+            [[0.5, 0.9], [0.1, 0.7], [0.1, 0.4], [0.1, 0.3], [0, 0], [0, 0],],
         )
     )
 
@@ -474,11 +458,11 @@ def test_update_trap_wmk_capture_not_enough():
     assert A2_trap_wmk_height_fill == pytest.approx(
         np.array(
             [
-                [0.25, 0.9, 0.85, 0.8],
-                [0.25, 0.8, 0.7, 0.6],
+                [0.5, 0.9, 0.85, 0.8],
                 [0.1, 0.7, 0.65, 0.6],
                 [0.1, 0.4, 0.3, 0.2],
                 [0.1, 0.3, 0.2, 0.1],
+                [0, 0, 0, 0],
                 [0, 0, 0, 0],
             ],
         )

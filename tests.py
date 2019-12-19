@@ -18,6 +18,15 @@ test_ccd_1 = CCD(
     well_max_height=10000,
     well_notch_height=1e-7,
 )
+test_ccd_2 = CCD(
+    well_fill_alpha=None,
+    well_fill_beta=0.8,
+    well_fill_gamma=None,
+    well_max_height=8.47e4,
+    well_notch_height=1e-7,
+)
+
+test_clock_1 = Clock(A1_sequence=[1])
 
 test_species_1 = TrapSpecies(density=10, lifetime=-1 / np.log(0.5))
 test_species_2 = TrapSpecies(density=8, lifetime=-1 / np.log(0.2))
@@ -70,7 +79,7 @@ def test_release_electrons_in_pixel():
     # ========
     A1_trap_species = [test_species_1]
     A2_trap_wmk_height_fill = init_A2_trap_wmk_height_fill(
-        num_column=6, num_species=1
+        num_row=6, num_species=1
     )
 
     e_rele, A2_trap_wmk_height_fill = release_electrons_in_pixel(
@@ -142,7 +151,7 @@ def test_capture_electrons():
     # First capture
     # ========
     A2_trap_wmk_height_fill = init_A2_trap_wmk_height_fill(
-        num_column=6, num_species=1
+        num_row=6, num_species=1
     )
     A1_trap_species = [test_species_1]
     height_e = 0.5
@@ -245,7 +254,7 @@ def test_update_trap_wmk_capture():
     # First capture
     # ========
     A2_trap_wmk_height_fill = init_A2_trap_wmk_height_fill(
-        num_column=6, num_species=1
+        num_row=6, num_species=1
     )
     height_e = 0.5
 
@@ -365,7 +374,7 @@ def test_update_trap_wmk_capture_not_enough():
     # First capture
     # ========
     A2_trap_wmk_height_fill = init_A2_trap_wmk_height_fill(
-        num_column=6, num_species=1
+        num_row=6, num_species=1
     )
     A1_trap_species = [test_species_1]
     height_e = 0.5
@@ -478,7 +487,7 @@ def test_capture_electrons_in_pixel():
     # First capture
     # ========
     A2_trap_wmk_height_fill = init_A2_trap_wmk_height_fill(
-        num_column=6, num_species=1
+        num_row=6, num_species=1
     )
     A1_trap_species = [test_species_1]
     e_avai = 2500  # --> height_e = 0.5
@@ -530,7 +539,7 @@ def test_capture_electrons_in_pixel():
     # Not enough, first capture
     # ========
     A2_trap_wmk_height_fill = init_A2_trap_wmk_height_fill(
-        num_column=6, num_species=1
+        num_row=6, num_species=1
     )
     A1_trap_species = [test_species_1]
     e_avai = 2.5e-3  # --> height_e = 4.9999e-4, enough = 0.50001
@@ -581,6 +590,37 @@ def test_capture_electrons_in_pixel():
     return 0
 
 
+def test_clock_step():
+    """ Test clock_step(). """
+
+    # ========
+    # Single pixel, no express (compare with C++ arctic)
+    # ========
+    A1_trap_species = [test_species_1]
+    A2_image = np.zeros((6, 2))
+    A2_image[2, 1] = 1000
+
+    A2_image = clock_step(
+        A2_image, A1_trap_species, test_ccd_2, test_clock_1, express=0
+    )
+
+    assert A2_image == pytest.approx(
+        np.array(
+            [
+                [0, 0],
+                [0, 0],
+                [0, 999.1396],
+                [0, 0.4292094],
+                [0, 0.2149715],
+                [0, 0.1077534],
+            ]
+        ),
+        abs=1e-3,
+    )
+
+    return 0
+
+
 # //////////////////////////////////////////////////////////////////////////// #
 #                               Main                                           #
 # //////////////////////////////////////////////////////////////////////////// #
@@ -593,3 +633,5 @@ if __name__ == "__main__":
     test_update_trap_wmk_capture()
     test_update_trap_wmk_capture_not_enough()
     test_capture_electrons_in_pixel()
+
+    test_clock_step()

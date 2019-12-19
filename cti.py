@@ -76,9 +76,9 @@ class Clock(object):
     def __init__(self, A1_sequence):
         """ The clock that controls the transfer of electrons.
 
-        Args:
-            A1_sequence ([float])
-                The array or single value of the time between clock shifts.
+            Args:
+                A1_sequence ([float])
+                    The array or single value of the time between clock shifts.
         """
         self.A1_sequence = A1_sequence
 
@@ -130,6 +130,8 @@ def create_express_multiplier(express, num_row):
                 of computed tranfers), i.e. the number of computed transfers per 
                 pixel. So express = 1 --> maxmimum speed; express = (maximum 
                 number of transfers) --> maximum accuracy.
+                
+                Must be a factor of num_row.
             
             num_row : int
                 The number of rows in the CCD and hence the maximum number of 
@@ -139,6 +141,10 @@ def create_express_multiplier(express, num_row):
             A2_express_multiplier : [[float]]
                 The express multiplier values for each pixel.
     """
+    assert (
+        num_row % express == 0
+    ), "express must be a factor of the number of rows"
+
     # Initialise the array
     A2_express_multiplier = np.empty((express, num_row), dtype=int)
     A2_express_multiplier[:] = np.arange(1, num_row + 1)
@@ -156,12 +162,12 @@ def create_express_multiplier(express, num_row):
     return A2_express_multiplier
 
 
-def init_A2_trap_wmk_height_fill(num_column, num_species):
+def init_A2_trap_wmk_height_fill(num_row, num_species):
     """ Initialise the watermark array of trap states.
     
         Args:
-            num_column (int)
-                The number of columns in the image. i.e. the maximum number of 
+            num_row (int)
+                The number of rows in the image. i.e. the maximum number of 
                 possible electron trap/release events.
             
             num_species (int)
@@ -178,13 +184,13 @@ def init_A2_trap_wmk_height_fill(num_column, num_species):
                  [height_e, fill, fill, ...],
                  ...                       ]
     """
-    return np.zeros((num_column, 1 + num_species), dtype=float)
+    return np.zeros((num_row, 1 + num_species), dtype=float)
 
 
 def release_electrons_in_pixel(A2_trap_wmk_height_fill, A1_trap_species):
     """ Release electrons from traps.
     
-        Find the total number of electrons that the traps release and update the 
+        Find the total number of electrons that the traps release and update the
         trap watermarks.
     
         Args:
@@ -200,7 +206,7 @@ def release_electrons_in_pixel(A2_trap_wmk_height_fill, A1_trap_species):
                 
             A2_trap_wmk_height_fill : [[float]]
                 The updated watermarks. See init_A2_trap_wmk_height_fill().
-    
+                
         TEST: test_release_electrons_in_pixel()
     """
     # Initialise the number of released electrons
@@ -252,7 +258,7 @@ def capture_electrons(height_e, A2_trap_wmk_height_fill, A1_trap_species):
         Returns:
             e_capt : float
                 The number of captured electrons.
-    
+        
         TEST: test_capture_electrons()
     """
     # Initialise the number of captured electrons
@@ -496,7 +502,7 @@ def capture_electrons_in_pixel(
 
     # Zero capture if no electrons are high enough to be trapped
     if e_avai < ccd.well_notch_height:
-        return 0
+        return 0, A2_trap_wmk_height_fill
 
     # The fractional height the electron cloud reaches in the pixel well
     height_e = ccd.height_e(e_avai)
@@ -505,6 +511,10 @@ def capture_electrons_in_pixel(
     e_capt = capture_electrons(
         height_e, A2_trap_wmk_height_fill, A1_trap_species
     )
+
+    # Stop if no capture
+    if e_capt == 0:
+        return e_capt, A2_trap_wmk_height_fill
 
     # Check whether enough electrons are available to be captured
     enough = e_avai / e_capt
@@ -522,3 +532,80 @@ def capture_electrons_in_pixel(
         e_capt *= enough
 
     return e_capt, A2_trap_wmk_height_fill
+
+
+# //////////////////////////////////////////////////////////////////////////// #
+#                               Primary Functions                              #
+# //////////////////////////////////////////////////////////////////////////// #
+def clock_step(A2_image, A1_trap_species, ccd, clock, express=0):
+    """ Perform one clock cycle: release, capture, and move the electrons.
+    
+        Args:
+            A2_image : [[float]]
+                The input array of pixel values.
+            
+            A1_trap_species : [TrapSpecies]
+                An array of one or more objects describing a species of trap.
+            
+            ccd : CCD
+                The object describing the CCD.
+            
+            clock : Clock
+                The object describing the clock sequence.
+            
+            express : int
+                The express level. See create_express_multiplier() and Massey et 
+                al. (2014), section 2.1.5. Set = 0 or num_row for no express.
+                
+        Returns:
+            A2_image : [[float]]
+                The output array of pixel values.
+    """
+    num_row, num_column = A2_image.shape
+    num_species = len(A1_trap_species)
+
+    # Default to no express and calculate every step
+    if express == 0:
+        express = num_row
+
+    A2_express_multiplier = create_express_multiplier(express, num_row)
+
+    # Set up the trap watermarks
+    A2_trap_wmk_height_fill = init_A2_trap_wmk_height_fill(num_row, num_species)
+
+    # Each independent column of pixels
+    for i_column in range(num_column):
+
+        # Each calculation of the effects of traps on the pixels
+        for i_express in range(express):
+
+            # Reset the trap watermarks
+            A2_trap_wmk_height_fill.fill(0)
+
+            # Each pixel
+            for i_row in range(num_row):
+                express_multiplier = A2_express_multiplier[i_express, i_row]
+                if express_multiplier == 0:
+                    continue
+
+                # Initial number of electrons available for trapping
+                e_init = A2_image[i_row, i_column]
+                e_avai = e_init
+
+                # Release
+                e_rele, A2_trap_wmk_height_fill = release_electrons_in_pixel(
+                    A2_trap_wmk_height_fill, A1_trap_species
+                )
+                e_avai += e_rele
+
+                # Capture
+                e_capt, A2_trap_wmk_height_fill = capture_electrons_in_pixel(
+                    e_avai, A2_trap_wmk_height_fill, A1_trap_species, ccd
+                )
+
+                # Total change to electrons in pixel
+                e_init += (e_rele - e_capt) * express_multiplier
+
+                A2_image[i_row, i_column] = e_init
+
+    return A2_image

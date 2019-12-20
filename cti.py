@@ -5,6 +5,7 @@
     WIP...
 """
 import numpy as np
+from copy import deepcopy
 
 
 # //////////////////////////////////////////////////////////////////////////// #
@@ -537,8 +538,9 @@ def capture_electrons_in_pixel(
 # //////////////////////////////////////////////////////////////////////////// #
 #                               Primary Functions                              #
 # //////////////////////////////////////////////////////////////////////////// #
-def clock_step(A2_image, A1_trap_species, ccd, clock, express=0):
-    """ Perform one clock cycle: release, capture, and move the electrons.
+def add_cti(A2_image, A1_trap_species, ccd, clock, express=0):
+    """ Add CTI trails to an image by trapping, releasing, and moving electrons
+        along their independent columns.
     
         Args:
             A2_image : [[float]]
@@ -561,6 +563,9 @@ def clock_step(A2_image, A1_trap_species, ccd, clock, express=0):
             A2_image : [[float]]
                 The output array of pixel values.
     """
+    # Don't modify the external array passed to this function
+    A2_image = deepcopy(A2_image)
+
     num_row, num_column = A2_image.shape
     num_species = len(A1_trap_species)
 
@@ -609,3 +614,35 @@ def clock_step(A2_image, A1_trap_species, ccd, clock, express=0):
                 A2_image[i_row, i_column] = e_init
 
     return A2_image
+
+
+def remove_cti(iterations, A2_image, A1_trap_species, ccd, clock, express=0):
+    """ Remove CTI trails from an image by modelling the effect of adding CTI.
+    
+        Args:
+            iterations : int
+                The number of iterations of modelling CTI used to attempt to 
+                remove it. Use more iterations to converge on the best recovery
+                of the original image, for an increase in computational cost.                
+                See Massey et al. (2010), section 3.2.
+            
+            See add_cti() for the documentation of the other arguments.            
+                
+        Returns:
+            A2_image : [[float]]
+                The output array of pixel values with CTI removed.
+    """
+    # Initialise the iterative estimate of removed CTI
+    A2_image_rem = deepcopy(A2_image)
+
+    # Estimate the image with removed CTI more precisely each iteration
+    for iter in range(iterations):
+        # Add CTI
+        A2_image_add = add_cti(
+            A2_image_rem, A1_trap_species, ccd, clock, express=express
+        )
+
+        # Improved estimate of removed CTI
+        A2_image_rem += A2_image - A2_image_add
+
+    return A2_image_rem

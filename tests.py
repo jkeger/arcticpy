@@ -590,17 +590,17 @@ def test_capture_electrons_in_pixel():
     return 0
 
 
-def test_clock_step():
-    """ Test clock_step(). """
+def test_add_cti():
+    """ Test add_cti(). Results compared with C++ arctic. """
 
     # ========
-    # Single pixel, no express (compare with C++ arctic)
+    # Single pixel, no express
     # ========
     A1_trap_species = [test_species_1]
     A2_image = np.zeros((6, 2))
     A2_image[2, 1] = 1000
 
-    A2_image = clock_step(
+    A2_image = add_cti(
         A2_image, A1_trap_species, test_ccd_2, test_clock_1, express=0
     )
 
@@ -621,6 +621,39 @@ def test_clock_step():
     return 0
 
 
+def test_remove_cti():
+    """ Test remove_cti(). Results compared with C++ arctic. """
+
+    # ========
+    # Single pixel, no express
+    # ========
+    A1_trap_species = [test_species_1]
+    A2_image = np.zeros((6, 2))
+    A2_image[2, 1] = 1000
+
+    # First add CTI
+    A2_image_add = add_cti(
+        A2_image, A1_trap_species, test_ccd_2, test_clock_1, express=0
+    )
+
+    # Check similarity after different iterations
+    Di_iter_tol = {1: 1e-2, 2: 1e-5, 3: 1e-7, 4: 1e-10, 5: 1e-12}
+
+    for iter, tol in Di_iter_tol.items():
+        A2_image_rem = remove_cti(
+            iter,
+            A2_image_add,
+            A1_trap_species,
+            test_ccd_2,
+            test_clock_1,
+            express=0,
+        )
+
+        assert A2_image_rem == pytest.approx(A2_image, abs=tol)
+
+    return 0
+
+
 # //////////////////////////////////////////////////////////////////////////// #
 #                               Main                                           #
 # //////////////////////////////////////////////////////////////////////////// #
@@ -634,4 +667,6 @@ if __name__ == "__main__":
     test_update_trap_wmk_capture_not_enough()
     test_capture_electrons_in_pixel()
 
-    test_clock_step()
+    test_add_cti()
+
+    test_remove_cti()

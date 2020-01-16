@@ -68,6 +68,33 @@ def test_create_express_multiplier():
 
     assert A2_express_multiplier == pytest.approx(np.triu(np.ones((12, 12))))
 
+    # ========
+    # Charge injection line, full express
+    # ========
+    A2_express_multiplier = create_express_multiplier(
+        express=1, num_row=12, do_charge_inj=True
+    )
+
+    assert A2_express_multiplier == pytest.approx(np.ones((1, 12)) * 12)
+
+    # ========
+    # Charge injection line, medium express
+    # ========
+    A2_express_multiplier = create_express_multiplier(
+        express=4, num_row=12, do_charge_inj=True
+    )
+
+    assert A2_express_multiplier == pytest.approx(np.ones((4, 12)) * 3)
+
+    # ========
+    # Charge injection line, no express
+    # ========
+    A2_express_multiplier = create_express_multiplier(
+        express=12, num_row=12, do_charge_inj=True
+    )
+
+    assert A2_express_multiplier == pytest.approx(np.ones((12, 12)))
+
     return 0
 
 

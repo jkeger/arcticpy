@@ -21,6 +21,52 @@ def set_min_max(value, min, max):
         return value
 
 
+def format_array_string(array, format): ### just for debugging
+    """ Return a print-ready string of an array's contents in a given format.
+
+        Args:
+            array ([])
+                An array of values that can be printed with the given format.
+
+            format (str)
+                A printing format, e.g. "%d", "%.6g".
+                
+                Custom options:
+                    "string":   Include quotation marks around each string.
+                    "dorf":     Int or float if decimal places are needed.
+
+        Returns:
+            string (str)
+                The formatted string.
+    """
+    string = ""
+
+    # Append each element
+    # 1D
+    if len(np.shape(array)) == 1:
+        for x in array:
+            if x is None:
+                string += "None, "
+            else:
+                # Custom formats
+                if format == "string":
+                    string += '"%s", ' % x
+                elif format == "dorf":
+                    string += "{0}, ".format(
+                        str(round(x, 1) if x % 1 else int(x))
+                    )
+                # Standard formats
+                else:
+                    string += "%s, " % (format % x)
+    # Recursive for higher dimensions
+    else:
+        for arr in array:
+            string += "%s, \n " % format_array_string(arr, format)
+
+    # Add brackets and remove the trailing comma
+    return "[%s]" % string[:-2]
+
+
 # //////////////////////////////////////////////////////////////////////////// #
 #                               Classes                                        #
 # //////////////////////////////////////////////////////////////////////////// #
@@ -120,7 +166,7 @@ class TrapSpecies(object):
 # //////////////////////////////////////////////////////////////////////////// #
 #                               Support Functions                              #
 # //////////////////////////////////////////////////////////////////////////// #
-def create_express_multiplier(express, num_row):
+def create_express_multiplier(express, num_row, do_charge_inj=False):
     """ Calculate the values by which the effects of clocking each pixel must be 
         multiplied when using the express algorithm. See Massey et al. (2014), 
         section 2.1.5.
@@ -137,6 +183,10 @@ def create_express_multiplier(express, num_row):
             num_row : int
                 The number of rows in the CCD and hence the maximum number of 
                 transfers.
+            
+            do_charge_inj : bool
+                If True, then assume that all pixels must be transferred along 
+                the full number of rows. Default False.
         
         Returns:
             A2_express_multiplier : [[float]]
@@ -145,12 +195,15 @@ def create_express_multiplier(express, num_row):
     assert (
         num_row % express == 0
     ), "express must be a factor of the number of rows"
+    express_max = int(num_row / express)
+    
+    # Simpler version for charge-injection
+    if do_charge_inj:
+        return np.ones((express, num_row), dtype=int) * express_max
 
     # Initialise the array
     A2_express_multiplier = np.empty((express, num_row), dtype=int)
     A2_express_multiplier[:] = np.arange(1, num_row + 1)
-
-    express_max = int(num_row / express)
 
     # Offset each row to account for the pixels that have already been read out
     for i_exp in range(express):

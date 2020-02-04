@@ -147,7 +147,9 @@ class Clocker(object):
 
                 # Each pixel
                 for row_index in range(rows):
-                    express_multiplier = express_matrix[express_index, row_index]
+                    express_multiplier = express_matrix[
+                        express_index, row_index
+                    ]
                     if express_multiplier == 0:
                         continue
 
@@ -156,13 +158,19 @@ class Clocker(object):
                     electrons_available = electrons_initial
 
                     # Release
-                    electrons_released, watermarks = electrons_released_in_pixel(
+                    (
+                        electrons_released,
+                        watermarks,
+                    ) = electrons_released_in_pixel(
                         watermarks=watermarks, traps=traps
                     )
                     electrons_available += electrons_released
 
                     # Capture
-                    electrons_captured, watermarks = electrons_captured_in_pixel(
+                    (
+                        electrons_captured,
+                        watermarks,
+                    ) = electrons_captured_in_pixel(
                         electrons_available=electrons_available,
                         watermarks=watermarks,
                         traps=traps,
@@ -252,10 +260,14 @@ def electrons_released_in_pixel(watermarks, traps):
             )
 
             # Update the watermark fill fraction
-            watermarks[watermark_index, 1 + trap_index] -= electrons_released_from_trap
+            watermarks[
+                watermark_index, 1 + trap_index
+            ] -= electrons_released_from_trap
 
             # Update the actual number of released electrons
-            electrons_released_watermark += electrons_released_from_trap * trap.density
+            electrons_released_watermark += (
+                electrons_released_from_trap * trap.density
+            )
 
         # Multiply the summed fill fractions by the height
         electrons_released += (
@@ -352,7 +364,9 @@ def update_watermarks(electron_fractional_height, watermarks):
         max_watermark_index = 0
 
     # Cumulative watermark heights
-    cumulative_watermark_height = np.cumsum(watermarks[: max_watermark_index + 1, 0])
+    cumulative_watermark_height = np.cumsum(
+        watermarks[: max_watermark_index + 1, 0]
+    )
 
     # If all watermarks will be overwritten
     if cumulative_watermark_height[-1] < electron_fractional_height:
@@ -382,7 +396,9 @@ def update_watermarks(electron_fractional_height, watermarks):
         watermarks[: watermark_index_above_cloud - 1, :] = 0
 
         # Move the no-longer-needed watermarks to the end of the list
-        watermarks = np.roll(watermarks, 1 - watermark_index_above_cloud, axis=0)
+        watermarks = np.roll(
+            watermarks, 1 - watermark_index_above_cloud, axis=0
+        )
 
         # Edit the new first watermark
         watermarks[0, 0] = electron_fractional_height
@@ -403,7 +419,9 @@ def update_watermarks(electron_fractional_height, watermarks):
     return watermarks
 
 
-def update_watermarks_not_enough(electron_fractional_height, watermarks, enough):
+def update_watermarks_not_enough(
+    electron_fractional_height, watermarks, enough
+):
     """
     Update the trap watermarks for capturing electrons when not enough are available to fill every trap below the
     cloud height (rare!).
@@ -439,7 +457,9 @@ def update_watermarks_not_enough(electron_fractional_height, watermarks, enough)
         return watermarks
 
     # Cumulative watermark heights
-    cumulative_watermark_height = np.cumsum(watermarks[: max_watermark_index + 1, 0])
+    cumulative_watermark_height = np.cumsum(
+        watermarks[: max_watermark_index + 1, 0]
+    )
 
     # Find the first watermark above the cloud, which won't be fully overwritten
     watermark_index_above_height = np.argmax(
@@ -465,7 +485,8 @@ def update_watermarks_not_enough(electron_fractional_height, watermarks, enough)
         # original fill) * enough.
         # e.g. enough = 0.5 --> fill half way to 1.
         watermarks[: watermark_index_above_height + 1, 1:] = (
-            watermarks[: watermark_index_above_height + 1, 1:] * (1 - enough) + enough
+            watermarks[: watermark_index_above_height + 1, 1:] * (1 - enough)
+            + enough
         )
 
         # If all watermarks will be overwritten
@@ -478,7 +499,8 @@ def update_watermarks_not_enough(electron_fractional_height, watermarks, enough)
         else:
             # Edit the new watermarks' heights
             watermarks[
-                watermark_index_above_height : watermark_index_above_height + 2, 0
+                watermark_index_above_height : watermark_index_above_height + 2,
+                0,
             ] *= (1 - enough)
 
     # If none will be overwritten
@@ -496,7 +518,9 @@ def update_watermarks_not_enough(electron_fractional_height, watermarks, enough)
     return watermarks
 
 
-def electrons_captured_in_pixel(electrons_available, watermarks, traps, ccd_volume):
+def electrons_captured_in_pixel(
+    electrons_available, watermarks, traps, ccd_volume
+):
     """
     Capture electrons in traps.
 
@@ -545,7 +569,8 @@ def electrons_captured_in_pixel(electrons_available, watermarks, traps, ccd_volu
     # Update watermark levels
     if 1 < enough:
         watermarks = update_watermarks(
-            electron_fractional_height=electron_fractional_height, watermarks=watermarks
+            electron_fractional_height=electron_fractional_height,
+            watermarks=watermarks,
         )
     else:
         watermarks = update_watermarks_not_enough(

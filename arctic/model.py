@@ -32,9 +32,9 @@ class ArcticParams(object):
 
     @property
     def delta_ellipticity(self):
-        return sum([trap.delta_ellipticity for trap in self.parallel_traps]) + sum(
-            [trap.delta_ellipticity for trap in self.serial_traps]
-        )
+        return sum(
+            [trap.delta_ellipticity for trap in self.parallel_traps]
+        ) + sum([trap.delta_ellipticity for trap in self.serial_traps])
 
 
 class CCDVolume(object):
@@ -172,7 +172,12 @@ class Trap(object):
         return self.density * (
             a
             + d_a * (np.arctan((np.log(self.lifetime) - d_p) / d_w))
-            + (g_a * np.exp(-((np.log(self.lifetime) - g_p) ** 2.0) / (2 * g_w ** 2.0)))
+            + (
+                g_a
+                * np.exp(
+                    -((np.log(self.lifetime) - g_p) ** 2.0) / (2 * g_w ** 2.0)
+                )
+            )
         )
 
     def __repr__(self):
@@ -209,6 +214,8 @@ class Trap(object):
         poisson_trap = []
         for densities in poisson_densities:
             for i, s in enumerate(trap):
-                poisson_trap.append(Trap(density=densities[i], lifetime=s.lifetime))
+                poisson_trap.append(
+                    Trap(density=densities[i], lifetime=s.lifetime)
+                )
 
         return poisson_trap

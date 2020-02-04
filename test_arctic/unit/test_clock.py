@@ -38,7 +38,9 @@ class TestElectronsReleasedInPixel:
 
         assert electrons_released == pytest.approx(2.5)
         assert watermarks == pytest.approx(
-            np.array([[0.5, 0.4], [0.2, 0.2], [0.1, 0.1], [0, 0], [0, 0], [0, 0]])
+            np.array(
+                [[0.5, 0.4], [0.2, 0.2], [0.1, 0.1], [0, 0], [0, 0], [0, 0]]
+            )
         )
 
     def test__multiple_traps(self):
@@ -113,7 +115,9 @@ class TestElectronsCapturedByTraps:
             traps=traps,
         )
 
-        assert electrons_captured == pytest.approx((0.1 + 0.12 + 0.07 + 0.1) * 10)
+        assert electrons_captured == pytest.approx(
+            (0.1 + 0.12 + 0.07 + 0.1) * 10
+        )
 
     def test__middle_new_watermarks(self):
 
@@ -204,7 +208,8 @@ class TestUpdateWatermarks:
         electron_fractional_height = 0.5
 
         watermarks = clock.update_watermarks(
-            electron_fractional_height=electron_fractional_height, watermarks=watermarks
+            electron_fractional_height=electron_fractional_height,
+            watermarks=watermarks,
         )
 
         assert watermarks == pytest.approx(
@@ -219,7 +224,8 @@ class TestUpdateWatermarks:
         electron_fractional_height = 0.9
 
         watermarks = clock.update_watermarks(
-            electron_fractional_height=electron_fractional_height, watermarks=watermarks
+            electron_fractional_height=electron_fractional_height,
+            watermarks=watermarks,
         )
 
         assert watermarks == pytest.approx(
@@ -234,7 +240,8 @@ class TestUpdateWatermarks:
         electron_fractional_height = 0.6
 
         watermarks = clock.update_watermarks(
-            electron_fractional_height=electron_fractional_height, watermarks=watermarks
+            electron_fractional_height=electron_fractional_height,
+            watermarks=watermarks,
         )
 
         assert watermarks == pytest.approx(
@@ -247,7 +254,8 @@ class TestUpdateWatermarks:
         electron_fractional_height = 0.75
 
         watermarks = clock.update_watermarks(
-            electron_fractional_height=electron_fractional_height, watermarks=watermarks
+            electron_fractional_height=electron_fractional_height,
+            watermarks=watermarks,
         )
 
         assert watermarks == pytest.approx(
@@ -262,11 +270,14 @@ class TestUpdateWatermarks:
         electron_fractional_height = 0.3
 
         watermarks = clock.update_watermarks(
-            electron_fractional_height=electron_fractional_height, watermarks=watermarks
+            electron_fractional_height=electron_fractional_height,
+            watermarks=watermarks,
         )
 
         assert watermarks == pytest.approx(
-            np.array([[0.3, 1], [0.2, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0]])
+            np.array(
+                [[0.3, 1], [0.2, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0]]
+            )
         )
 
     def test__multiple_traps(self):
@@ -284,7 +295,8 @@ class TestUpdateWatermarks:
         electron_fractional_height = 0.6
 
         watermarks = clock.update_watermarks(
-            electron_fractional_height=electron_fractional_height, watermarks=watermarks
+            electron_fractional_height=electron_fractional_height,
+            watermarks=watermarks,
         )
 
         assert watermarks == pytest.approx(
@@ -325,7 +337,9 @@ class TestUpdateWatermarksNotEnough:
 
     def test__new_highest_watermark(self):
 
-        watermarks = np.array([[0.5, 0.8], [0.2, 0.4], [0, 0], [0, 0], [0, 0], [0, 0]])
+        watermarks = np.array(
+            [[0.5, 0.8], [0.2, 0.4], [0, 0], [0, 0], [0, 0], [0, 0]]
+        )
 
         electron_fractional_height = 0.8
         enough = 0.5
@@ -337,7 +351,9 @@ class TestUpdateWatermarksNotEnough:
         )
 
         assert watermarks == pytest.approx(
-            np.array([[0.5, 0.9], [0.2, 0.7], [0.1, 0.5], [0, 0], [0, 0], [0, 0]])
+            np.array(
+                [[0.5, 0.9], [0.2, 0.7], [0.1, 0.5], [0, 0], [0, 0], [0, 0]]
+            )
         )
 
     def test__new_middle_watermark(self):
@@ -356,7 +372,9 @@ class TestUpdateWatermarksNotEnough:
         )
 
         assert watermarks == pytest.approx(
-            np.array([[0.5, 0.9], [0.1, 0.7], [0.1, 0.4], [0.1, 0.3], [0, 0], [0, 0]])
+            np.array(
+                [[0.5, 0.9], [0.1, 0.7], [0.1, 0.4], [0.1, 0.3], [0, 0], [0, 0]]
+            )
         )
 
     def test__new_lowest_watermark(self):
@@ -374,7 +392,9 @@ class TestUpdateWatermarksNotEnough:
         )
 
         assert watermarks == pytest.approx(
-            np.array([[0.3, 0.9], [0.2, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0]])
+            np.array(
+                [[0.3, 0.9], [0.2, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0]]
+            )
         )
 
     def test__multiple_traps(self):
@@ -488,9 +508,7 @@ class TestElectronsCapturedInPixel:
 
     def test__not_enough__first_capture(self):
 
-        electrons_available = (
-            2.5e-3
-        )  # --> electron_fractional_height = 4.9999e-4, enough=enough = 0.50001
+        electrons_available = 2.5e-3  # --> electron_fractional_height = 4.9999e-4, enough=enough = 0.50001
 
         clocker = ac.Clocker()
         watermarks = clocker.initial_watermarks_from_rows_and_total_traps(
@@ -512,14 +530,14 @@ class TestElectronsCapturedInPixel:
 
         assert electrons_captured == pytest.approx(0.0025)
         assert watermarks == pytest.approx(
-            np.array([[4.9999e-4, 0.50001], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]])
+            np.array(
+                [[4.9999e-4, 0.50001], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]]
+            )
         )
 
     def test__not_enough__multiple_traps(self):
 
-        electrons_available = (
-            4.839e-4
-        )  # --> electron_fractional_height = 2.199545e-4, enough=enough = 0.5
+        electrons_available = 4.839e-4  # --> electron_fractional_height = 2.199545e-4, enough=enough = 0.5
 
         watermarks = np.array(
             [
@@ -548,7 +566,9 @@ class TestElectronsCapturedInPixel:
             ccd_volume=ccd_volume,
         )
 
-        assert electrons_captured == pytest.approx(2.199545e-4 * (0.1 * 10 + 0.15 * 8))
+        assert electrons_captured == pytest.approx(
+            2.199545e-4 * (0.1 * 10 + 0.15 * 8)
+        )
         assert watermarks == pytest.approx(
             np.array(
                 [
@@ -592,7 +612,9 @@ class TestClocker:
 
         assert express_multiplier == pytest.approx(np.triu(np.ones((12, 12))))
 
-    def test__initial_watermark_array__uses_rows_and_total_traps_to_set_size(self):
+    def test__initial_watermark_array__uses_rows_and_total_traps_to_set_size(
+        self,
+    ):
         clock = ac.Clocker(sequence=None)
 
         watermarks = clock.initial_watermarks_from_rows_and_total_traps(
@@ -653,10 +675,18 @@ class TestClocker:
 
         clocker = ac.Clocker(express=0)
 
-        image_add = clocker.add_cti(image=image, traps=traps, ccd_volume=ccd_volume)
+        image_add = clocker.add_cti(
+            image=image, traps=traps, ccd_volume=ccd_volume
+        )
 
         # Check similarity after different iterations
-        iterations_tolerance_dict = {1: 1e-2, 2: 1e-5, 3: 1e-7, 4: 1e-10, 5: 1e-12}
+        iterations_tolerance_dict = {
+            1: 1e-2,
+            2: 1e-5,
+            3: 1e-7,
+            4: 1e-10,
+            5: 1e-12,
+        }
 
         for iterations, tolerance in iterations_tolerance_dict.items():
             clocker = ac.Clocker(express=0, iterations=iterations)
@@ -715,7 +745,9 @@ class TestAddCTI:
 
         assert (image_difference[:, 0:2] == 0.0).all()  # Most pixels unchanged
         assert (image_difference[:, 3:-1] == 0.0).all()
-        assert (image_difference[:, 2] < 0.0).all()  # charge line still loses charge
+        assert (
+            image_difference[:, 2] < 0.0
+        ).all()  # charge line still loses charge
 
     def test__square__double_density__more_captures_so_brighter_trails(self):
         image_pre_cti = np.zeros((5, 5))
@@ -885,11 +917,15 @@ class TestAddCTI:
 
         assert (image_difference[:, 2] == 0.0).all()  # No Delta, no charge
 
-        assert (image_difference[0:3, 3] == 0.0).all()  # No charge in front of Delta 2
+        assert (
+            image_difference[0:3, 3] == 0.0
+        ).all()  # No charge in front of Delta 2
         assert image_difference[3, 3] < 0.0  # Delta 2 loses charge
         assert image_difference[4, 3] > 0.0  # Delta 2 trail
 
-        assert (image_difference[0:2, 4] == 0.0).all()  # No charge in front of Delta 3
+        assert (
+            image_difference[0:2, 4] == 0.0
+        ).all()  # No charge in front of Delta 3
         assert image_difference[2, 4] < 0.0  # Delta 3 loses charge
         assert (image_difference[3:5, 4] > 0.0).all()  # Delta 3 trail
 
@@ -1060,7 +1096,9 @@ class TestAddCTI:
         assert (image_difference[:, 3:-1] == 0.0).all()
         assert (image_difference[:, 2] < 0.0).all()
 
-    def test__rectangle__delta_functions__add_cti_only_behind_them__odd_x_odd(self):
+    def test__rectangle__delta_functions__add_cti_only_behind_them__odd_x_odd(
+        self,
+    ):
         image_pre_cti = np.zeros((5, 7))
         image_pre_cti[1, 1] += 100  # Delta 1
         image_pre_cti[3, 3] += 100  # Delta 2
@@ -1087,18 +1125,24 @@ class TestAddCTI:
 
         assert (image_difference[:, 2] == 0.0).all()  # No Delta, no charge
 
-        assert (image_difference[0:3, 3] == 0.0).all()  # No charge in front of Delta 2
+        assert (
+            image_difference[0:3, 3] == 0.0
+        ).all()  # No charge in front of Delta 2
         assert image_difference[3, 3] < 0.0  # Delta 2 loses charge
         assert image_difference[4, 3] > 0.0  # Delta 2 trail
 
-        assert (image_difference[0:2, 4] == 0.0).all()  # No charge in front of Delta 3
+        assert (
+            image_difference[0:2, 4] == 0.0
+        ).all()  # No charge in front of Delta 3
         assert image_difference[2, 4] < 0.0  # Delta 3 loses charge
         assert (image_difference[3:5, 4] > 0.0).all()  # Delta 3 trail
 
         assert (image_difference[:, 5] == 0.0).all()  # No Delta, no charge
         assert (image_difference[:, 6] == 0.0).all()  # No Delta, no charge
 
-    def test__rectangle__delta_functions__add_cti_only_behind_them__even_x_even(self):
+    def test__rectangle__delta_functions__add_cti_only_behind_them__even_x_even(
+        self,
+    ):
         image_pre_cti = np.zeros((6, 8))
         image_pre_cti[1, 1] += 100  # Delta 1
         image_pre_cti[3, 3] += 100  # Delta 2
@@ -1125,11 +1169,15 @@ class TestAddCTI:
 
         assert (image_difference[:, 2] == 0.0).all()  # No Delta, no charge
 
-        assert (image_difference[0:3, 3] == 0.0).all()  # No charge in front of Delta 2
+        assert (
+            image_difference[0:3, 3] == 0.0
+        ).all()  # No charge in front of Delta 2
         assert image_difference[3, 3] < 0.0  # Delta 2 loses charge
         assert image_difference[4, 3] > 0.0  # Delta 2 trail
 
-        assert (image_difference[0:2, 4] == 0.0).all()  # No charge in front of Delta 3
+        assert (
+            image_difference[0:2, 4] == 0.0
+        ).all()  # No charge in front of Delta 3
         assert image_difference[2, 4] < 0.0  # Delta 3 loses charge
         assert (image_difference[3:5, 4] > 0.0).all()  # Delta 3 trail
 
@@ -1137,7 +1185,9 @@ class TestAddCTI:
         assert (image_difference[:, 6] == 0.0).all()  # No Delta, no charge
         assert (image_difference[:, 7] == 0.0).all()  # No Delta, no charge
 
-    def test__rectangle__delta_functions__add_cti_only_behind_them__even_x_odd(self):
+    def test__rectangle__delta_functions__add_cti_only_behind_them__even_x_odd(
+        self,
+    ):
         image_pre_cti = np.zeros((6, 7))
         image_pre_cti[1, 1] += 100  # Delta 1
         image_pre_cti[3, 3] += 100  # Delta 2
@@ -1164,18 +1214,24 @@ class TestAddCTI:
 
         assert (image_difference[:, 2] == 0.0).all()  # No Delta, no charge
 
-        assert (image_difference[0:3, 3] == 0.0).all()  # No charge in front of Delta 2
+        assert (
+            image_difference[0:3, 3] == 0.0
+        ).all()  # No charge in front of Delta 2
         assert image_difference[3, 3] < 0.0  # Delta 2 loses charge
         assert image_difference[4, 3] > 0.0  # Delta 2 trail
 
-        assert (image_difference[0:2, 4] == 0.0).all()  # No charge in front of Delta 3
+        assert (
+            image_difference[0:2, 4] == 0.0
+        ).all()  # No charge in front of Delta 3
         assert image_difference[2, 4] < 0.0  # Delta 3 loses charge
         assert (image_difference[3:5, 4] > 0.0).all()  # Delta 3 trail
 
         assert (image_difference[:, 5] == 0.0).all()  # No Delta, no charge
         assert (image_difference[:, 6] == 0.0).all()  # No Delta, no charge
 
-    def test__rectangle__delta_functions__add_cti_only_behind_them__odd_x_even(self):
+    def test__rectangle__delta_functions__add_cti_only_behind_them__odd_x_even(
+        self,
+    ):
         image_pre_cti = np.zeros((5, 6))
 
         image_pre_cti[1, 1] += 100  # Delta 1
@@ -1203,11 +1259,15 @@ class TestAddCTI:
 
         assert (image_difference[:, 2] == 0.0).all()  # No Delta, no charge
 
-        assert (image_difference[0:3, 3] == 0.0).all()  # No charge in front of Delta 2
+        assert (
+            image_difference[0:3, 3] == 0.0
+        ).all()  # No charge in front of Delta 2
         assert image_difference[3, 3] < 0.0  # Delta 2 loses charge
         assert image_difference[4, 3] > 0.0  # Delta 2 trail
 
-        assert (image_difference[0:2, 4] == 0.0).all()  # No charge in front of Delta 3
+        assert (
+            image_difference[0:2, 4] == 0.0
+        ).all()  # No charge in front of Delta 3
         assert image_difference[2, 4] < 0.0  # Delta 3 loses charge
         assert (image_difference[3:5, 4] > 0.0).all()  # Delta 3 trail
 

@@ -43,12 +43,7 @@ class Trap(object):
         return self.density * (
             a
             + d_a * (np.arctan((np.log(self.lifetime) - d_p) / d_w))
-            + (
-                g_a
-                * np.exp(
-                    -((np.log(self.lifetime) - g_p) ** 2.0) / (2 * g_w ** 2.0)
-                )
-            )
+            + (g_a * np.exp(-((np.log(self.lifetime) - g_p) ** 2.0) / (2 * g_w ** 2.0)))
         )
 
     def __repr__(self):
@@ -85,9 +80,7 @@ class Trap(object):
         poisson_trap = []
         for densities in poisson_densities:
             for i, s in enumerate(trap):
-                poisson_trap.append(
-                    Trap(density=densities[i], lifetime=s.lifetime)
-                )
+                poisson_trap.append(Trap(density=densities[i], lifetime=s.lifetime))
 
         return poisson_trap
 
@@ -184,8 +177,7 @@ class TrapManager(object):
 
             # Multiply the summed fill fractions by the height
             electrons_released += (
-                electrons_released_watermark
-                * self.watermarks[watermark_index, 0]
+                electrons_released_watermark * self.watermarks[watermark_index, 0]
             )
 
         return electrons_released
@@ -254,9 +246,7 @@ class TrapManager(object):
 
         return electrons_captured
 
-    def updated_watermarks_from_capture(
-        self, electron_fractional_height, watermarks
-    ):
+    def updated_watermarks_from_capture(self, electron_fractional_height, watermarks):
         """ Update the trap watermarks for capturing electrons.
 
         Parameters
@@ -311,9 +301,7 @@ class TrapManager(object):
             watermarks[: watermark_index_above_cloud - 1, :] = 0
 
             # Move the no-longer-needed watermarks to the end of the list
-            watermarks = np.roll(
-                watermarks, 1 - watermark_index_above_cloud, axis=0
-            )
+            watermarks = np.roll(watermarks, 1 - watermark_index_above_cloud, axis=0)
 
             # Edit the new first watermark
             watermarks[0, 0] = electron_fractional_height
@@ -399,8 +387,7 @@ class TrapManager(object):
             # original fill) * enough.
             # e.g. enough = 0.5 --> fill half way to 1.
             watermarks[: watermark_index_above_height + 1, 1:] = (
-                watermarks[: watermark_index_above_height + 1, 1:]
-                * (1 - enough)
+                watermarks[: watermark_index_above_height + 1, 1:] * (1 - enough)
                 + enough
             )
 
@@ -414,9 +401,7 @@ class TrapManager(object):
             else:
                 # Edit the new watermarks' heights
                 watermarks[
-                    watermark_index_above_height : watermark_index_above_height
-                    + 2,
-                    0,
+                    watermark_index_above_height : watermark_index_above_height + 2, 0
                 ] *= (1 - enough)
 
         # If none will be overwritten

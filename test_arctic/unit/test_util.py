@@ -27,9 +27,9 @@ class TestFitsHeader:
         self, hdr_path
     ):
 
-        parallel_clocker = ac.Clocker(sequence=1, iterations=1)
+        parallel_clocker = ac.Clocker(parallel_sequence=1, iterations=1)
 
-        serial_clocker = ac.Clocker(sequence=1, iterations=2)
+        serial_clocker = ac.Clocker(parallel_sequence=1, iterations=2)
 
         hdu = fits.PrimaryHDU(np.ones((1, 1)), fits.Header())
         hdu.header = ac.util.update_fits_header_info(

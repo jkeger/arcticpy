@@ -5,17 +5,588 @@ import arctic as ac
 from arctic import clock
 
 
+class TestInitialWatermarks:
+    def test__initial_watermark_array__uses_rows_and_total_traps_to_set_size(self,):
+        trap_manager = ac.TrapManager(traps=[None], rows=6)
+
+        watermarks = trap_manager.initial_watermarks_from_rows_and_total_traps(
+            rows=3, total_traps=1
+        )
+
+        assert (watermarks == np.zeros(shape=(3, 2))).all()
+
+        watermarks = trap_manager.initial_watermarks_from_rows_and_total_traps(
+            rows=3, total_traps=5
+        )
+
+        assert (watermarks == np.zeros(shape=(3, 6))).all()
+
+        watermarks = trap_manager.initial_watermarks_from_rows_and_total_traps(
+            rows=5, total_traps=2
+        )
+
+        assert (watermarks == np.zeros(shape=(5, 3))).all()
+
+
+class TestElectronsReleasedAndUpdatedWatermarks:
+    def test__empty_release(self):
+
+        traps = [ac.Trap(density=10, lifetime=-1 / np.log(0.5))]
+        trap_manager = ac.TrapManager(traps=traps, rows=6)
+
+        electrons_released = trap_manager.electrons_released_in_pixel()
+
+        assert electrons_released == pytest.approx(0)
+        assert trap_manager.watermarks == pytest.approx(
+            np.array([[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]])
+        )
+
+    def test__single_trap(self):
+
+        traps = [ac.Trap(density=10, lifetime=-1 / np.log(0.5))]
+        trap_manager = ac.TrapManager(traps=traps, rows=6)
+
+        trap_manager.watermarks = np.array(
+            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]]
+        )
+
+        electrons_released = trap_manager.electrons_released_in_pixel()
+
+        assert electrons_released == pytest.approx(2.5)
+        assert trap_manager.watermarks == pytest.approx(
+            np.array([[0.5, 0.4], [0.2, 0.2], [0.1, 0.1], [0, 0], [0, 0], [0, 0]])
+        )
+
+    def test__multiple_traps(self):
+
+        traps = [
+            ac.Trap(density=10, lifetime=-1 / np.log(0.5)),
+            ac.Trap(density=8, lifetime=-1 / np.log(0.2)),
+        ]
+        trap_manager = ac.TrapManager(traps=traps, rows=6)
+
+        trap_manager.watermarks = np.array(
+            [
+                [0.5, 0.8, 0.3],
+                [0.2, 0.4, 0.2],
+                [0.1, 0.2, 0.1],
+                [0, 0, 0],
+                [0, 0, 0],
+                [0, 0, 0],
+            ]
+        )
+
+        electrons_released = trap_manager.electrons_released_in_pixel()
+
+        assert electrons_released == pytest.approx(2.5 + 1.28)
+        assert trap_manager.watermarks == pytest.approx(
+            np.array(
+                [
+                    [0.5, 0.4, 0.06],
+                    [0.2, 0.2, 0.04],
+                    [0.1, 0.1, 0.02],
+                    [0, 0, 0],
+                    [0, 0, 0],
+                    [0, 0, 0],
+                ]
+            )
+        )
+
+
+class TestElectronsCapturedByTraps:
+    def test__first_capture(self):
+
+        traps = [ac.Trap(density=10, lifetime=-1 / np.log(0.5))]
+        trap_manager = ac.TrapManager(traps=traps, rows=6)
+
+        electron_fractional_height = 0.5
+
+        electrons_captured = trap_manager.electrons_captured_by_traps(
+            electron_fractional_height=electron_fractional_height,
+            watermarks=trap_manager.watermarks,
+            traps=trap_manager.traps,
+        )
+
+        assert electrons_captured == pytest.approx(0.5 * 10)
+
+    def test__new_highest_watermark(self):
+
+        traps = [ac.Trap(density=10, lifetime=-1 / np.log(0.5))]
+        trap_manager = ac.TrapManager(traps=traps, rows=6)
+
+        trap_manager.watermarks = np.array(
+            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0], [0, 0]]
+        )
+        electron_fractional_height = 0.9
+
+        electrons_captured = trap_manager.electrons_captured_by_traps(
+            electron_fractional_height=electron_fractional_height,
+            watermarks=trap_manager.watermarks,
+            traps=trap_manager.traps,
+        )
+
+        assert electrons_captured == pytest.approx((0.1 + 0.12 + 0.07 + 0.1) * 10)
+
+    def test__middle_new_watermarks(self):
+
+        traps = [ac.Trap(density=10, lifetime=-1 / np.log(0.5))]
+        trap_manager = ac.TrapManager(traps=traps, rows=6)
+
+        trap_manager.watermarks = np.array(
+            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0], [0, 0]]
+        )
+        electron_fractional_height = 0.6
+
+        electrons_captured = trap_manager.electrons_captured_by_traps(
+            electron_fractional_height=electron_fractional_height,
+            watermarks=trap_manager.watermarks,
+            traps=trap_manager.traps,
+        )
+
+        assert electrons_captured == pytest.approx((0.1 + 0.06) * 10)
+
+        trap_manager.watermarks = np.array(
+            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0], [0, 0]]
+        )
+        electron_fractional_height = 0.75
+
+        electrons_captured = trap_manager.electrons_captured_by_traps(
+            electron_fractional_height=electron_fractional_height,
+            watermarks=trap_manager.watermarks,
+            traps=trap_manager.traps,
+        )
+
+        assert electrons_captured == pytest.approx((0.1 + 0.12 + 0.035) * 10)
+
+    def test__new_lowest_watermark(self):
+
+        traps = [ac.Trap(density=10, lifetime=-1 / np.log(0.5))]
+        trap_manager = ac.TrapManager(traps=traps, rows=6)
+
+        trap_manager.watermarks = np.array(
+            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0], [0, 0]]
+        )
+        electron_fractional_height = 0.3
+
+        electrons_captured = trap_manager.electrons_captured_by_traps(
+            electron_fractional_height=electron_fractional_height,
+            watermarks=trap_manager.watermarks,
+            traps=trap_manager.traps,
+        )
+
+        assert electrons_captured == pytest.approx(0.3 * 0.2 * 10)
+
+    def test__multiple_traps(self):
+
+        traps = [
+            ac.Trap(density=10, lifetime=-1 / np.log(0.5)),
+            ac.Trap(density=8, lifetime=-1 / np.log(0.2)),
+        ]
+        trap_manager = ac.TrapManager(traps=traps, rows=6)
+
+        trap_manager.watermarks = np.array(
+            [
+                [0.5, 0.8, 0.7],
+                [0.2, 0.4, 0.3],
+                [0.1, 0.3, 0.2],
+                [0, 0, 0],
+                [0, 0, 0],
+                [0, 0, 0],
+            ]
+        )
+
+        electron_fractional_height = 0.6
+
+        electrons_captured = trap_manager.electrons_captured_by_traps(
+            electron_fractional_height=electron_fractional_height,
+            watermarks=trap_manager.watermarks,
+            traps=trap_manager.traps,
+        )
+
+        assert electrons_captured == pytest.approx(
+            (0.1 + 0.06) * 10 + (0.15 + 0.07) * 8
+        )
+
+
+class TestUpdateWatermarks:
+    def test__first_capture(self):
+
+        trap_manager = ac.TrapManager(traps=[None], rows=6)
+
+        watermarks = trap_manager.initial_watermarks_from_rows_and_total_traps(
+            rows=6, total_traps=1
+        )
+        electron_fractional_height = 0.5
+
+        watermarks = trap_manager.updated_watermarks_from_capture(
+            electron_fractional_height=electron_fractional_height, watermarks=watermarks
+        )
+
+        assert watermarks == pytest.approx(
+            np.array([[0.5, 1], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]])
+        )
+
+    def test__new_highest_watermark(self):
+
+        trap_manager = ac.TrapManager(traps=[None], rows=6)
+
+        watermarks = np.array(
+            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0], [0, 0]]
+        )
+        electron_fractional_height = 0.9
+
+        watermarks = trap_manager.updated_watermarks_from_capture(
+            electron_fractional_height=electron_fractional_height, watermarks=watermarks
+        )
+
+        assert watermarks == pytest.approx(
+            np.array([[0.9, 1], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]])
+        )
+
+    def test__middle_new_watermark(self):
+
+        trap_manager = ac.TrapManager(traps=[None], rows=6)
+
+        watermarks = np.array(
+            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0], [0, 0]]
+        )
+        electron_fractional_height = 0.6
+
+        watermarks = trap_manager.updated_watermarks_from_capture(
+            electron_fractional_height=electron_fractional_height, watermarks=watermarks
+        )
+
+        assert watermarks == pytest.approx(
+            np.array([[0.6, 1], [0.1, 0.4], [0.1, 0.3], [0, 0], [0, 0], [0, 0]])
+        )
+
+        watermarks = np.array(
+            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0], [0, 0]]
+        )
+        electron_fractional_height = 0.75
+
+        watermarks = trap_manager.updated_watermarks_from_capture(
+            electron_fractional_height=electron_fractional_height, watermarks=watermarks
+        )
+
+        assert watermarks == pytest.approx(
+            np.array([[0.75, 1], [0.05, 0.3], [0, 0], [0, 0], [0, 0], [0, 0]])
+        )
+
+    def test__new_lowest_watermark(self):
+
+        trap_manager = ac.TrapManager(traps=[None], rows=6)
+
+        watermarks = np.array(
+            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0], [0, 0]]
+        )
+        electron_fractional_height = 0.3
+
+        watermarks = trap_manager.updated_watermarks_from_capture(
+            electron_fractional_height=electron_fractional_height, watermarks=watermarks
+        )
+
+        assert watermarks == pytest.approx(
+            np.array([[0.3, 1], [0.2, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0]])
+        )
+
+    def test__multiple_traps(self):
+
+        trap_manager = ac.TrapManager(traps=[None], rows=6)
+
+        watermarks = np.array(
+            [
+                [0.5, 0.8, 0.7, 0.6],
+                [0.2, 0.4, 0.3, 0.2],
+                [0.1, 0.3, 0.2, 0.1],
+                [0, 0, 0, 0],
+                [0, 0, 0, 0],
+                [0, 0, 0, 0],
+            ]
+        )
+        electron_fractional_height = 0.6
+
+        watermarks = trap_manager.updated_watermarks_from_capture(
+            electron_fractional_height=electron_fractional_height, watermarks=watermarks
+        )
+
+        assert watermarks == pytest.approx(
+            np.array(
+                [
+                    [0.6, 1, 1, 1],
+                    [0.1, 0.4, 0.3, 0.2],
+                    [0.1, 0.3, 0.2, 0.1],
+                    [0, 0, 0, 0],
+                    [0, 0, 0, 0],
+                    [0, 0, 0, 0],
+                ]
+            )
+        )
+
+
+class TestUpdateWatermarksNotEnough:
+    def test__first_captrue(self):
+
+        trap_manager = ac.TrapManager(traps=[None], rows=6)
+
+        electron_fractional_height = 0.5
+        enough = 0.7
+
+        watermarks = trap_manager.updated_watermarks_from_capture_not_enough(
+            electron_fractional_height=electron_fractional_height,
+            watermarks=trap_manager.watermarks,
+            enough=enough,
+        )
+        print(watermarks)  ###
+        assert watermarks == pytest.approx(
+            np.array([[0.5, 0.7], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]])
+        )
+
+    def test__new_highest_watermark(self):
+
+        trap_manager = ac.TrapManager(traps=[None], rows=6)
+
+        watermarks = np.array([[0.5, 0.8], [0.2, 0.4], [0, 0], [0, 0], [0, 0], [0, 0]])
+
+        electron_fractional_height = 0.8
+        enough = 0.5
+
+        watermarks = trap_manager.updated_watermarks_from_capture_not_enough(
+            electron_fractional_height=electron_fractional_height,
+            watermarks=watermarks,
+            enough=enough,
+        )
+
+        assert watermarks == pytest.approx(
+            np.array([[0.5, 0.9], [0.2, 0.7], [0.1, 0.5], [0, 0], [0, 0], [0, 0]])
+        )
+
+    def test__new_middle_watermark(self):
+
+        trap_manager = ac.TrapManager(traps=[None], rows=6)
+
+        watermarks = np.array(
+            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0], [0, 0]]
+        )
+
+        electron_fractional_height = 0.6
+        enough = 0.5
+
+        watermarks = trap_manager.updated_watermarks_from_capture_not_enough(
+            electron_fractional_height=electron_fractional_height,
+            watermarks=watermarks,
+            enough=enough,
+        )
+
+        assert watermarks == pytest.approx(
+            np.array([[0.5, 0.9], [0.1, 0.7], [0.1, 0.4], [0.1, 0.3], [0, 0], [0, 0]])
+        )
+
+    def test__new_lowest_watermark(self):
+
+        trap_manager = ac.TrapManager(traps=[None], rows=6)
+
+        watermarks = np.array(
+            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0], [0, 0]]
+        )
+        electron_fractional_height = 0.3
+        enough = 0.5
+
+        watermarks = trap_manager.updated_watermarks_from_capture_not_enough(
+            electron_fractional_height=electron_fractional_height,
+            watermarks=watermarks,
+            enough=enough,
+        )
+
+        assert watermarks == pytest.approx(
+            np.array([[0.3, 0.9], [0.2, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0]])
+        )
+
+    def test__multiple_traps(self):
+
+        trap_manager = ac.TrapManager(traps=[None], rows=6)
+
+        watermarks = np.array(
+            [
+                [0.5, 0.8, 0.7, 0.6],
+                [0.2, 0.4, 0.3, 0.2],
+                [0.1, 0.3, 0.2, 0.1],
+                [0, 0, 0, 0],
+                [0, 0, 0, 0],
+                [0, 0, 0, 0],
+            ]
+        )
+        electron_fractional_height = 0.6
+        enough = 0.5
+
+        watermarks = trap_manager.updated_watermarks_from_capture_not_enough(
+            electron_fractional_height=electron_fractional_height,
+            watermarks=watermarks,
+            enough=enough,
+        )
+        assert watermarks == pytest.approx(
+            np.array(
+                [
+                    [0.5, 0.9, 0.85, 0.8],
+                    [0.1, 0.7, 0.65, 0.6],
+                    [0.1, 0.4, 0.3, 0.2],
+                    [0.1, 0.3, 0.2, 0.1],
+                    [0, 0, 0, 0],
+                    [0, 0, 0, 0],
+                ]
+            )
+        )
+
+
+class TestElectronsCapturedInPixel:
+    def test__first_capture(self):
+
+        electrons_available = 2500  # --> electron_fractional_height = 0.5
+
+        traps = [ac.Trap(density=10, lifetime=-1 / np.log(0.5))]
+        trap_manager = ac.TrapManager(traps=traps, rows=6)
+
+        ccd_volume = ac.CCDVolume(
+            well_fill_beta=0.5, well_max_height=10000, well_notch_depth=1e-7
+        )
+
+        electrons_captured = trap_manager.electrons_captured_in_pixel(
+            electrons_available=electrons_available, ccd_volume=ccd_volume
+        )
+
+        assert electrons_captured == pytest.approx(5)
+        assert trap_manager.watermarks == pytest.approx(
+            np.array([[0.5, 1], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]])
+        )
+
+    def test__multiple_traps(self):
+
+        electrons_available = 3600  # --> electron_fractional_height = 0.6
+
+        traps = [
+            ac.Trap(density=10, lifetime=-1 / np.log(0.5)),
+            ac.Trap(density=8, lifetime=-1 / np.log(0.2)),
+        ]
+        trap_manager = ac.TrapManager(traps=traps, rows=6)
+
+        trap_manager.watermarks = np.array(
+            [
+                [0.5, 0.8, 0.7],
+                [0.2, 0.4, 0.3],
+                [0.1, 0.3, 0.2],
+                [0, 0, 0],
+                [0, 0, 0],
+                [0, 0, 0],
+            ]
+        )
+
+        ccd_volume = ac.CCDVolume(
+            well_fill_beta=0.5, well_max_height=10000, well_notch_depth=1e-7
+        )
+
+        electrons_captured = trap_manager.electrons_captured_in_pixel(
+            electrons_available=electrons_available, ccd_volume=ccd_volume
+        )
+
+        assert electrons_captured == pytest.approx(
+            (0.1 + 0.06) * 10 + (0.15 + 0.07) * 8
+        )
+        assert trap_manager.watermarks == pytest.approx(
+            np.array(
+                [
+                    [0.6, 1, 1],
+                    [0.1, 0.4, 0.3],
+                    [0.1, 0.3, 0.2],
+                    [0, 0, 0],
+                    [0, 0, 0],
+                    [0, 0, 0],
+                ]
+            )
+        )
+
+    def test__not_enough__first_capture(self):
+
+        electrons_available = (
+            2.5e-3
+        )  # --> electron_fractional_height = 4.9999e-4, enough=enough = 0.50001
+
+        traps = [ac.Trap(density=10, lifetime=-1 / np.log(0.5))]
+        trap_manager = ac.TrapManager(traps=traps, rows=6)
+
+        ccd_volume = ac.CCDVolume(
+            well_fill_beta=0.5, well_max_height=10000, well_notch_depth=1e-7
+        )
+
+        electrons_captured = trap_manager.electrons_captured_in_pixel(
+            electrons_available=electrons_available, ccd_volume=ccd_volume
+        )
+
+        assert electrons_captured == pytest.approx(0.0025)
+        assert trap_manager.watermarks == pytest.approx(
+            np.array([[4.9999e-4, 0.50001], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]])
+        )
+
+    def test__not_enough__multiple_traps(self):
+
+        electrons_available = (
+            4.839e-4
+        )  # --> electron_fractional_height = 2.199545e-4, enough=enough = 0.5
+
+        traps = [
+            ac.Trap(density=10, lifetime=-1 / np.log(0.5)),
+            ac.Trap(density=8, lifetime=-1 / np.log(0.2)),
+        ]
+        trap_manager = ac.TrapManager(traps=traps, rows=6)
+
+        trap_manager.watermarks = np.array(
+            [
+                [0.5, 0.8, 0.7],
+                [0.2, 0.4, 0.3],
+                [0.1, 0.3, 0.2],
+                [0, 0, 0],
+                [0, 0, 0],
+                [0, 0, 0],
+            ]
+        )
+
+        ccd_volume = ac.CCDVolume(
+            well_fill_beta=0.5, well_max_height=10000, well_notch_depth=1e-7
+        )
+
+        electrons_captured = trap_manager.electrons_captured_in_pixel(
+            electrons_available=electrons_available, ccd_volume=ccd_volume
+        )
+
+        assert electrons_captured == pytest.approx(2.199545e-4 * (0.1 * 10 + 0.15 * 8))
+        assert trap_manager.watermarks == pytest.approx(
+            np.array(
+                [
+                    [2.199545e-4, 0.9, 0.85],
+                    [0.5 - 2.199545e-4, 0.8, 0.7],
+                    [0.2, 0.4, 0.3],
+                    [0.1, 0.3, 0.2],
+                    [0, 0, 0],
+                    [0, 0, 0],
+                ]
+            )
+        )
+
+
 class TestClocker:
     def test__express_matrix_from_rows(self):
-        clocker = ac.Clocker(express=1)
+        clocker = ac.Clocker()
 
-        express_multiplier = clocker.express_matrix_from_rows(rows=12)
+        express_multiplier = clocker.express_matrix_from_rows_and_express(
+            rows=12, express=1
+        )
 
         assert express_multiplier == pytest.approx(np.array([np.arange(1, 13)]))
 
-        clocker = ac.Clocker(express=4)
+        clocker = ac.Clocker()
 
-        express_multiplier = clocker.express_matrix_from_rows(rows=12)
+        express_multiplier = clocker.express_matrix_from_rows_and_express(
+            rows=12, express=4
+        )
 
         assert express_multiplier == pytest.approx(
             np.array(
@@ -28,14 +599,16 @@ class TestClocker:
             )
         )
 
-        clocker = ac.Clocker(express=12)
+        clocker = ac.Clocker()
 
-        express_multiplier = clocker.express_matrix_from_rows(rows=12)
+        express_multiplier = clocker.express_matrix_from_rows_and_express(
+            rows=12, express=12
+        )
 
         assert express_multiplier == pytest.approx(np.triu(np.ones((12, 12))))
 
-    def test__add_cti__single_pixel__compare_to_cpluspus_version(self):
-        clocker = ac.Clocker(express=0)
+    def test__add_cti__parallel_only__single_pixel__compare_to_cpluspus_version(self):
+        clocker = ac.Clocker(parallel_express=0)
 
         image = np.zeros((6, 2))
         image[2, 1] = 1000
@@ -46,7 +619,9 @@ class TestClocker:
             well_fill_beta=0.8, well_max_height=8.47e4, well_notch_depth=1e-7
         )
 
-        image = clocker.add_cti(image=image, traps=traps, ccd_volume=ccd_volume)
+        image = clocker.add_cti(
+            image=image, parallel_traps=traps, parallel_ccd_volume=ccd_volume
+        )
 
         assert image == pytest.approx(
             np.array(
@@ -62,7 +637,9 @@ class TestClocker:
             abs=1e-3,
         )
 
-    def test__remove_cti__single_pixel__compare_to_cplusplus_version(self):
+    def test__remove_cti__parallel_only__single_pixel__compare_to_cplusplus_version(
+        self
+    ):
         image = np.zeros((6, 2))
         image[2, 1] = 1000
 
@@ -72,32 +649,26 @@ class TestClocker:
             well_fill_beta=0.8, well_max_height=8.47e4, well_notch_depth=1e-7
         )
 
-        clocker = ac.Clocker(express=0)
+        clocker = ac.Clocker(parallel_express=0)
 
         image_add = clocker.add_cti(
-            image=image, traps=traps, ccd_volume=ccd_volume
+            image=image, parallel_traps=traps, parallel_ccd_volume=ccd_volume
         )
 
         # Check similarity after different iterations
-        iterations_tolerance_dict = {
-            1: 1e-2,
-            2: 1e-5,
-            3: 1e-7,
-            4: 1e-10,
-            5: 1e-12,
-        }
+        iterations_tolerance_dict = {1: 1e-2, 2: 1e-5, 3: 1e-7, 4: 1e-10, 5: 1e-12}
 
         for iterations, tolerance in iterations_tolerance_dict.items():
-            clocker = ac.Clocker(express=0, iterations=iterations)
+            clocker = ac.Clocker(parallel_express=0, iterations=iterations)
 
             image_rem = clocker.remove_cti(
-                image=image_add, traps=traps, ccd_volume=ccd_volume
+                image=image_add, parallel_traps=traps, parallel_ccd_volume=ccd_volume
             )
 
             assert image_rem == pytest.approx(image, abs=tolerance)
 
 
-class TestAddCTI:
+class TestAddCTIParallelOnly:
     def test__square__horizontal_line__line_loses_charge_trails_appear(self):
         image_pre_cti = np.zeros((5, 5))
         image_pre_cti[2, :] += 100
@@ -107,10 +678,10 @@ class TestAddCTI:
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
 
-        clocker = ac.Clocker(iterations=1, express=0)
+        clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference = image_post_cti - image_pre_cti
@@ -134,19 +705,17 @@ class TestAddCTI:
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
 
-        clocker = ac.Clocker(iterations=1, express=0)
+        clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference = image_post_cti - image_pre_cti
 
         assert (image_difference[:, 0:2] == 0.0).all()  # Most pixels unchanged
         assert (image_difference[:, 3:-1] == 0.0).all()
-        assert (
-            image_difference[:, 2] < 0.0
-        ).all()  # charge line still loses charge
+        assert (image_difference[:, 2] < 0.0).all()  # charge line still loses charge
 
     def test__square__double_density__more_captures_so_brighter_trails(self):
         image_pre_cti = np.zeros((5, 5))
@@ -161,15 +730,15 @@ class TestAddCTI:
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
 
-        clocker = ac.Clocker(iterations=1, express=0)
+        clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         # NOW GENERATE THE IMAGE POST CTI OF EACH SET
 
         image_post_cti_0 = clocker.add_cti(
-            image=image_pre_cti, traps=[trap_0], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap_0], parallel_ccd_volume=ccd_volume
         )
         image_post_cti_1 = clocker.add_cti(
-            image=image_pre_cti, traps=[trap_1], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap_1], parallel_ccd_volume=ccd_volume
         )
 
         assert (
@@ -198,15 +767,15 @@ class TestAddCTI:
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
 
-        clocker = ac.Clocker(iterations=1, express=0)
+        clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         # NOW GENERATE THE IMAGE POST CTI OF EACH SET
 
         image_post_cti_0 = clocker.add_cti(
-            image=image_pre_cti, traps=[trap_0], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap_0], parallel_ccd_volume=ccd_volume
         )
         image_post_cti_1 = clocker.add_cti(
-            image=image_pre_cti, traps=[trap_1], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap_1], parallel_ccd_volume=ccd_volume
         )
 
         assert (
@@ -237,15 +806,15 @@ class TestAddCTI:
             well_notch_depth=0.01, well_fill_beta=0.9, well_max_height=84700
         )
 
-        clocker = ac.Clocker(iterations=1, express=0)
+        clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         # NOW GENERATE THE IMAGE POST CTI OF EACH SET
 
         image_post_cti_0 = clocker.add_cti(
-            image=image_pre_cti, traps=[trap], ccd_volume=ccd_0
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_0
         )
         image_post_cti_1 = clocker.add_cti(
-            image=image_pre_cti, traps=[trap], ccd_volume=ccd_1
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_1
         )
 
         assert (
@@ -275,15 +844,17 @@ class TestAddCTI:
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
 
-        clocker = ac.Clocker(iterations=1, express=0)
+        clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         # NOW GENERATE THE IMAGE POST CTI OF EACH SET
 
         image_post_cti_0 = clocker.add_cti(
-            image=image_pre_cti, traps=[trap_0], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap_0], parallel_ccd_volume=ccd_volume
         )
         image_post_cti_1 = clocker.add_cti(
-            image=image_pre_cti, traps=[trap_1, trap_1], ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap_1, trap_1],
+            parallel_ccd_volume=ccd_volume,
         )
 
         # noinspection PyUnresolvedReferences
@@ -300,10 +871,10 @@ class TestAddCTI:
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
 
-        clocker = ac.Clocker(iterations=1, express=0)
+        clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference = image_post_cti - image_pre_cti
@@ -316,15 +887,11 @@ class TestAddCTI:
 
         assert (image_difference[:, 2] == 0.0).all()  # No Delta, no charge
 
-        assert (
-            image_difference[0:3, 3] == 0.0
-        ).all()  # No charge in front of Delta 2
+        assert (image_difference[0:3, 3] == 0.0).all()  # No charge in front of Delta 2
         assert image_difference[3, 3] < 0.0  # Delta 2 loses charge
         assert image_difference[4, 3] > 0.0  # Delta 2 trail
 
-        assert (
-            image_difference[0:2, 4] == 0.0
-        ).all()  # No charge in front of Delta 3
+        assert (image_difference[0:2, 4] == 0.0).all()  # No charge in front of Delta 3
         assert image_difference[2, 4] < 0.0  # Delta 3 loses charge
         assert (image_difference[3:5, 4] > 0.0).all()  # Delta 3 trail
 
@@ -337,10 +904,10 @@ class TestAddCTI:
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
 
-        clocker = ac.Clocker(iterations=1, express=0)
+        clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference = image_post_cti - image_pre_cti
@@ -358,10 +925,10 @@ class TestAddCTI:
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
 
-        clocker = ac.Clocker(iterations=1, express=0)
+        clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference = image_post_cti - image_pre_cti
@@ -379,10 +946,10 @@ class TestAddCTI:
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
 
-        clocker = ac.Clocker(iterations=1, express=0)
+        clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference = image_post_cti - image_pre_cti
@@ -400,10 +967,10 @@ class TestAddCTI:
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
 
-        clocker = ac.Clocker(iterations=1, express=0)
+        clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
         image_difference = image_post_cti - image_pre_cti
 
@@ -420,10 +987,10 @@ class TestAddCTI:
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
 
-        clocker = ac.Clocker(iterations=1, express=0)
+        clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference = image_post_cti - image_pre_cti
@@ -441,10 +1008,10 @@ class TestAddCTI:
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
 
-        clocker = ac.Clocker(iterations=1, express=0)
+        clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference = image_post_cti - image_pre_cti
@@ -462,10 +1029,10 @@ class TestAddCTI:
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
 
-        clocker = ac.Clocker(iterations=1, express=0)
+        clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference = image_post_cti - image_pre_cti
@@ -483,10 +1050,10 @@ class TestAddCTI:
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
 
-        clocker = ac.Clocker(iterations=1, express=0)
+        clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference = image_post_cti - image_pre_cti
@@ -495,9 +1062,7 @@ class TestAddCTI:
         assert (image_difference[:, 3:-1] == 0.0).all()
         assert (image_difference[:, 2] < 0.0).all()
 
-    def test__rectangle__delta_functions__add_cti_only_behind_them__odd_x_odd(
-        self,
-    ):
+    def test__rectangle__delta_functions__add_cti_only_behind_them__odd_x_odd(self,):
         image_pre_cti = np.zeros((5, 7))
         image_pre_cti[1, 1] += 100  # Delta 1
         image_pre_cti[3, 3] += 100  # Delta 2
@@ -508,10 +1073,10 @@ class TestAddCTI:
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
 
-        clocker = ac.Clocker(iterations=1, express=0)
+        clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference = image_post_cti - image_pre_cti
@@ -524,24 +1089,18 @@ class TestAddCTI:
 
         assert (image_difference[:, 2] == 0.0).all()  # No Delta, no charge
 
-        assert (
-            image_difference[0:3, 3] == 0.0
-        ).all()  # No charge in front of Delta 2
+        assert (image_difference[0:3, 3] == 0.0).all()  # No charge in front of Delta 2
         assert image_difference[3, 3] < 0.0  # Delta 2 loses charge
         assert image_difference[4, 3] > 0.0  # Delta 2 trail
 
-        assert (
-            image_difference[0:2, 4] == 0.0
-        ).all()  # No charge in front of Delta 3
+        assert (image_difference[0:2, 4] == 0.0).all()  # No charge in front of Delta 3
         assert image_difference[2, 4] < 0.0  # Delta 3 loses charge
         assert (image_difference[3:5, 4] > 0.0).all()  # Delta 3 trail
 
         assert (image_difference[:, 5] == 0.0).all()  # No Delta, no charge
         assert (image_difference[:, 6] == 0.0).all()  # No Delta, no charge
 
-    def test__rectangle__delta_functions__add_cti_only_behind_them__even_x_even(
-        self,
-    ):
+    def test__rectangle__delta_functions__add_cti_only_behind_them__even_x_even(self,):
         image_pre_cti = np.zeros((6, 8))
         image_pre_cti[1, 1] += 100  # Delta 1
         image_pre_cti[3, 3] += 100  # Delta 2
@@ -552,10 +1111,10 @@ class TestAddCTI:
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
 
-        clocker = ac.Clocker(iterations=1, express=0)
+        clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference = image_post_cti - image_pre_cti
@@ -568,15 +1127,11 @@ class TestAddCTI:
 
         assert (image_difference[:, 2] == 0.0).all()  # No Delta, no charge
 
-        assert (
-            image_difference[0:3, 3] == 0.0
-        ).all()  # No charge in front of Delta 2
+        assert (image_difference[0:3, 3] == 0.0).all()  # No charge in front of Delta 2
         assert image_difference[3, 3] < 0.0  # Delta 2 loses charge
         assert image_difference[4, 3] > 0.0  # Delta 2 trail
 
-        assert (
-            image_difference[0:2, 4] == 0.0
-        ).all()  # No charge in front of Delta 3
+        assert (image_difference[0:2, 4] == 0.0).all()  # No charge in front of Delta 3
         assert image_difference[2, 4] < 0.0  # Delta 3 loses charge
         assert (image_difference[3:5, 4] > 0.0).all()  # Delta 3 trail
 
@@ -584,9 +1139,7 @@ class TestAddCTI:
         assert (image_difference[:, 6] == 0.0).all()  # No Delta, no charge
         assert (image_difference[:, 7] == 0.0).all()  # No Delta, no charge
 
-    def test__rectangle__delta_functions__add_cti_only_behind_them__even_x_odd(
-        self,
-    ):
+    def test__rectangle__delta_functions__add_cti_only_behind_them__even_x_odd(self,):
         image_pre_cti = np.zeros((6, 7))
         image_pre_cti[1, 1] += 100  # Delta 1
         image_pre_cti[3, 3] += 100  # Delta 2
@@ -597,10 +1150,10 @@ class TestAddCTI:
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
 
-        clocker = ac.Clocker(iterations=1, express=0)
+        clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference = image_post_cti - image_pre_cti
@@ -613,24 +1166,18 @@ class TestAddCTI:
 
         assert (image_difference[:, 2] == 0.0).all()  # No Delta, no charge
 
-        assert (
-            image_difference[0:3, 3] == 0.0
-        ).all()  # No charge in front of Delta 2
+        assert (image_difference[0:3, 3] == 0.0).all()  # No charge in front of Delta 2
         assert image_difference[3, 3] < 0.0  # Delta 2 loses charge
         assert image_difference[4, 3] > 0.0  # Delta 2 trail
 
-        assert (
-            image_difference[0:2, 4] == 0.0
-        ).all()  # No charge in front of Delta 3
+        assert (image_difference[0:2, 4] == 0.0).all()  # No charge in front of Delta 3
         assert image_difference[2, 4] < 0.0  # Delta 3 loses charge
         assert (image_difference[3:5, 4] > 0.0).all()  # Delta 3 trail
 
         assert (image_difference[:, 5] == 0.0).all()  # No Delta, no charge
         assert (image_difference[:, 6] == 0.0).all()  # No Delta, no charge
 
-    def test__rectangle__delta_functions__add_cti_only_behind_them__odd_x_even(
-        self,
-    ):
+    def test__rectangle__delta_functions__add_cti_only_behind_them__odd_x_even(self,):
         image_pre_cti = np.zeros((5, 6))
 
         image_pre_cti[1, 1] += 100  # Delta 1
@@ -642,10 +1189,10 @@ class TestAddCTI:
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
 
-        clocker = ac.Clocker(iterations=1, express=0)
+        clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference = image_post_cti - image_pre_cti
@@ -658,22 +1205,367 @@ class TestAddCTI:
 
         assert (image_difference[:, 2] == 0.0).all()  # No Delta, no charge
 
-        assert (
-            image_difference[0:3, 3] == 0.0
-        ).all()  # No charge in front of Delta 2
+        assert (image_difference[0:3, 3] == 0.0).all()  # No charge in front of Delta 2
         assert image_difference[3, 3] < 0.0  # Delta 2 loses charge
         assert image_difference[4, 3] > 0.0  # Delta 2 trail
 
-        assert (
-            image_difference[0:2, 4] == 0.0
-        ).all()  # No charge in front of Delta 3
+        assert (image_difference[0:2, 4] == 0.0).all()  # No charge in front of Delta 3
         assert image_difference[2, 4] < 0.0  # Delta 3 loses charge
         assert (image_difference[3:5, 4] > 0.0).all()  # Delta 3 trail
 
         assert (image_difference[:, 5] == 0.0).all()  # No Delta, no charge
 
 
-class TestArcticCorrectCTI:
+class TestArcticAddCTIParallelAndSerial:
+    def test__horizontal_charge_line__loses_charge_trails_form_both_directions(self,):
+
+        clocker = ac.Clocker(
+            iterations=1,
+            parallel_express=5,
+            parallel_readout_offset=0,
+            serial_express=5,
+            serial_readout_offset=0,
+        )
+
+        parallel_traps = [ac.Trap(density=0.4, lifetime=1.0)]
+        parallel_ccd_volume = ac.CCDVolume(
+            well_notch_depth=0.00001, well_fill_beta=0.8, well_max_height=84700
+        )
+
+        serial_traps = [ac.Trap(density=0.2, lifetime=2.0)]
+        serial_ccd_volume = ac.CCDVolume(
+            well_notch_depth=0.00001, well_fill_beta=0.4, well_max_height=84700
+        )
+
+        image_pre_cti = np.zeros((5, 5))
+        image_pre_cti[2, 1:4] = +100
+
+        image_post_cti = clocker.add_cti(
+            image=image_pre_cti,
+            parallel_traps=parallel_traps,
+            parallel_ccd_volume=parallel_ccd_volume,
+            serial_traps=serial_traps,
+            serial_ccd_volume=serial_ccd_volume,
+        )
+
+        image_difference = image_post_cti - image_pre_cti
+
+        assert (image_difference[0:2, :] == 0.0).all()  # No change in front of charge
+        assert (image_difference[2, 1:4] < 0.0).all()  # charge lost in charge
+
+        assert (image_difference[3:5, 1:4] > 0.0).all()  # Parallel trails behind charge
+
+        assert image_difference[2:5, 0] == pytest.approx(0.0, 1.0e-4)
+        # no serial cti trail to left
+        assert (
+            image_difference[2:5, 4] > 0.0
+        ).all()  # serial cti trail to right including parallel cti trails
+
+        assert (image_difference[3, 1:4] > image_difference[4, 1:4]).all()
+        # check parallel cti trails decreasing.
+
+        assert (
+            image_difference[3, 4] > image_difference[4, 4]
+        )  # Check serial trails of paralle trails decreasing.
+
+    def test__vertical_charge_line__loses_charge_trails_form_in_serial_directions(
+        self,
+    ):
+
+        clocker = ac.Clocker(
+            iterations=1,
+            parallel_express=5,
+            parallel_readout_offset=0,
+            serial_express=5,
+            serial_readout_offset=0,
+        )
+
+        parallel_traps = [ac.Trap(density=0.4, lifetime=1.0)]
+        parallel_ccd_volume = ac.CCDVolume(
+            well_notch_depth=0.000001, well_fill_beta=0.8, well_max_height=84700
+        )
+
+        serial_traps = [ac.Trap(density=0.2, lifetime=2.0)]
+        serial_ccd_volume = ac.CCDVolume(
+            well_notch_depth=0.000001, well_fill_beta=0.4, well_max_height=84700
+        )
+
+        image_pre_cti = np.zeros((5, 5))
+        image_pre_cti[1:4, 2] = +100
+
+        image_post_cti = clocker.add_cti(
+            image=image_pre_cti,
+            parallel_traps=parallel_traps,
+            parallel_ccd_volume=parallel_ccd_volume,
+            serial_traps=serial_traps,
+            serial_ccd_volume=serial_ccd_volume,
+        )
+
+        image_difference = image_post_cti - image_pre_cti
+
+        assert (image_difference[0, 0:5] == 0.0).all()  # No change in front of charge
+        assert (image_difference[1:4, 2] < 0.0).all()  # charge lost in charge
+
+        assert (image_difference[4, 2] > 0.0).all()  # Parallel trail behind charge
+
+        assert image_difference[0:5, 0:2] == pytest.approx(0.0, 1.0e-4)
+        assert (
+            image_difference[1:5, 3:5] > 0.0
+        ).all()  # serial cti trail to right including parallel cti trails
+
+        assert (
+            image_difference[3, 3] > image_difference[3, 4]
+        )  # Check serial trails decreasing.
+        assert (
+            image_difference[4, 3] > image_difference[4, 4]
+        )  # Check serial trails of parallel trails decreasing.
+
+    def test__individual_pixel_trails_form_cross_around_it(self,):
+
+        clocker = ac.Clocker(
+            iterations=1,
+            parallel_express=5,
+            parallel_readout_offset=0,
+            serial_express=5,
+            serial_readout_offset=0,
+        )
+
+        parallel_traps = [ac.Trap(density=0.4, lifetime=1.0)]
+        parallel_ccd_volume = ac.CCDVolume(
+            well_notch_depth=0.00001, well_fill_beta=0.8, well_max_height=84700
+        )
+
+        serial_traps = [ac.Trap(density=0.2, lifetime=2.0)]
+        serial_ccd_volume = ac.CCDVolume(
+            well_notch_depth=0.00001, well_fill_beta=0.4, well_max_height=84700
+        )
+
+        image_pre_cti = np.zeros((5, 5))
+        image_pre_cti[2, 2] = +100
+
+        image_post_cti = clocker.add_cti(
+            image=image_pre_cti,
+            parallel_traps=parallel_traps,
+            parallel_ccd_volume=parallel_ccd_volume,
+            serial_traps=serial_traps,
+            serial_ccd_volume=serial_ccd_volume,
+        )
+
+        image_difference = image_post_cti - image_pre_cti
+
+        assert image_difference[0:2, :] == pytest.approx(
+            0.0, 1.0e-4
+        )  # First two rows should all remain zero
+        assert image_difference[:, 0:2] == pytest.approx(
+            0.0, 1.0e-4
+        )  # First tow columns should all remain zero
+        assert (
+            image_difference[2, 2] < 0.0
+        )  # pixel which had charge should lose it due to cti.
+        assert (
+            image_difference[3:5, 2] > 0.0
+        ).all()  # Parallel trail increases charge above pixel
+        assert (
+            image_difference[2, 3:5] > 0.0
+        ).all()  # Serial trail increases charge to right of pixel
+        assert (
+            image_difference[3:5, 3:5] > 0.0
+        ).all()  # Serial trailing of parallel trail increases charge up-right of pixel
+
+    def test__individual_pixel_double_density__more_captures_so_brighter_trails(self,):
+
+        clocker = ac.Clocker(
+            iterations=1,
+            parallel_express=5,
+            parallel_readout_offset=0,
+            serial_express=5,
+            serial_readout_offset=0,
+        )
+
+        parallel_ccd_volume = ac.CCDVolume(
+            well_notch_depth=0.00001, well_fill_beta=0.8, well_max_height=84700
+        )
+        serial_ccd_volume = ac.CCDVolume(
+            well_notch_depth=0.00001, well_fill_beta=0.8, well_max_height=84700
+        )
+
+        image_pre_cti = np.zeros((5, 5))
+        image_pre_cti[2, 2] = +100
+
+        parallel_traps = [ac.Trap(density=0.4, lifetime=1.0)]
+        serial_traps = [ac.Trap(density=0.2, lifetime=2.0)]
+
+        image_post_cti_0 = clocker.add_cti(
+            image=image_pre_cti,
+            parallel_traps=parallel_traps,
+            parallel_ccd_volume=parallel_ccd_volume,
+            serial_traps=serial_traps,
+            serial_ccd_volume=serial_ccd_volume,
+        )
+
+        parallel_traps = [ac.Trap(density=0.8, lifetime=1.0)]
+        serial_traps = [ac.Trap(density=0.4, lifetime=2.0)]
+
+        image_post_cti_1 = clocker.add_cti(
+            image=image_pre_cti,
+            parallel_traps=parallel_traps,
+            parallel_ccd_volume=parallel_ccd_volume,
+            serial_traps=serial_traps,
+            serial_ccd_volume=serial_ccd_volume,
+        )
+
+        image_difference = image_post_cti_1 - image_post_cti_0
+
+        assert image_difference[0:2, :] == pytest.approx(
+            0.0, 1.0e-4
+        )  # First two rows remain zero
+        assert image_difference[:, 0:2] == pytest.approx(
+            0.0, 1.0e-4
+        )  # First tow columns remain zero
+        assert (
+            image_difference[2, 2] < 0.0
+        )  # More captures in second ci_pre_ctis, so more charge in central pixel lost
+        assert (
+            image_difference[3:5, 2] > 0.0
+        ).all()  # More captpures in ci_pre_ctis 2, so brighter parallel trail
+        assert (
+            image_difference[2, 3:5] > 0.0
+        ).all()  # More captpures in ci_pre_ctis 2, so brighter serial trail
+        assert (
+            image_difference[3:5, 3:5] > 0.0
+        ).all()  # Brighter serial trails from parallel trail trails
+
+    def test__individual_pixel_increase_lifetime_longer_release_so_fainter_trails(
+        self,
+    ):
+
+        image_pre_cti = np.zeros((5, 5))
+        image_pre_cti[2, 2] = +100
+
+        clocker = ac.Clocker(
+            iterations=1,
+            parallel_express=5,
+            parallel_readout_offset=0,
+            serial_express=5,
+            serial_readout_offset=0,
+        )
+
+        parallel_ccd_volume = ac.CCDVolume(
+            well_notch_depth=0.00001, well_fill_beta=0.8, well_max_height=84700
+        )
+        serial_ccd_volume = ac.CCDVolume(
+            well_notch_depth=0.00001, well_fill_beta=0.8, well_max_height=84700
+        )
+
+        parallel_traps = [ac.Trap(density=0.1, lifetime=1.0)]
+        serial_traps = [ac.Trap(density=0.1, lifetime=1.0)]
+
+        image_post_cti_0 = clocker.add_cti(
+            image=image_pre_cti,
+            parallel_traps=parallel_traps,
+            parallel_ccd_volume=parallel_ccd_volume,
+            serial_traps=serial_traps,
+            serial_ccd_volume=serial_ccd_volume,
+        )
+
+        parallel_traps = [ac.Trap(density=0.1, lifetime=20.0)]
+        serial_traps = [ac.Trap(density=0.1, lifetime=20.0)]
+
+        image_post_cti_1 = clocker.add_cti(
+            image=image_pre_cti,
+            parallel_traps=parallel_traps,
+            parallel_ccd_volume=parallel_ccd_volume,
+            serial_traps=serial_traps,
+            serial_ccd_volume=serial_ccd_volume,
+        )
+
+        image_difference = image_post_cti_1 - image_post_cti_0
+
+        assert image_difference[0:2, :] == pytest.approx(
+            0.0, 1.0e-4
+        )  # First two rows remain zero
+        assert image_difference[:, 0:2] == pytest.approx(
+            0.0, 1.0e-4
+        )  # First tow columns remain zero
+        assert image_difference[2, 2] == pytest.approx(
+            0.0, 1.0e-4
+        )  # Same density so same captures
+        assert (
+            image_difference[3:5, 2] < 0.0
+        ).all()  # Longer release in ci_pre_ctis 2, so fainter parallel trail
+        assert (
+            image_difference[2, 3:5] < 0.0
+        ).all()  # Longer release in ci_pre_ctis 2, so fainter serial trail
+        assert (
+            image_difference[3:5, 3:5] < 0.0
+        ).all()  # Longer release in ci_pre_ctis 2, so fainter parallel trail trails
+
+    def test__individual_pixel_increase_beta__fewer_captures_so_fainter_trails(self,):
+        image_pre_cti = np.zeros((5, 5))
+        image_pre_cti[2, 2] = +100
+
+        clocker = ac.Clocker(
+            iterations=1,
+            parallel_express=5,
+            parallel_readout_offset=0,
+            serial_express=5,
+            serial_readout_offset=0,
+        )
+
+        parallel_traps = [ac.Trap(density=0.1, lifetime=1.0)]
+        serial_traps = [ac.Trap(density=0.1, lifetime=1.0)]
+
+        parallel_ccd_volume = ac.CCDVolume(
+            well_notch_depth=0.00001, well_fill_beta=0.8, well_max_height=84700
+        )
+        serial_ccd_volume = ac.CCDVolume(
+            well_notch_depth=0.00001, well_fill_beta=0.8, well_max_height=84700
+        )
+
+        image_post_cti_0 = clocker.add_cti(
+            image=image_pre_cti,
+            parallel_traps=parallel_traps,
+            parallel_ccd_volume=parallel_ccd_volume,
+            serial_traps=serial_traps,
+            serial_ccd_volume=serial_ccd_volume,
+        )
+
+        parallel_ccd_volume = ac.CCDVolume(
+            well_notch_depth=0.00001, well_fill_beta=0.9, well_max_height=84700
+        )
+        serial_ccd_volume = ac.CCDVolume(
+            well_notch_depth=0.00001, well_fill_beta=0.9, well_max_height=84700
+        )
+
+        image_post_cti_1 = clocker.add_cti(
+            image=image_pre_cti,
+            parallel_traps=parallel_traps,
+            parallel_ccd_volume=parallel_ccd_volume,
+            serial_traps=serial_traps,
+            serial_ccd_volume=serial_ccd_volume,
+        )
+
+        image_difference = image_post_cti_1 - image_post_cti_0
+
+        assert image_difference[0:2, :] == pytest.approx(
+            0.0, 1.0e-4
+        )  # First two rows remain zero
+        assert image_difference[:, 0:2] == pytest.approx(
+            0.0, 1.0e-4
+        )  # First tow columns remain zero
+        assert image_difference[2, 2] > 0.0  # Higher beta in 2, so fewer captures
+        assert (
+            image_difference[3:5, 2] < 0.0
+        ).all()  # Fewer catprues in 2, so fainter parallel trail
+        assert (
+            image_difference[2, 3:5] < 0.0
+        ).all()  # Fewer captures in 2, so fainter serial trail
+        assert (
+            image_difference[3:5, 3:5] < 0.0
+        ).all()  # fewer captures in 2, so fainter trails trail region
+
+
+class TestArcticCorrectCTIParallelOnly:
     def test__square__horizontal_line__corrected_image_more_like_original(self):
         image_pre_cti = np.zeros((5, 5))
         image_pre_cti[2, :] += 100
@@ -683,16 +1575,16 @@ class TestArcticCorrectCTI:
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
 
-        clocker = ac.Clocker(iterations=1, express=0)
+        clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference_1 = image_post_cti - image_pre_cti
 
         image_correct_cti = clocker.remove_cti(
-            image=image_post_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_post_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference_2 = image_correct_cti - image_pre_cti
@@ -710,16 +1602,16 @@ class TestArcticCorrectCTI:
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
 
-        clocker = ac.Clocker(iterations=1, express=0)
+        clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference_1 = image_post_cti - image_pre_cti
 
         image_correct_cti = clocker.remove_cti(
-            image=image_post_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_post_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference_2 = image_correct_cti - image_pre_cti
@@ -739,16 +1631,16 @@ class TestArcticCorrectCTI:
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
 
-        clocker = ac.Clocker(iterations=1, express=0)
+        clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference_1 = image_post_cti - image_pre_cti
 
         image_correct_cti = clocker.remove_cti(
-            image=image_post_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_post_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference_2 = image_correct_cti - image_pre_cti
@@ -766,22 +1658,22 @@ class TestArcticCorrectCTI:
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
 
-        clocker_x5 = ac.Clocker(iterations=5, express=0)
+        clocker_x5 = ac.Clocker(iterations=5, parallel_express=0)
 
         image_post_cti = clocker_x5.add_cti(
-            image=image_pre_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_correct_cti = clocker_x5.remove_cti(
-            image=image_post_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_post_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference_niter_5 = image_correct_cti - image_pre_cti
 
-        clocker_x3 = ac.Clocker(iterations=3, express=0)
+        clocker_x3 = ac.Clocker(iterations=3, parallel_express=0)
 
         image_correct_cti = clocker_x3.remove_cti(
-            image=image_post_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_post_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference_niter_3 = image_correct_cti - image_pre_cti
@@ -800,16 +1692,16 @@ class TestArcticCorrectCTI:
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
 
-        clocker = ac.Clocker(iterations=1, express=0)
+        clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference_1 = image_post_cti - image_pre_cti
 
         image_correct_cti = clocker.remove_cti(
-            image=image_post_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_post_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference_2 = image_correct_cti - image_pre_cti
@@ -827,16 +1719,16 @@ class TestArcticCorrectCTI:
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
 
-        clocker = ac.Clocker(iterations=1, express=0)
+        clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference_1 = image_post_cti - image_pre_cti
 
         image_correct_cti = clocker.remove_cti(
-            image=image_post_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_post_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference_2 = image_correct_cti - image_pre_cti
@@ -854,16 +1746,16 @@ class TestArcticCorrectCTI:
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
 
-        clocker = ac.Clocker(iterations=1, express=0)
+        clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference_1 = image_post_cti - image_pre_cti
 
         image_correct_cti = clocker.remove_cti(
-            image=image_post_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_post_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference_2 = image_correct_cti - image_pre_cti
@@ -881,16 +1773,16 @@ class TestArcticCorrectCTI:
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
 
-        clocker = ac.Clocker(iterations=1, express=0)
+        clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference_1 = image_post_cti - image_pre_cti
 
         image_correct_cti = clocker.remove_cti(
-            image=image_post_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_post_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference_2 = image_correct_cti - image_pre_cti
@@ -908,16 +1800,16 @@ class TestArcticCorrectCTI:
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
 
-        clocker = ac.Clocker(iterations=1, express=0)
+        clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference_1 = image_post_cti - image_pre_cti
 
         image_correct_cti = clocker.remove_cti(
-            image=image_post_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_post_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference_2 = image_correct_cti - image_pre_cti
@@ -935,16 +1827,16 @@ class TestArcticCorrectCTI:
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
 
-        clocker = ac.Clocker(iterations=1, express=0)
+        clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference_1 = image_post_cti - image_pre_cti
 
         image_correct_cti = clocker.remove_cti(
-            image=image_post_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_post_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference_2 = image_correct_cti - image_pre_cti
@@ -962,16 +1854,16 @@ class TestArcticCorrectCTI:
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
 
-        clocker = ac.Clocker(iterations=1, express=0)
+        clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference_1 = image_post_cti - image_pre_cti
 
         image_correct_cti = clocker.remove_cti(
-            image=image_post_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_post_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference_2 = image_correct_cti - image_pre_cti
@@ -989,16 +1881,16 @@ class TestArcticCorrectCTI:
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
 
-        clocker = ac.Clocker(iterations=1, express=0)
+        clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference_1 = image_post_cti - image_pre_cti
 
         image_correct_cti = clocker.remove_cti(
-            image=image_post_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_post_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference_2 = image_correct_cti - image_pre_cti
@@ -1018,16 +1910,16 @@ class TestArcticCorrectCTI:
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
 
-        clocker = ac.Clocker(iterations=1, express=0)
+        clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference_1 = image_post_cti - image_pre_cti
 
         image_correct_cti = clocker.remove_cti(
-            image=image_post_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_post_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference_2 = image_correct_cti - image_pre_cti
@@ -1047,16 +1939,16 @@ class TestArcticCorrectCTI:
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
 
-        clocker = ac.Clocker(iterations=1, express=0)
+        clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference_1 = image_post_cti - image_pre_cti
 
         image_correct_cti = clocker.remove_cti(
-            image=image_post_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_post_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference_2 = image_correct_cti - image_pre_cti
@@ -1076,16 +1968,16 @@ class TestArcticCorrectCTI:
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
 
-        clocker = ac.Clocker(iterations=1, express=0)
+        clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference_1 = image_post_cti - image_pre_cti
 
         image_correct_cti = clocker.remove_cti(
-            image=image_post_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_post_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference_2 = image_correct_cti - image_pre_cti
@@ -1105,16 +1997,16 @@ class TestArcticCorrectCTI:
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
 
-        clocker = ac.Clocker(iterations=1, express=0)
+        clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference_1 = image_post_cti - image_pre_cti
 
         image_correct_cti = clocker.remove_cti(
-            image=image_post_cti, traps=[trap], ccd_volume=ccd_volume
+            image=image_post_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
         )
 
         image_difference_2 = image_correct_cti - image_pre_cti
@@ -1122,3 +2014,57 @@ class TestArcticCorrectCTI:
         assert (
             image_difference_2 <= abs(image_difference_1)
         ).all()  # First four rows should all remain zero
+
+
+class TestArcticCorrectCTIParallelAndSerial:
+    def test__array_of_values__corrected_image_more_like_original(self,):
+        image_pre_cti = np.array(
+            [
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 9.0, 5.0, 9.5, 3.2, 9.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                [0.0, 9.0, 5.0, 9.5, 352, 9.4, 0.0],
+                [0.0, 9.0, 5.0, 9.5, 0.0, 9.0, 0.0],
+                [0.0, 9.0, 9.1, 9.3, 9.2, 9.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            ]
+        )
+
+        clocker = ac.Clocker(
+            iterations=1,
+            parallel_express=5,
+            parallel_readout_offset=0,
+            serial_express=5,
+            serial_readout_offset=0,
+        )
+
+        parallel_traps = [ac.Trap(density=0.4, lifetime=1.0)]
+        parallel_ccd_volume = ac.CCDVolume(
+            well_notch_depth=0.00001, well_fill_beta=0.8, well_max_height=84700
+        )
+
+        serial_traps = [ac.Trap(density=0.2, lifetime=2.0)]
+        serial_ccd_volume = ac.CCDVolume(
+            well_notch_depth=0.00001, well_fill_beta=0.4, well_max_height=84700
+        )
+
+        image_post_cti = clocker.add_cti(
+            image=image_pre_cti,
+            parallel_traps=parallel_traps,
+            parallel_ccd_volume=parallel_ccd_volume,
+            serial_traps=serial_traps,
+            serial_ccd_volume=serial_ccd_volume,
+        )
+
+        image_difference_1 = image_post_cti - image_pre_cti
+
+        image_correct_cti = clocker.remove_cti(
+            image=image_pre_cti,
+            parallel_traps=parallel_traps,
+            parallel_ccd_volume=parallel_ccd_volume,
+            serial_traps=serial_traps,
+            serial_ccd_volume=serial_ccd_volume,
+        )
+        image_difference_2 = image_correct_cti - image_pre_cti
+
+        assert (abs(image_difference_2) <= abs(image_difference_1)).all()

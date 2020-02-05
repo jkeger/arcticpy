@@ -1,8 +1,8 @@
 Arctic Python
 =============
 
-Charge Transfer Inefficiency (CTI) Modelling and Correction
------------------------------------------------------------
+AlgoRithm for Charge Transfer Inefficiency Correction
+-----------------------------------------------------
 
 WIP...
 

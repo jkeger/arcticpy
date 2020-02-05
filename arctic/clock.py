@@ -239,4 +239,3 @@ class Clocker(object):
                     image[row_index, column_index] = electrons_initial
 
         return image
-

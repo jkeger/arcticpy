@@ -22,7 +22,7 @@ class Clocker(object):
 
         Parameters
         --------
-        sequence [float]
+        sequence : [float]
             The array or single value of the time between clock shifts.
         iterations : int
             If CTI is being corrected, iterations determines the number of times clocking is run to perform the \
@@ -161,7 +161,7 @@ class Clocker(object):
                     (
                         electrons_released,
                         watermarks,
-                    ) = electrons_released_in_pixel(
+                    ) = electrons_released_in_pixel_and_updated_watermarks(
                         watermarks=watermarks, traps=traps
                     )
                     electrons_available += electrons_released
@@ -221,7 +221,7 @@ class Clocker(object):
         return image_remove_cti
 
 
-def electrons_released_in_pixel(watermarks, traps):
+def electrons_released_in_pixel_and_updated_watermarks(watermarks, traps):
     """ Release electrons from traps and update the trap watermarks.
 
     Parameters
@@ -279,7 +279,6 @@ def electrons_released_in_pixel(watermarks, traps):
 
 def electrons_captured_by_traps(electron_fractional_height, watermarks, traps):
     """
-
     Find the total number of electrons that the traps can capture.
 
     Parameters
@@ -341,7 +340,7 @@ def electrons_captured_by_traps(electron_fractional_height, watermarks, traps):
     return electrons_captured
 
 
-def update_watermarks(electron_fractional_height, watermarks):
+def updated_watermarks_from_capture(electron_fractional_height, watermarks):
     """ Update the trap watermarks for capturing electrons.
 
     Parameters
@@ -419,7 +418,7 @@ def update_watermarks(electron_fractional_height, watermarks):
     return watermarks
 
 
-def update_watermarks_not_enough(
+def updated_watermarks_from_capture_not_enough(
     electron_fractional_height, watermarks, enough
 ):
     """
@@ -568,12 +567,12 @@ def electrons_captured_in_pixel(
 
     # Update watermark levels
     if 1 < enough:
-        watermarks = update_watermarks(
+        watermarks = updated_watermarks_from_capture(
             electron_fractional_height=electron_fractional_height,
             watermarks=watermarks,
         )
     else:
-        watermarks = update_watermarks_not_enough(
+        watermarks = updated_watermarks_from_capture_not_enough(
             electron_fractional_height=electron_fractional_height,
             watermarks=watermarks,
             enough=enough,

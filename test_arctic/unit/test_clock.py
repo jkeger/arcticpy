@@ -5,7 +5,7 @@ import arctic as ac
 from arctic import clock
 
 
-class TestElectronsReleasedInPixel:
+class TestElectronsReleasedAndUpdatedWatermarks:
     def test__empty_release(self):
 
         traps = [ac.Trap(density=10, lifetime=-1 / np.log(0.5))]
@@ -15,7 +15,10 @@ class TestElectronsReleasedInPixel:
             rows=6, total_traps=1
         )
 
-        electrons_released, watermarks = clock.electrons_released_in_pixel(
+        (
+            electrons_released,
+            watermarks,
+        ) = clock.electrons_released_in_pixel_and_updated_watermarks(
             watermarks=watermarks, traps=traps
         )
 
@@ -32,7 +35,10 @@ class TestElectronsReleasedInPixel:
             [[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]]
         )
 
-        electrons_released, watermarks = clock.electrons_released_in_pixel(
+        (
+            electrons_released,
+            watermarks,
+        ) = clock.electrons_released_in_pixel_and_updated_watermarks(
             watermarks=watermarks, traps=traps
         )
 
@@ -61,7 +67,10 @@ class TestElectronsReleasedInPixel:
             ]
         )
 
-        electrons_released, watermarks = clock.electrons_released_in_pixel(
+        (
+            electrons_released,
+            watermarks,
+        ) = clock.electrons_released_in_pixel_and_updated_watermarks(
             watermarks=watermarks, traps=traps
         )
 
@@ -207,7 +216,7 @@ class TestUpdateWatermarks:
         )
         electron_fractional_height = 0.5
 
-        watermarks = clock.update_watermarks(
+        watermarks = clock.updated_watermarks_from_capture(
             electron_fractional_height=electron_fractional_height,
             watermarks=watermarks,
         )
@@ -223,7 +232,7 @@ class TestUpdateWatermarks:
         )
         electron_fractional_height = 0.9
 
-        watermarks = clock.update_watermarks(
+        watermarks = clock.updated_watermarks_from_capture(
             electron_fractional_height=electron_fractional_height,
             watermarks=watermarks,
         )
@@ -239,7 +248,7 @@ class TestUpdateWatermarks:
         )
         electron_fractional_height = 0.6
 
-        watermarks = clock.update_watermarks(
+        watermarks = clock.updated_watermarks_from_capture(
             electron_fractional_height=electron_fractional_height,
             watermarks=watermarks,
         )
@@ -253,7 +262,7 @@ class TestUpdateWatermarks:
         )
         electron_fractional_height = 0.75
 
-        watermarks = clock.update_watermarks(
+        watermarks = clock.updated_watermarks_from_capture(
             electron_fractional_height=electron_fractional_height,
             watermarks=watermarks,
         )
@@ -269,7 +278,7 @@ class TestUpdateWatermarks:
         )
         electron_fractional_height = 0.3
 
-        watermarks = clock.update_watermarks(
+        watermarks = clock.updated_watermarks_from_capture(
             electron_fractional_height=electron_fractional_height,
             watermarks=watermarks,
         )
@@ -294,7 +303,7 @@ class TestUpdateWatermarks:
         )
         electron_fractional_height = 0.6
 
-        watermarks = clock.update_watermarks(
+        watermarks = clock.updated_watermarks_from_capture(
             electron_fractional_height=electron_fractional_height,
             watermarks=watermarks,
         )
@@ -325,7 +334,7 @@ class TestUpdateWatermarksNotEnough:
         electron_fractional_height = 0.5
         enough = 0.7
 
-        watermarks = clock.update_watermarks_not_enough(
+        watermarks = clock.updated_watermarks_from_capture_not_enough(
             electron_fractional_height=electron_fractional_height,
             watermarks=watermarks,
             enough=enough,
@@ -344,7 +353,7 @@ class TestUpdateWatermarksNotEnough:
         electron_fractional_height = 0.8
         enough = 0.5
 
-        watermarks = clock.update_watermarks_not_enough(
+        watermarks = clock.updated_watermarks_from_capture_not_enough(
             electron_fractional_height=electron_fractional_height,
             watermarks=watermarks,
             enough=enough,
@@ -365,7 +374,7 @@ class TestUpdateWatermarksNotEnough:
         electron_fractional_height = 0.6
         enough = 0.5
 
-        watermarks = clock.update_watermarks_not_enough(
+        watermarks = clock.updated_watermarks_from_capture_not_enough(
             electron_fractional_height=electron_fractional_height,
             watermarks=watermarks,
             enough=enough,
@@ -385,7 +394,7 @@ class TestUpdateWatermarksNotEnough:
         electron_fractional_height = 0.3
         enough = 0.5
 
-        watermarks = clock.update_watermarks_not_enough(
+        watermarks = clock.updated_watermarks_from_capture_not_enough(
             electron_fractional_height=electron_fractional_height,
             watermarks=watermarks,
             enough=enough,
@@ -412,7 +421,7 @@ class TestUpdateWatermarksNotEnough:
         electron_fractional_height = 0.6
         enough = 0.5
 
-        watermarks = clock.update_watermarks_not_enough(
+        watermarks = clock.updated_watermarks_from_capture_not_enough(
             electron_fractional_height=electron_fractional_height,
             watermarks=watermarks,
             enough=enough,

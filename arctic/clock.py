@@ -214,7 +214,9 @@ class Clocker(object):
 
                 # Each pixel
                 for row_index in range(rows):
-                    express_multiplier = express_matrix[express_index, row_index]
+                    express_multiplier = express_matrix[
+                        express_index, row_index
+                    ]
                     if express_multiplier == 0:
                         continue
 
@@ -223,12 +225,15 @@ class Clocker(object):
                     electrons_available = electrons_initial
 
                     # Release
-                    electrons_released = trap_manager.electrons_released_in_pixel()
+                    electrons_released = (
+                        trap_manager.electrons_released_in_pixel()
+                    )
                     electrons_available += electrons_released
 
                     # Capture
                     electrons_captured = trap_manager.electrons_captured_in_pixel(
-                        electrons_available=electrons_available, ccd_volume=ccd_volume
+                        electrons_available=electrons_available,
+                        ccd_volume=ccd_volume,
                     )
 
                     # Total change to electrons in pixel

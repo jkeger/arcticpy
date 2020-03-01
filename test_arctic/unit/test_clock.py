@@ -40,7 +40,9 @@ class TestClocker:
 
         assert express_multiplier == pytest.approx(np.triu(np.ones((12, 12))))
 
-    def test__add_cti__parallel_only__single_pixel__compare_to_cpluspus_version(self):
+    def test__add_cti__parallel_only__single_pixel__compare_to_cpluspus_version(
+        self,
+    ):
         clocker = ac.Clocker(parallel_express=0)
 
         image = np.zeros((6, 2))
@@ -71,7 +73,7 @@ class TestClocker:
         )
 
     def test__remove_cti__parallel_only__single_pixel__compare_to_cplusplus_version(
-        self
+        self,
     ):
         image = np.zeros((6, 2))
         image[2, 1] = 1000
@@ -89,13 +91,21 @@ class TestClocker:
         )
 
         # Check similarity after different iterations
-        iterations_tolerance_dict = {1: 1e-2, 2: 1e-5, 3: 1e-7, 4: 1e-10, 5: 1e-12}
+        iterations_tolerance_dict = {
+            1: 1e-2,
+            2: 1e-5,
+            3: 1e-7,
+            4: 1e-10,
+            5: 1e-12,
+        }
 
         for iterations, tolerance in iterations_tolerance_dict.items():
             clocker = ac.Clocker(parallel_express=0, iterations=iterations)
 
             image_rem = clocker.remove_cti(
-                image=image_add, parallel_traps=traps, parallel_ccd_volume=ccd_volume
+                image=image_add,
+                parallel_traps=traps,
+                parallel_ccd_volume=ccd_volume,
             )
 
             assert image_rem == pytest.approx(image, abs=tolerance)
@@ -114,7 +124,9 @@ class TestAddCTIParallelOnly:
         clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference = image_post_cti - image_pre_cti
@@ -141,14 +153,18 @@ class TestAddCTIParallelOnly:
         clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference = image_post_cti - image_pre_cti
 
         assert (image_difference[:, 0:2] == 0.0).all()  # Most pixels unchanged
         assert (image_difference[:, 3:-1] == 0.0).all()
-        assert (image_difference[:, 2] < 0.0).all()  # charge line still loses charge
+        assert (
+            image_difference[:, 2] < 0.0
+        ).all()  # charge line still loses charge
 
     def test__square__double_density__more_captures_so_brighter_trails(self):
         image_pre_cti = np.zeros((5, 5))
@@ -168,10 +184,14 @@ class TestAddCTIParallelOnly:
         # NOW GENERATE THE IMAGE POST CTI OF EACH SET
 
         image_post_cti_0 = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap_0], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap_0],
+            parallel_ccd_volume=ccd_volume,
         )
         image_post_cti_1 = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap_1], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap_1],
+            parallel_ccd_volume=ccd_volume,
         )
 
         assert (
@@ -205,10 +225,14 @@ class TestAddCTIParallelOnly:
         # NOW GENERATE THE IMAGE POST CTI OF EACH SET
 
         image_post_cti_0 = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap_0], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap_0],
+            parallel_ccd_volume=ccd_volume,
         )
         image_post_cti_1 = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap_1], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap_1],
+            parallel_ccd_volume=ccd_volume,
         )
 
         assert (
@@ -244,10 +268,14 @@ class TestAddCTIParallelOnly:
         # NOW GENERATE THE IMAGE POST CTI OF EACH SET
 
         image_post_cti_0 = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_0
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_0,
         )
         image_post_cti_1 = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_1
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_1,
         )
 
         assert (
@@ -282,7 +310,9 @@ class TestAddCTIParallelOnly:
         # NOW GENERATE THE IMAGE POST CTI OF EACH SET
 
         image_post_cti_0 = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap_0], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap_0],
+            parallel_ccd_volume=ccd_volume,
         )
         image_post_cti_1 = clocker.add_cti(
             image=image_pre_cti,
@@ -307,7 +337,9 @@ class TestAddCTIParallelOnly:
         clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference = image_post_cti - image_pre_cti
@@ -320,11 +352,15 @@ class TestAddCTIParallelOnly:
 
         assert (image_difference[:, 2] == 0.0).all()  # No Delta, no charge
 
-        assert (image_difference[0:3, 3] == 0.0).all()  # No charge in front of Delta 2
+        assert (
+            image_difference[0:3, 3] == 0.0
+        ).all()  # No charge in front of Delta 2
         assert image_difference[3, 3] < 0.0  # Delta 2 loses charge
         assert image_difference[4, 3] > 0.0  # Delta 2 trail
 
-        assert (image_difference[0:2, 4] == 0.0).all()  # No charge in front of Delta 3
+        assert (
+            image_difference[0:2, 4] == 0.0
+        ).all()  # No charge in front of Delta 3
         assert image_difference[2, 4] < 0.0  # Delta 3 loses charge
         assert (image_difference[3:5, 4] > 0.0).all()  # Delta 3 trail
 
@@ -340,7 +376,9 @@ class TestAddCTIParallelOnly:
         clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference = image_post_cti - image_pre_cti
@@ -361,7 +399,9 @@ class TestAddCTIParallelOnly:
         clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference = image_post_cti - image_pre_cti
@@ -382,7 +422,9 @@ class TestAddCTIParallelOnly:
         clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference = image_post_cti - image_pre_cti
@@ -403,7 +445,9 @@ class TestAddCTIParallelOnly:
         clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
         image_difference = image_post_cti - image_pre_cti
 
@@ -423,7 +467,9 @@ class TestAddCTIParallelOnly:
         clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference = image_post_cti - image_pre_cti
@@ -444,7 +490,9 @@ class TestAddCTIParallelOnly:
         clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference = image_post_cti - image_pre_cti
@@ -465,7 +513,9 @@ class TestAddCTIParallelOnly:
         clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference = image_post_cti - image_pre_cti
@@ -486,7 +536,9 @@ class TestAddCTIParallelOnly:
         clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference = image_post_cti - image_pre_cti
@@ -495,7 +547,9 @@ class TestAddCTIParallelOnly:
         assert (image_difference[:, 3:-1] == 0.0).all()
         assert (image_difference[:, 2] < 0.0).all()
 
-    def test__rectangle__delta_functions__add_cti_only_behind_them__odd_x_odd(self,):
+    def test__rectangle__delta_functions__add_cti_only_behind_them__odd_x_odd(
+        self,
+    ):
         image_pre_cti = np.zeros((5, 7))
         image_pre_cti[1, 1] += 100  # Delta 1
         image_pre_cti[3, 3] += 100  # Delta 2
@@ -509,7 +563,9 @@ class TestAddCTIParallelOnly:
         clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference = image_post_cti - image_pre_cti
@@ -522,18 +578,24 @@ class TestAddCTIParallelOnly:
 
         assert (image_difference[:, 2] == 0.0).all()  # No Delta, no charge
 
-        assert (image_difference[0:3, 3] == 0.0).all()  # No charge in front of Delta 2
+        assert (
+            image_difference[0:3, 3] == 0.0
+        ).all()  # No charge in front of Delta 2
         assert image_difference[3, 3] < 0.0  # Delta 2 loses charge
         assert image_difference[4, 3] > 0.0  # Delta 2 trail
 
-        assert (image_difference[0:2, 4] == 0.0).all()  # No charge in front of Delta 3
+        assert (
+            image_difference[0:2, 4] == 0.0
+        ).all()  # No charge in front of Delta 3
         assert image_difference[2, 4] < 0.0  # Delta 3 loses charge
         assert (image_difference[3:5, 4] > 0.0).all()  # Delta 3 trail
 
         assert (image_difference[:, 5] == 0.0).all()  # No Delta, no charge
         assert (image_difference[:, 6] == 0.0).all()  # No Delta, no charge
 
-    def test__rectangle__delta_functions__add_cti_only_behind_them__even_x_even(self,):
+    def test__rectangle__delta_functions__add_cti_only_behind_them__even_x_even(
+        self,
+    ):
         image_pre_cti = np.zeros((6, 8))
         image_pre_cti[1, 1] += 100  # Delta 1
         image_pre_cti[3, 3] += 100  # Delta 2
@@ -547,7 +609,9 @@ class TestAddCTIParallelOnly:
         clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference = image_post_cti - image_pre_cti
@@ -560,11 +624,15 @@ class TestAddCTIParallelOnly:
 
         assert (image_difference[:, 2] == 0.0).all()  # No Delta, no charge
 
-        assert (image_difference[0:3, 3] == 0.0).all()  # No charge in front of Delta 2
+        assert (
+            image_difference[0:3, 3] == 0.0
+        ).all()  # No charge in front of Delta 2
         assert image_difference[3, 3] < 0.0  # Delta 2 loses charge
         assert image_difference[4, 3] > 0.0  # Delta 2 trail
 
-        assert (image_difference[0:2, 4] == 0.0).all()  # No charge in front of Delta 3
+        assert (
+            image_difference[0:2, 4] == 0.0
+        ).all()  # No charge in front of Delta 3
         assert image_difference[2, 4] < 0.0  # Delta 3 loses charge
         assert (image_difference[3:5, 4] > 0.0).all()  # Delta 3 trail
 
@@ -572,7 +640,9 @@ class TestAddCTIParallelOnly:
         assert (image_difference[:, 6] == 0.0).all()  # No Delta, no charge
         assert (image_difference[:, 7] == 0.0).all()  # No Delta, no charge
 
-    def test__rectangle__delta_functions__add_cti_only_behind_them__even_x_odd(self,):
+    def test__rectangle__delta_functions__add_cti_only_behind_them__even_x_odd(
+        self,
+    ):
         image_pre_cti = np.zeros((6, 7))
         image_pre_cti[1, 1] += 100  # Delta 1
         image_pre_cti[3, 3] += 100  # Delta 2
@@ -586,7 +656,9 @@ class TestAddCTIParallelOnly:
         clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference = image_post_cti - image_pre_cti
@@ -599,18 +671,24 @@ class TestAddCTIParallelOnly:
 
         assert (image_difference[:, 2] == 0.0).all()  # No Delta, no charge
 
-        assert (image_difference[0:3, 3] == 0.0).all()  # No charge in front of Delta 2
+        assert (
+            image_difference[0:3, 3] == 0.0
+        ).all()  # No charge in front of Delta 2
         assert image_difference[3, 3] < 0.0  # Delta 2 loses charge
         assert image_difference[4, 3] > 0.0  # Delta 2 trail
 
-        assert (image_difference[0:2, 4] == 0.0).all()  # No charge in front of Delta 3
+        assert (
+            image_difference[0:2, 4] == 0.0
+        ).all()  # No charge in front of Delta 3
         assert image_difference[2, 4] < 0.0  # Delta 3 loses charge
         assert (image_difference[3:5, 4] > 0.0).all()  # Delta 3 trail
 
         assert (image_difference[:, 5] == 0.0).all()  # No Delta, no charge
         assert (image_difference[:, 6] == 0.0).all()  # No Delta, no charge
 
-    def test__rectangle__delta_functions__add_cti_only_behind_them__odd_x_even(self,):
+    def test__rectangle__delta_functions__add_cti_only_behind_them__odd_x_even(
+        self,
+    ):
         image_pre_cti = np.zeros((5, 6))
 
         image_pre_cti[1, 1] += 100  # Delta 1
@@ -625,7 +703,9 @@ class TestAddCTIParallelOnly:
         clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference = image_post_cti - image_pre_cti
@@ -638,11 +718,15 @@ class TestAddCTIParallelOnly:
 
         assert (image_difference[:, 2] == 0.0).all()  # No Delta, no charge
 
-        assert (image_difference[0:3, 3] == 0.0).all()  # No charge in front of Delta 2
+        assert (
+            image_difference[0:3, 3] == 0.0
+        ).all()  # No charge in front of Delta 2
         assert image_difference[3, 3] < 0.0  # Delta 2 loses charge
         assert image_difference[4, 3] > 0.0  # Delta 2 trail
 
-        assert (image_difference[0:2, 4] == 0.0).all()  # No charge in front of Delta 3
+        assert (
+            image_difference[0:2, 4] == 0.0
+        ).all()  # No charge in front of Delta 3
         assert image_difference[2, 4] < 0.0  # Delta 3 loses charge
         assert (image_difference[3:5, 4] > 0.0).all()  # Delta 3 trail
 
@@ -650,7 +734,9 @@ class TestAddCTIParallelOnly:
 
 
 class TestArcticAddCTIParallelAndSerial:
-    def test__horizontal_charge_line__loses_charge_trails_form_both_directions(self,):
+    def test__horizontal_charge_line__loses_charge_trails_form_both_directions(
+        self,
+    ):
 
         clocker = ac.Clocker(
             iterations=1,
@@ -683,10 +769,14 @@ class TestArcticAddCTIParallelAndSerial:
 
         image_difference = image_post_cti - image_pre_cti
 
-        assert (image_difference[0:2, :] == 0.0).all()  # No change in front of charge
+        assert (
+            image_difference[0:2, :] == 0.0
+        ).all()  # No change in front of charge
         assert (image_difference[2, 1:4] < 0.0).all()  # charge lost in charge
 
-        assert (image_difference[3:5, 1:4] > 0.0).all()  # Parallel trails behind charge
+        assert (
+            image_difference[3:5, 1:4] > 0.0
+        ).all()  # Parallel trails behind charge
 
         assert image_difference[2:5, 0] == pytest.approx(0.0, 1.0e-4)
         # no serial cti trail to left
@@ -736,10 +826,14 @@ class TestArcticAddCTIParallelAndSerial:
 
         image_difference = image_post_cti - image_pre_cti
 
-        assert (image_difference[0, 0:5] == 0.0).all()  # No change in front of charge
+        assert (
+            image_difference[0, 0:5] == 0.0
+        ).all()  # No change in front of charge
         assert (image_difference[1:4, 2] < 0.0).all()  # charge lost in charge
 
-        assert (image_difference[4, 2] > 0.0).all()  # Parallel trail behind charge
+        assert (
+            image_difference[4, 2] > 0.0
+        ).all()  # Parallel trail behind charge
 
         assert image_difference[0:5, 0:2] == pytest.approx(0.0, 1.0e-4)
         assert (
@@ -805,7 +899,9 @@ class TestArcticAddCTIParallelAndSerial:
             image_difference[3:5, 3:5] > 0.0
         ).all()  # Serial trailing of parallel trail increases charge up-right of pixel
 
-    def test__individual_pixel_double_density__more_captures_so_brighter_trails(self,):
+    def test__individual_pixel_double_density__more_captures_so_brighter_trails(
+        self,
+    ):
 
         clocker = ac.Clocker(
             iterations=1,
@@ -933,7 +1029,9 @@ class TestArcticAddCTIParallelAndSerial:
             image_difference[3:5, 3:5] < 0.0
         ).all()  # Longer release in ci_pre_ctis 2, so fainter parallel trail trails
 
-    def test__individual_pixel_increase_beta__fewer_captures_so_fainter_trails(self,):
+    def test__individual_pixel_increase_beta__fewer_captures_so_fainter_trails(
+        self,
+    ):
         image_pre_cti = np.zeros((5, 5))
         image_pre_cti[2, 2] = +100
 
@@ -986,7 +1084,9 @@ class TestArcticAddCTIParallelAndSerial:
         assert image_difference[:, 0:2] == pytest.approx(
             0.0, 1.0e-4
         )  # First tow columns remain zero
-        assert image_difference[2, 2] > 0.0  # Higher beta in 2, so fewer captures
+        assert (
+            image_difference[2, 2] > 0.0
+        )  # Higher beta in 2, so fewer captures
         assert (
             image_difference[3:5, 2] < 0.0
         ).all()  # Fewer catprues in 2, so fainter parallel trail
@@ -1011,13 +1111,17 @@ class TestArcticCorrectCTIParallelOnly:
         clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference_1 = image_post_cti - image_pre_cti
 
         image_correct_cti = clocker.remove_cti(
-            image=image_post_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_post_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference_2 = image_correct_cti - image_pre_cti
@@ -1038,13 +1142,17 @@ class TestArcticCorrectCTIParallelOnly:
         clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference_1 = image_post_cti - image_pre_cti
 
         image_correct_cti = clocker.remove_cti(
-            image=image_post_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_post_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference_2 = image_correct_cti - image_pre_cti
@@ -1067,13 +1175,17 @@ class TestArcticCorrectCTIParallelOnly:
         clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference_1 = image_post_cti - image_pre_cti
 
         image_correct_cti = clocker.remove_cti(
-            image=image_post_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_post_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference_2 = image_correct_cti - image_pre_cti
@@ -1094,11 +1206,15 @@ class TestArcticCorrectCTIParallelOnly:
         clocker_x5 = ac.Clocker(iterations=5, parallel_express=0)
 
         image_post_cti = clocker_x5.add_cti(
-            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_correct_cti = clocker_x5.remove_cti(
-            image=image_post_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_post_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference_niter_5 = image_correct_cti - image_pre_cti
@@ -1106,7 +1222,9 @@ class TestArcticCorrectCTIParallelOnly:
         clocker_x3 = ac.Clocker(iterations=3, parallel_express=0)
 
         image_correct_cti = clocker_x3.remove_cti(
-            image=image_post_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_post_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference_niter_3 = image_correct_cti - image_pre_cti
@@ -1128,13 +1246,17 @@ class TestArcticCorrectCTIParallelOnly:
         clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference_1 = image_post_cti - image_pre_cti
 
         image_correct_cti = clocker.remove_cti(
-            image=image_post_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_post_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference_2 = image_correct_cti - image_pre_cti
@@ -1155,13 +1277,17 @@ class TestArcticCorrectCTIParallelOnly:
         clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference_1 = image_post_cti - image_pre_cti
 
         image_correct_cti = clocker.remove_cti(
-            image=image_post_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_post_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference_2 = image_correct_cti - image_pre_cti
@@ -1182,13 +1308,17 @@ class TestArcticCorrectCTIParallelOnly:
         clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference_1 = image_post_cti - image_pre_cti
 
         image_correct_cti = clocker.remove_cti(
-            image=image_post_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_post_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference_2 = image_correct_cti - image_pre_cti
@@ -1209,13 +1339,17 @@ class TestArcticCorrectCTIParallelOnly:
         clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference_1 = image_post_cti - image_pre_cti
 
         image_correct_cti = clocker.remove_cti(
-            image=image_post_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_post_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference_2 = image_correct_cti - image_pre_cti
@@ -1236,13 +1370,17 @@ class TestArcticCorrectCTIParallelOnly:
         clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference_1 = image_post_cti - image_pre_cti
 
         image_correct_cti = clocker.remove_cti(
-            image=image_post_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_post_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference_2 = image_correct_cti - image_pre_cti
@@ -1263,13 +1401,17 @@ class TestArcticCorrectCTIParallelOnly:
         clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference_1 = image_post_cti - image_pre_cti
 
         image_correct_cti = clocker.remove_cti(
-            image=image_post_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_post_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference_2 = image_correct_cti - image_pre_cti
@@ -1290,13 +1432,17 @@ class TestArcticCorrectCTIParallelOnly:
         clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference_1 = image_post_cti - image_pre_cti
 
         image_correct_cti = clocker.remove_cti(
-            image=image_post_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_post_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference_2 = image_correct_cti - image_pre_cti
@@ -1317,13 +1463,17 @@ class TestArcticCorrectCTIParallelOnly:
         clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference_1 = image_post_cti - image_pre_cti
 
         image_correct_cti = clocker.remove_cti(
-            image=image_post_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_post_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference_2 = image_correct_cti - image_pre_cti
@@ -1346,13 +1496,17 @@ class TestArcticCorrectCTIParallelOnly:
         clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference_1 = image_post_cti - image_pre_cti
 
         image_correct_cti = clocker.remove_cti(
-            image=image_post_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_post_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference_2 = image_correct_cti - image_pre_cti
@@ -1375,13 +1529,17 @@ class TestArcticCorrectCTIParallelOnly:
         clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference_1 = image_post_cti - image_pre_cti
 
         image_correct_cti = clocker.remove_cti(
-            image=image_post_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_post_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference_2 = image_correct_cti - image_pre_cti
@@ -1404,13 +1562,17 @@ class TestArcticCorrectCTIParallelOnly:
         clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference_1 = image_post_cti - image_pre_cti
 
         image_correct_cti = clocker.remove_cti(
-            image=image_post_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_post_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference_2 = image_correct_cti - image_pre_cti
@@ -1433,13 +1595,17 @@ class TestArcticCorrectCTIParallelOnly:
         clocker = ac.Clocker(iterations=1, parallel_express=0)
 
         image_post_cti = clocker.add_cti(
-            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference_1 = image_post_cti - image_pre_cti
 
         image_correct_cti = clocker.remove_cti(
-            image=image_post_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume
+            image=image_post_cti,
+            parallel_traps=[trap],
+            parallel_ccd_volume=ccd_volume,
         )
 
         image_difference_2 = image_correct_cti - image_pre_cti

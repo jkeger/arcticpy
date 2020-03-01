@@ -43,7 +43,12 @@ class Trap(object):
         return self.density * (
             a
             + d_a * (np.arctan((np.log(self.lifetime) - d_p) / d_w))
-            + (g_a * np.exp(-((np.log(self.lifetime) - g_p) ** 2.0) / (2 * g_w ** 2.0)))
+            + (
+                g_a
+                * np.exp(
+                    -((np.log(self.lifetime) - g_p) ** 2.0) / (2 * g_w ** 2.0)
+                )
+            )
         )
 
     def __repr__(self):
@@ -65,7 +70,7 @@ class Trap(object):
         column.
 
         Parameters
-        -----------
+        ----------
         trap
         shape : (int, int)
             The shape of the image, so that the correct number of trap densities are computed.
@@ -80,7 +85,9 @@ class Trap(object):
         poisson_trap = []
         for densities in poisson_densities:
             for i, s in enumerate(trap):
-                poisson_trap.append(Trap(density=densities[i], lifetime=s.lifetime))
+                poisson_trap.append(
+                    Trap(density=densities[i], lifetime=s.lifetime)
+                )
 
         return poisson_trap
 
@@ -110,18 +117,18 @@ class TrapManager(object):
         """ Initialise the watermark array of trap states.
 
         Parameters
-        -----------
+        ----------
         rows :int
             The number of rows in the image. i.e. the maximum number of
             possible electron trap/release events.
         total_traps : int
-            The number of trap trap being modelled.
+            The number of traps being modelled.
 
         Returns
         --------
         watermarks : np.ndarray
             Array of watermark heights and fill fractions to describe the trap states. Lists each (active) watermark
-            height_e fraction and the corresponding fill fractions of each trap trap. Inactive elements are set to 0.
+            height_e fraction and the corresponding fill fractions of each traps. Inactive elements are set to 0.
 
             [[height_e, fill, fill, ...],
              [height_e, fill, fill, ...],
@@ -158,7 +165,7 @@ class TrapManager(object):
             # Initialise the number of released electrons from this watermark level
             electrons_released_watermark = 0
 
-            # For each trap trap
+            # For each traps
             for trap_index, trap in enumerate(self.traps):
                 # Number of released electrons (not yet including the trap density)
                 electrons_released_from_trap = trap.electrons_released_from_electrons(
@@ -177,7 +184,8 @@ class TrapManager(object):
 
             # Multiply the summed fill fractions by the height
             electrons_released += (
-                electrons_released_watermark * self.watermarks[watermark_index, 0]
+                electrons_released_watermark
+                * self.watermarks[watermark_index, 0]
             )
 
         return electrons_released
@@ -189,7 +197,7 @@ class TrapManager(object):
         Find the total number of electrons that the traps can capture.
 
         Parameters
-        ------------
+        -----------
         electron_fractional_height : float
             The fractional height of the electron cloud in the pixel.
 
@@ -200,15 +208,15 @@ class TrapManager(object):
             An array of one or more objects describing a trap of trap.
 
         Returns
-        ---------
+        -------
         electrons_captured : float
             The number of captured electrons.
         """
         # Initialise the number of captured electrons
         electrons_captured = 0
 
-        # The number of traps of each trap
-        densities = [trap_trap.density for trap_trap in traps]
+        # The number of traps of each species
+        densities = [trap.density for trap in traps]
 
         # Find the highest active watermark
         max_watermark_index = np.argmax(watermarks[:, 0] == 0) - 1
@@ -222,7 +230,7 @@ class TrapManager(object):
             watermark_height = watermarks[watermark_index, 0]
             cumulative_watermark_height += watermark_height
 
-            # Capture electrons all the way to this watermark (for all trap trap)
+            # Capture electrons all the way to this watermark (for all traps)
             if cumulative_watermark_height < electron_fractional_height:
                 electrons_captured += watermark_height * np.sum(
                     (1 - watermarks[watermark_index, 1:]) * densities
@@ -246,11 +254,13 @@ class TrapManager(object):
 
         return electrons_captured
 
-    def updated_watermarks_from_capture(self, electron_fractional_height, watermarks):
+    def updated_watermarks_from_capture(
+        self, electron_fractional_height, watermarks
+    ):
         """ Update the trap watermarks for capturing electrons.
 
         Parameters
-        -----------
+        ----------
         electron_fractional_height : float
             The fractional height of the electron cloud in the pixel.
 
@@ -301,7 +311,9 @@ class TrapManager(object):
             watermarks[: watermark_index_above_cloud - 1, :] = 0
 
             # Move the no-longer-needed watermarks to the end of the list
-            watermarks = np.roll(watermarks, 1 - watermark_index_above_cloud, axis=0)
+            watermarks = np.roll(
+                watermarks, 1 - watermark_index_above_cloud, axis=0
+            )
 
             # Edit the new first watermark
             watermarks[0, 0] = electron_fractional_height
@@ -387,7 +399,8 @@ class TrapManager(object):
             # original fill) * enough.
             # e.g. enough = 0.5 --> fill half way to 1.
             watermarks[: watermark_index_above_height + 1, 1:] = (
-                watermarks[: watermark_index_above_height + 1, 1:] * (1 - enough)
+                watermarks[: watermark_index_above_height + 1, 1:]
+                * (1 - enough)
                 + enough
             )
 
@@ -401,7 +414,9 @@ class TrapManager(object):
             else:
                 # Edit the new watermarks' heights
                 watermarks[
-                    watermark_index_above_height : watermark_index_above_height + 2, 0
+                    watermark_index_above_height : watermark_index_above_height
+                    + 2,
+                    0,
                 ] *= (1 - enough)
 
         # If none will be overwritten
@@ -423,14 +438,14 @@ class TrapManager(object):
         Capture electrons in traps and update the trap watermarks.
 
         Parameters
-        -----------
+        ----------
         electrons_available : float
             The number of available electrons for trapping.
         ccd_volume : CCDVolume
             The object describing the CCD.
 
         Returns
-        ---------
+        -------
         electrons_captured : float
             The number of captured electrons.
         
@@ -447,6 +462,137 @@ class TrapManager(object):
         # The fractional height the electron cloud reaches in the pixel well
         electron_fractional_height = ccd_volume.electron_fractional_height_from_electrons(
             electrons=electrons_available
+        )
+
+        # Find the number of electrons that should be captured
+        electrons_captured = self.electrons_captured_by_traps(
+            electron_fractional_height=electron_fractional_height,
+            watermarks=self.watermarks,
+            traps=self.traps,
+        )
+
+        # Stop if no capture
+        if electrons_captured == 0:
+            return electrons_captured
+
+        # Check whether enough electrons are available to be captured
+        enough = electrons_available / electrons_captured
+
+        # Update watermark levels
+        if 1 < enough:
+            self.watermarks = self.updated_watermarks_from_capture(
+                electron_fractional_height=electron_fractional_height,
+                watermarks=self.watermarks,
+            )
+        else:
+            self.watermarks = self.updated_watermarks_from_capture_not_enough(
+                electron_fractional_height=electron_fractional_height,
+                watermarks=self.watermarks,
+                enough=enough,
+            )
+            # Reduce the final number of captured electrons
+            electrons_captured *= enough
+
+        return electrons_captured
+
+
+class TrapManagerNonUniformDistribution(TrapManager):
+    """ For a non-uniform distribution of traps with height within the pixel.
+    """
+
+    def __init__(
+        self,
+        traps,
+        rows,
+        electron_fractional_height_min,
+        electron_fractional_height_max,
+    ):
+        """The manager for potentially multiple trap species that must use 
+        watermarks in the same way as each other.
+
+        Parameters
+        ----------
+        traps : [Trap]
+            A list of one or more trap objects.
+        rows :int
+            The number of rows in the image. i.e. the maximum number of
+            possible electron trap/release events.
+        electron_fractional_height_min, electron_fractional_height_max : float
+            The minimum (maximum) fractional height of the electron cloud in 
+            the pixel below (above) which corresponds to an effective fractional 
+            height of 0 (1), with a linear relation in between.
+        """
+        super(TrapManagerNonUniformDistribution, self).__init__(
+            traps=traps, rows=rows
+        )
+
+        self.electron_fractional_height_min = electron_fractional_height_min
+        self.electron_fractional_height_max = electron_fractional_height_max
+
+    def effective_non_uniform_electron_fractional_height(
+        self, electron_fractional_height
+    ):
+        """
+        Find the total number of electrons that the traps can capture, for a 
+        non-uniform distribution of traps with height within the pixel.
+
+        Parameters
+        -----------
+        electron_fractional_height : float
+            The original fractional height of the electron cloud in the pixel.
+            
+        Returns
+        -------
+        electron_fractional_height : float
+            The effective fractional height of the electron cloud in the pixel
+            given the distribution of traps with height within the pixel.
+        """
+        if electron_fractional_height <= self.electron_fractional_height_min:
+            return 0
+        elif self.electron_fractional_height_max <= electron_fractional_height:
+            return 1
+        else:
+            return (
+                electron_fractional_height - self.electron_fractional_height_min
+            ) / (
+                self.electron_fractional_height_max
+                - self.electron_fractional_height_min
+            )
+
+    def electrons_captured_in_pixel(self, electrons_available, ccd_volume):
+        """
+        Capture electrons in traps and update the trap watermarks.
+
+        Parameters
+        ----------
+        electrons_available : float
+            The number of available electrons for trapping.
+        ccd_volume : CCDVolume
+            The object describing the CCD.
+
+        Returns
+        -------
+        electrons_captured : float
+            The number of captured electrons.
+        
+        Updates
+        -------
+        watermarks : np.ndarray
+            The updated watermarks. See initial_watermarks_from_rows_and_total_traps().
+        """
+
+        # Zero capture if no electrons are high enough to be trapped
+        if electrons_available < ccd_volume.well_notch_depth:
+            return 0
+
+        # The fractional height the electron cloud reaches in the pixel well
+        electron_fractional_height = ccd_volume.electron_fractional_height_from_electrons(
+            electrons=electrons_available
+        )
+
+        # Modify the effective height for non-uniform trap distributions
+        electron_fractional_height = self.effective_non_uniform_electron_fractional_height(
+            electron_fractional_height
         )
 
         # Find the number of electrons that should be captured

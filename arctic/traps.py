@@ -3,7 +3,7 @@ import numpy as np
 
 class Trap(object):
     def __init__(self, density=0.13, lifetime=0.25):
-        """The CTI model parameters used for parallel clocking, using one trap of trap.
+        """The parameters for a single trap species.
 
         Parameters
         ----------
@@ -15,6 +15,7 @@ class Trap(object):
         self.density = density
         self.lifetime = lifetime
         self.exponential_factor = 1 - np.exp(-1 / lifetime)
+        # self.exponential_factor = 1 - np.exp(-time / lifetime) ###wip
 
     def electrons_released_from_electrons(self, electrons):
         """ Calculate the number of released electrons from the trap.
@@ -43,12 +44,7 @@ class Trap(object):
         return self.density * (
             a
             + d_a * (np.arctan((np.log(self.lifetime) - d_p) / d_w))
-            + (
-                g_a
-                * np.exp(
-                    -((np.log(self.lifetime) - g_p) ** 2.0) / (2 * g_w ** 2.0)
-                )
-            )
+            + (g_a * np.exp(-((np.log(self.lifetime) - g_p) ** 2.0) / (2 * g_w ** 2.0)))
         )
 
     def __repr__(self):
@@ -85,11 +81,39 @@ class Trap(object):
         poisson_trap = []
         for densities in poisson_densities:
             for i, s in enumerate(trap):
-                poisson_trap.append(
-                    Trap(density=densities[i], lifetime=s.lifetime)
-                )
+                poisson_trap.append(Trap(density=densities[i], lifetime=s.lifetime))
 
         return poisson_trap
+
+
+class TrapNonUniformDistribution(Trap):
+    def __init__(
+        self,
+        density,
+        lifetime,
+        electron_fractional_height_min,
+        electron_fractional_height_max,
+    ):
+        """The parameters for a single trap species 
+
+        Parameters
+        ----------
+        density : float
+            The trap density of the trap.
+        lifetime : float
+            The trap lifetimes of the trap.
+        electron_fractional_height_min, electron_fractional_height_max : float
+            The minimum (maximum) fractional height of the electron cloud in 
+            the pixel below (above) which corresponds to an effective fractional 
+            height of 0 (1), with a linear relation in between.
+        """
+        super(TrapNonUniformDistribution, self).__init__(
+            density=density, 
+            lifetime=lifetime
+        )
+
+        self.electron_fractional_height_min = electron_fractional_height_min
+        self.electron_fractional_height_max = electron_fractional_height_max
 
 
 class TrapManager(object):
@@ -184,8 +208,7 @@ class TrapManager(object):
 
             # Multiply the summed fill fractions by the height
             electrons_released += (
-                electrons_released_watermark
-                * self.watermarks[watermark_index, 0]
+                electrons_released_watermark * self.watermarks[watermark_index, 0]
             )
 
         return electrons_released
@@ -254,9 +277,7 @@ class TrapManager(object):
 
         return electrons_captured
 
-    def updated_watermarks_from_capture(
-        self, electron_fractional_height, watermarks
-    ):
+    def updated_watermarks_from_capture(self, electron_fractional_height, watermarks):
         """ Update the trap watermarks for capturing electrons.
 
         Parameters
@@ -311,9 +332,7 @@ class TrapManager(object):
             watermarks[: watermark_index_above_cloud - 1, :] = 0
 
             # Move the no-longer-needed watermarks to the end of the list
-            watermarks = np.roll(
-                watermarks, 1 - watermark_index_above_cloud, axis=0
-            )
+            watermarks = np.roll(watermarks, 1 - watermark_index_above_cloud, axis=0)
 
             # Edit the new first watermark
             watermarks[0, 0] = electron_fractional_height
@@ -399,8 +418,7 @@ class TrapManager(object):
             # original fill) * enough.
             # e.g. enough = 0.5 --> fill half way to 1.
             watermarks[: watermark_index_above_height + 1, 1:] = (
-                watermarks[: watermark_index_above_height + 1, 1:]
-                * (1 - enough)
+                watermarks[: watermark_index_above_height + 1, 1:] * (1 - enough)
                 + enough
             )
 
@@ -414,9 +432,7 @@ class TrapManager(object):
             else:
                 # Edit the new watermarks' heights
                 watermarks[
-                    watermark_index_above_height : watermark_index_above_height
-                    + 2,
-                    0,
+                    watermark_index_above_height : watermark_index_above_height + 2, 0,
                 ] *= (1 - enough)
 
         # If none will be overwritten
@@ -501,18 +517,15 @@ class TrapManagerNonUniformDistribution(TrapManager):
     """
 
     def __init__(
-        self,
-        traps,
-        rows,
-        electron_fractional_height_min,
-        electron_fractional_height_max,
+        self, traps, rows,
     ):
         """The manager for potentially multiple trap species that must use 
         watermarks in the same way as each other.
         
         Allows a non-uniform distribution of trap heights within the pixel, by 
         modifying the effective height that the electron cloud reaches in terms 
-        of the proportion of traps that are reached.
+        of the proportion of traps that are reached. Must be the same for all 
+        traps in this manager.
 
         Parameters
         ----------
@@ -521,17 +534,11 @@ class TrapManagerNonUniformDistribution(TrapManager):
         rows :int
             The number of rows in the image. i.e. the maximum number of
             possible electron trap/release events.
-        electron_fractional_height_min, electron_fractional_height_max : float
-            The minimum (maximum) fractional height of the electron cloud in 
-            the pixel below (above) which corresponds to an effective fractional 
-            height of 0 (1), with a linear relation in between.
         """
-        super(TrapManagerNonUniformDistribution, self).__init__(
-            traps=traps, rows=rows
-        )
+        super(TrapManagerNonUniformDistribution, self).__init__(traps=traps, rows=rows)
 
-        self.electron_fractional_height_min = electron_fractional_height_min
-        self.electron_fractional_height_max = electron_fractional_height_max
+        self.electron_fractional_height_min = traps[0].electron_fractional_height_min
+        self.electron_fractional_height_max = traps[0].electron_fractional_height_max
 
     def effective_non_uniform_electron_fractional_height(
         self, electron_fractional_height

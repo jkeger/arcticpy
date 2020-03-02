@@ -5,9 +5,7 @@ import arctic as ac
 
 
 class TestInitialWatermarks:
-    def test__initial_watermark_array__uses_rows_and_total_traps_to_set_size(
-        self,
-    ):
+    def test__initial_watermark_array__uses_rows_and_total_traps_to_set_size(self,):
         trap_manager = ac.TrapManager(traps=[None], rows=6)
 
         watermarks = trap_manager.initial_watermarks_from_rows_and_total_traps(
@@ -55,9 +53,7 @@ class TestElectronsReleasedAndUpdatedWatermarks:
 
         assert electrons_released == pytest.approx(2.5)
         assert trap_manager.watermarks == pytest.approx(
-            np.array(
-                [[0.5, 0.4], [0.2, 0.2], [0.1, 0.1], [0, 0], [0, 0], [0, 0]]
-            )
+            np.array([[0.5, 0.4], [0.2, 0.2], [0.1, 0.1], [0, 0], [0, 0], [0, 0]])
         )
 
     def test__multiple_traps(self):
@@ -128,9 +124,7 @@ class TestElectronsCapturedByTraps:
             traps=trap_manager.traps,
         )
 
-        assert electrons_captured == pytest.approx(
-            (0.1 + 0.12 + 0.07 + 0.1) * 10
-        )
+        assert electrons_captured == pytest.approx((0.1 + 0.12 + 0.07 + 0.1) * 10)
 
     def test__middle_new_watermarks(self):
 
@@ -297,9 +291,7 @@ class TestUpdateWatermarks:
         )
 
         assert watermarks == pytest.approx(
-            np.array(
-                [[0.3, 1], [0.2, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0]]
-            )
+            np.array([[0.3, 1], [0.2, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0]])
         )
 
     def test__multiple_traps(self):
@@ -359,9 +351,7 @@ class TestUpdateWatermarksNotEnough:
 
         trap_manager = ac.TrapManager(traps=[None], rows=6)
 
-        watermarks = np.array(
-            [[0.5, 0.8], [0.2, 0.4], [0, 0], [0, 0], [0, 0], [0, 0]]
-        )
+        watermarks = np.array([[0.5, 0.8], [0.2, 0.4], [0, 0], [0, 0], [0, 0], [0, 0]])
 
         electron_fractional_height = 0.8
         enough = 0.5
@@ -373,9 +363,7 @@ class TestUpdateWatermarksNotEnough:
         )
 
         assert watermarks == pytest.approx(
-            np.array(
-                [[0.5, 0.9], [0.2, 0.7], [0.1, 0.5], [0, 0], [0, 0], [0, 0]]
-            )
+            np.array([[0.5, 0.9], [0.2, 0.7], [0.1, 0.5], [0, 0], [0, 0], [0, 0]])
         )
 
     def test__new_middle_watermark(self):
@@ -396,9 +384,7 @@ class TestUpdateWatermarksNotEnough:
         )
 
         assert watermarks == pytest.approx(
-            np.array(
-                [[0.5, 0.9], [0.1, 0.7], [0.1, 0.4], [0.1, 0.3], [0, 0], [0, 0]]
-            )
+            np.array([[0.5, 0.9], [0.1, 0.7], [0.1, 0.4], [0.1, 0.3], [0, 0], [0, 0]])
         )
 
     def test__new_lowest_watermark(self):
@@ -418,9 +404,7 @@ class TestUpdateWatermarksNotEnough:
         )
 
         assert watermarks == pytest.approx(
-            np.array(
-                [[0.3, 0.9], [0.2, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0]]
-            )
+            np.array([[0.3, 0.9], [0.2, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0]])
         )
 
     def test__multiple_traps(self):
@@ -542,9 +526,7 @@ class TestElectronsCapturedInPixel:
 
         assert electrons_captured == pytest.approx(0.0025)
         assert trap_manager.watermarks == pytest.approx(
-            np.array(
-                [[4.9999e-4, 0.50001], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]]
-            )
+            np.array([[4.9999e-4, 0.50001], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]])
         )
 
     def test__not_enough__multiple_traps(self):
@@ -576,9 +558,7 @@ class TestElectronsCapturedInPixel:
             electrons_available=electrons_available, ccd_volume=ccd_volume
         )
 
-        assert electrons_captured == pytest.approx(
-            2.199545e-4 * (0.1 * 10 + 0.15 * 8)
-        )
+        assert electrons_captured == pytest.approx(2.199545e-4 * (0.1 * 10 + 0.15 * 8))
         assert trap_manager.watermarks == pytest.approx(
             np.array(
                 [
@@ -596,36 +576,33 @@ class TestElectronsCapturedInPixel:
 class TestTrapManagerNonUniformDistribution:
     def test__effective_non_uniform_electron_fractional_height(self):
 
-        traps = [ac.Trap(density=10, lifetime=-1 / np.log(0.5))]
-        trap_manager = ac.TrapManagerNonUniformDistribution(
-            traps=traps,
-            rows=6,
-            electron_fractional_height_min=0.95,
-            electron_fractional_height_max=1,
-        )
+        traps = [
+            ac.TrapNonUniformDistribution(
+                density=10,
+                lifetime=-1 / np.log(0.5),
+                electron_fractional_height_min=0.95,
+                electron_fractional_height_max=1,
+            )
+        ]
+        trap_manager = ac.TrapManagerNonUniformDistribution(traps=traps, rows=6,)
 
+        assert trap_manager.effective_non_uniform_electron_fractional_height(0.9) == 0
+        assert trap_manager.effective_non_uniform_electron_fractional_height(1) == 1
         assert (
-            trap_manager.effective_non_uniform_electron_fractional_height(0.9)
-            == 0
-        )
-        assert (
-            trap_manager.effective_non_uniform_electron_fractional_height(1)
-            == 1
-        )
-        assert (
-            trap_manager.effective_non_uniform_electron_fractional_height(0.975)
-            == 0.5
+            trap_manager.effective_non_uniform_electron_fractional_height(0.975) == 0.5
         )
 
     def test__first_capture(self):
 
-        traps = [ac.Trap(density=10, lifetime=-1 / np.log(0.5))]
-        trap_manager = ac.TrapManagerNonUniformDistribution(
-            traps=traps,
-            rows=6,
-            electron_fractional_height_min=0.95,
-            electron_fractional_height_max=1,
-        )
+        traps = [
+            ac.TrapNonUniformDistribution(
+                density=10,
+                lifetime=-1 / np.log(0.5),
+                electron_fractional_height_min=0.95,
+                electron_fractional_height_max=1,
+            )
+        ]
+        trap_manager = ac.TrapManagerNonUniformDistribution(traps=traps, rows=6,)
 
         electron_fractional_height = 0.5
 
@@ -637,12 +614,7 @@ class TestTrapManagerNonUniformDistribution:
 
         assert electrons_captured == pytest.approx(0.5 * 10)
 
-        trap_manager = ac.TrapManagerNonUniformDistribution(
-            traps=traps,
-            rows=6,
-            electron_fractional_height_min=0.95,
-            electron_fractional_height_max=1,
-        )
+        trap_manager = ac.TrapManagerNonUniformDistribution(traps=traps, rows=6,)
 
         electron_fractional_height = 0.99
 
@@ -656,13 +628,15 @@ class TestTrapManagerNonUniformDistribution:
 
     def test__middle_new_watermarks(self):
 
-        traps = [ac.Trap(density=10, lifetime=-1 / np.log(0.5))]
-        trap_manager = ac.TrapManagerNonUniformDistribution(
-            traps=traps,
-            rows=6,
-            electron_fractional_height_min=0.95,
-            electron_fractional_height_max=1,
-        )
+        traps = [
+            ac.TrapNonUniformDistribution(
+                density=10,
+                lifetime=-1 / np.log(0.5),
+                electron_fractional_height_min=0.95,
+                electron_fractional_height_max=1,
+            )
+        ]
+        trap_manager = ac.TrapManagerNonUniformDistribution(traps=traps, rows=6,)
 
         trap_manager.watermarks = np.array(
             [[0.96, 0.8], [0.98, 0.4], [0.99, 0.3], [0, 0], [0, 0], [0, 0]]
@@ -675,6 +649,4 @@ class TestTrapManagerNonUniformDistribution:
             traps=trap_manager.traps,
         )
 
-        assert electrons_captured == pytest.approx(
-            (0.96 * 0.2 + 0.01 * 0.6) * 10
-        )
+        assert electrons_captured == pytest.approx((0.96 * 0.2 + 0.01 * 0.6) * 10)

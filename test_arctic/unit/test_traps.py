@@ -218,7 +218,8 @@ class TestUpdateWatermarks:
         electron_fractional_height = 0.5
 
         watermarks = trap_manager.updated_watermarks_from_capture(
-            electron_fractional_height=electron_fractional_height, watermarks=watermarks
+            electron_fractional_height=electron_fractional_height,
+            watermarks=watermarks,
         )
 
         assert watermarks == pytest.approx(
@@ -235,7 +236,8 @@ class TestUpdateWatermarks:
         electron_fractional_height = 0.9
 
         watermarks = trap_manager.updated_watermarks_from_capture(
-            electron_fractional_height=electron_fractional_height, watermarks=watermarks
+            electron_fractional_height=electron_fractional_height,
+            watermarks=watermarks,
         )
 
         assert watermarks == pytest.approx(
@@ -252,7 +254,8 @@ class TestUpdateWatermarks:
         electron_fractional_height = 0.6
 
         watermarks = trap_manager.updated_watermarks_from_capture(
-            electron_fractional_height=electron_fractional_height, watermarks=watermarks
+            electron_fractional_height=electron_fractional_height,
+            watermarks=watermarks,
         )
 
         assert watermarks == pytest.approx(
@@ -265,7 +268,8 @@ class TestUpdateWatermarks:
         electron_fractional_height = 0.75
 
         watermarks = trap_manager.updated_watermarks_from_capture(
-            electron_fractional_height=electron_fractional_height, watermarks=watermarks
+            electron_fractional_height=electron_fractional_height,
+            watermarks=watermarks,
         )
 
         assert watermarks == pytest.approx(
@@ -282,7 +286,8 @@ class TestUpdateWatermarks:
         electron_fractional_height = 0.3
 
         watermarks = trap_manager.updated_watermarks_from_capture(
-            electron_fractional_height=electron_fractional_height, watermarks=watermarks
+            electron_fractional_height=electron_fractional_height,
+            watermarks=watermarks,
         )
 
         assert watermarks == pytest.approx(
@@ -306,7 +311,8 @@ class TestUpdateWatermarks:
         electron_fractional_height = 0.6
 
         watermarks = trap_manager.updated_watermarks_from_capture(
-            electron_fractional_height=electron_fractional_height, watermarks=watermarks
+            electron_fractional_height=electron_fractional_height,
+            watermarks=watermarks,
         )
 
         assert watermarks == pytest.approx(
@@ -324,7 +330,7 @@ class TestUpdateWatermarks:
 
 
 class TestUpdateWatermarksNotEnough:
-    def test__first_captrue(self):
+    def test__first_capture(self):
 
         trap_manager = ac.TrapManager(traps=[None], rows=6)
 
@@ -505,9 +511,7 @@ class TestElectronsCapturedInPixel:
 
     def test__not_enough__first_capture(self):
 
-        electrons_available = (
-            2.5e-3
-        )  # --> electron_fractional_height = 4.9999e-4, enough=enough = 0.50001
+        electrons_available = 2.5e-3  # --> electron_fractional_height = 4.9999e-4, enough=enough = 0.50001
 
         traps = [ac.Trap(density=10, lifetime=-1 / np.log(0.5))]
         trap_manager = ac.TrapManager(traps=traps, rows=6)
@@ -527,9 +531,7 @@ class TestElectronsCapturedInPixel:
 
     def test__not_enough__multiple_traps(self):
 
-        electrons_available = (
-            4.839e-4
-        )  # --> electron_fractional_height = 2.199545e-4, enough=enough = 0.5
+        electrons_available = 4.839e-4  # --> electron_fractional_height = 2.199545e-4, enough=enough = 0.5
 
         traps = [
             ac.Trap(density=10, lifetime=-1 / np.log(0.5)),
@@ -569,3 +571,82 @@ class TestElectronsCapturedInPixel:
                 ]
             )
         )
+
+
+class TestTrapManagerNonUniformDistribution:
+    def test__effective_non_uniform_electron_fractional_height(self):
+
+        traps = [
+            ac.TrapNonUniformDistribution(
+                density=10,
+                lifetime=-1 / np.log(0.5),
+                electron_fractional_height_min=0.95,
+                electron_fractional_height_max=1,
+            )
+        ]
+        trap_manager = ac.TrapManagerNonUniformDistribution(traps=traps, rows=6,)
+
+        assert trap_manager.effective_non_uniform_electron_fractional_height(0.9) == 0
+        assert trap_manager.effective_non_uniform_electron_fractional_height(1) == 1
+        assert (
+            trap_manager.effective_non_uniform_electron_fractional_height(0.975) == 0.5
+        )
+
+    def test__first_capture(self):
+
+        traps = [
+            ac.TrapNonUniformDistribution(
+                density=10,
+                lifetime=-1 / np.log(0.5),
+                electron_fractional_height_min=0.95,
+                electron_fractional_height_max=1,
+            )
+        ]
+        trap_manager = ac.TrapManagerNonUniformDistribution(traps=traps, rows=6,)
+
+        electron_fractional_height = 0.5
+
+        electrons_captured = trap_manager.electrons_captured_by_traps(
+            electron_fractional_height=electron_fractional_height,
+            watermarks=trap_manager.watermarks,
+            traps=trap_manager.traps,
+        )
+
+        assert electrons_captured == pytest.approx(0.5 * 10)
+
+        trap_manager = ac.TrapManagerNonUniformDistribution(traps=traps, rows=6,)
+
+        electron_fractional_height = 0.99
+
+        electrons_captured = trap_manager.electrons_captured_by_traps(
+            electron_fractional_height=electron_fractional_height,
+            watermarks=trap_manager.watermarks,
+            traps=trap_manager.traps,
+        )
+
+        assert electrons_captured == pytest.approx(0.99 * 10)
+
+    def test__middle_new_watermarks(self):
+
+        traps = [
+            ac.TrapNonUniformDistribution(
+                density=10,
+                lifetime=-1 / np.log(0.5),
+                electron_fractional_height_min=0.95,
+                electron_fractional_height_max=1,
+            )
+        ]
+        trap_manager = ac.TrapManagerNonUniformDistribution(traps=traps, rows=6,)
+
+        trap_manager.watermarks = np.array(
+            [[0.96, 0.8], [0.98, 0.4], [0.99, 0.3], [0, 0], [0, 0], [0, 0]]
+        )
+        electron_fractional_height = 0.97
+
+        electrons_captured = trap_manager.electrons_captured_by_traps(
+            electron_fractional_height=electron_fractional_height,
+            watermarks=trap_manager.watermarks,
+            traps=trap_manager.traps,
+        )
+
+        assert electrons_captured == pytest.approx((0.96 * 0.2 + 0.01 * 0.6) * 10)

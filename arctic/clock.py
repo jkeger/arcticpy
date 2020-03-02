@@ -18,34 +18,58 @@ class Clocker(object):
     def __init__(
         self,
         iterations=1,
-        parallel_sequence=1,
-        parallel_express=5,
+        parallel_sequence=[1],
+        parallel_express=0,
         parallel_charge_injection_mode=False,
         parallel_readout_offset=0,
-        serial_sequence=1,
-        serial_express=5,
+        serial_sequence=[1],
+        serial_express=0,
         serial_readout_offset=0,
     ):
         """
-        The CTI Clock for arctic clocking.
+        The parameters for the clocking of electrons across the pixels.
 
         Parameters
         ----------
         iterations : int
-            If CTI is being corrected, iterations determines the number of times clocking is run to perform the \
-            correction via forward modeling. For adding CTI only one run is required and iterations is ignored.
-        parallel_sequence : [float]
-            The array or single value of the time between clock shifts.
+            If CTI is being corrected, iterations determines the number of times 
+            clocking is run to perform the correction via forward modeling. For 
+            adding CTI only one run is required and iterations is ignored.
+        parallel_sequence : float or [float]
+            The array or single value of the time between clock shifts in each 
+            phase or single phase for parallel clocking. The trap release 
+            lifetimes must be in the same units. Different CCDVolume parameters 
+            may be used for each phase.
         parallel_express : int
-            The factor by which pixel-to-pixel transfers are combined for efficiency.
+            The factor by which pixel-to-pixel transfers are combined for 
+            efficiency for parallel clocking.
         parallel_charge_injection_mode : bool
-            If True, clocking is performed in charge injection line mode, where each pixel is clocked and therefore \
-             trailed by traps over the entire CCD (as opposed to its distance from the CCD register).
+            If True, parallel clocking is performed in charge injection line 
+            mode, where each pixel is clocked and therefore trailed by traps 
+            over the entire CCD (as opposed to its distance from the CCD register).
         parallel_readout_offset : int
-            Introduces an offset which increases the number of transfers each pixel takes in the parallel direction.
+            Introduces an offset which increases the number of transfers each 
+            pixel takes in the parallel direction.
+        serial_sequence : float or [float]
+            The array or single value of the time between clock shifts in each 
+            phase or single phase for serial clocking. The trap release 
+            lifetimes must be in the same units. Different CCDVolume parameters 
+            may be used for each phase.
+        serial_express : int
+            The factor by which pixel-to-pixel transfers are combined for 
+            efficiency for serial clocking.
+        serial_readout_offset : int
+            Introduces an offset which increases the number of transfers each 
+            pixel takes in the serial direction.
         """
 
         self.iterations = iterations
+
+        # Make sure the arrays are arrays
+        if not isinstance(parallel_sequence, list):
+            parallel_sequence = [parallel_sequence]
+        if not isinstance(serial_sequence, list):
+            serial_sequence = [serial_sequence]
 
         self.parallel_sequence = parallel_sequence
         self.parallel_express = parallel_express

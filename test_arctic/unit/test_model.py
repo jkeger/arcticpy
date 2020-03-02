@@ -9,29 +9,27 @@ class TestSpecies:
 
         trap = ac.Trap(lifetime=1.0)
 
-        assert trap.electrons_released_from_electrons(
-            electrons=1.0
-        ) == pytest.approx(0.6321, 1.0e-4)
-        assert trap.electrons_released_from_electrons(
-            electrons=2.0
-        ) == pytest.approx(2.0 * 0.6321, 1.0e-4)
+        assert trap.electrons_released_from_electrons(electrons=1.0) == pytest.approx(
+            0.6321, 1.0e-4
+        )
+        assert trap.electrons_released_from_electrons(electrons=2.0) == pytest.approx(
+            2.0 * 0.6321, 1.0e-4
+        )
 
         trap = ac.Trap(lifetime=2.0)
 
-        assert trap.electrons_released_from_electrons(
-            electrons=1.0
-        ) == pytest.approx(0.39346, 1.0e-4)
-        assert trap.electrons_released_from_electrons(
-            electrons=2.0
-        ) == pytest.approx(2.0 * 0.39346, 1.0e-4)
+        assert trap.electrons_released_from_electrons(electrons=1.0) == pytest.approx(
+            0.39346, 1.0e-4
+        )
+        assert trap.electrons_released_from_electrons(electrons=2.0) == pytest.approx(
+            2.0 * 0.39346, 1.0e-4
+        )
 
     def test__delta_ellipticity_of_trap(self):
 
         trap = ac.Trap(density=0.5, lifetime=2.0)
 
-        assert trap.delta_ellipticity == pytest.approx(
-            0.047378295117617694, 1.0e-5
-        )
+        assert trap.delta_ellipticity == pytest.approx(0.047378295117617694, 1.0e-5)
 
     def test__delta_ellipticity_of_arctic_params(self):
 
@@ -43,21 +41,16 @@ class TestSpecies:
         parameters = ac.ArcticParams(parallel_traps=[parallel_1_trap])
         assert parameters.delta_ellipticity == parallel_1_trap.delta_ellipticity
 
-        parameters = ac.ArcticParams(
-            parallel_traps=[parallel_1_trap, parallel_2_trap]
-        )
+        parameters = ac.ArcticParams(parallel_traps=[parallel_1_trap, parallel_2_trap])
         assert (
             parameters.delta_ellipticity
-            == parallel_1_trap.delta_ellipticity
-            + parallel_2_trap.delta_ellipticity
+            == parallel_1_trap.delta_ellipticity + parallel_2_trap.delta_ellipticity
         )
 
         parameters = ac.ArcticParams(serial_traps=[serial_1_trap])
         assert parameters.delta_ellipticity == serial_1_trap.delta_ellipticity
 
-        parameters = ac.ArcticParams(
-            serial_traps=[serial_1_trap, serial_2_trap]
-        )
+        parameters = ac.ArcticParams(serial_traps=[serial_1_trap, serial_2_trap])
         assert (
             parameters.delta_ellipticity
             == serial_1_trap.delta_ellipticity + serial_2_trap.delta_ellipticity
@@ -84,10 +77,7 @@ class TestParallelDensityVary:
 
         parallel_vary = ac.Trap.poisson_trap(
             trap=list(
-                map(
-                    lambda density: ac.Trap(density=density, lifetime=1.0),
-                    (0.1,),
-                )
+                map(lambda density: ac.Trap(density=density, lifetime=1.0), (0.1,),)
             ),
             shape=(1000, 1),
             seed=1,
@@ -100,10 +90,7 @@ class TestParallelDensityVary:
     ):
         parallel_vary = ac.Trap.poisson_trap(
             trap=list(
-                map(
-                    lambda density: ac.Trap(density=density, lifetime=1.0),
-                    (1.0,),
-                )
+                map(lambda density: ac.Trap(density=density, lifetime=1.0), (1.0,),)
             ),
             shape=(1000, 1),
             seed=1,
@@ -114,10 +101,7 @@ class TestParallelDensityVary:
     def test__1_trap__density_1___2_row_pixels__poisson_value_is_near_1(self):
         parallel_vary = ac.Trap.poisson_trap(
             trap=list(
-                map(
-                    lambda density: ac.Trap(density=density, lifetime=1.0),
-                    (1.0,),
-                )
+                map(lambda density: ac.Trap(density=density, lifetime=1.0), (1.0,),)
             ),
             shape=(1000, 2),
             seed=1,
@@ -128,10 +112,7 @@ class TestParallelDensityVary:
     def test__2_trap__1_row_pixel__poisson_for_each_trap_drawn(self):
         parallel_vary = ac.Trap.poisson_trap(
             trap=list(
-                map(
-                    lambda density: ac.Trap(density=density, lifetime=1.0),
-                    (1.0, 2.0),
-                )
+                map(lambda density: ac.Trap(density=density, lifetime=1.0), (1.0, 2.0),)
             ),
             shape=(1000, 1),
             seed=1,
@@ -142,10 +123,7 @@ class TestParallelDensityVary:
     def test__2_trap__2_row_pixel__poisson_for_each_trap_drawn(self):
         parallel_vary = ac.Trap.poisson_trap(
             trap=list(
-                map(
-                    lambda density: ac.Trap(density=density, lifetime=1.0),
-                    (1.0, 2.0),
-                )
+                map(lambda density: ac.Trap(density=density, lifetime=1.0), (1.0, 2.0),)
             ),
             shape=(1000, 2),
             seed=1,
@@ -184,9 +162,7 @@ class TestParallelDensityVary:
 
 
 class TestCCDVolume:
-    def test__eletron_fractional_height_from_electrons__gives_correct_value(
-        self,
-    ):
+    def test__eletron_fractional_height_from_electrons__gives_correct_value(self,):
 
         parallel_ccd_volume = ac.CCDVolume(
             well_max_height=10000.0, well_notch_depth=0.0, well_fill_beta=1.0
@@ -244,9 +220,7 @@ class TestCCDVolume:
 
 
 class TestCCDVolumeComplex:
-    def test__eletron_fractional_height_from_electrons__gives_correct_value(
-        self,
-    ):
+    def test__eletron_fractional_height_from_electrons__gives_correct_value(self,):
 
         parallel_ccd_volume = ac.CCDVolumeComplex(
             well_max_height=15.0,

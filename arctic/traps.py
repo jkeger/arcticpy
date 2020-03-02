@@ -108,8 +108,7 @@ class TrapNonUniformDistribution(Trap):
             height of 0 (1), with a linear relation in between.
         """
         super(TrapNonUniformDistribution, self).__init__(
-            density=density, 
-            lifetime=lifetime
+            density=density, lifetime=lifetime
         )
 
         self.electron_fractional_height_min = electron_fractional_height_min

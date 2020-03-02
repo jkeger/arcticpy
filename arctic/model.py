@@ -32,9 +32,9 @@ class ArcticParams(object):
 
     @property
     def delta_ellipticity(self):
-        return sum(
-            [trap.delta_ellipticity for trap in self.parallel_traps]
-        ) + sum([trap.delta_ellipticity for trap in self.serial_traps])
+        return sum([trap.delta_ellipticity for trap in self.parallel_traps]) + sum(
+            [trap.delta_ellipticity for trap in self.serial_traps]
+        )
 
 
 class CCDVolume(object):

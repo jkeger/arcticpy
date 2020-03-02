@@ -7,7 +7,11 @@
 import numpy as np
 from copy import deepcopy
 
-from arctic.traps import TrapManager
+from arctic.traps import (
+    TrapNonUniformDistribution,
+    TrapManager,
+    TrapManagerNonUniformDistribution,
+)
 
 
 class Clocker(object):
@@ -27,11 +31,11 @@ class Clocker(object):
 
         Parameters
         ----------
-        parallel_sequence : [float]
-            The array or single value of the time between clock shifts.
         iterations : int
             If CTI is being corrected, iterations determines the number of times clocking is run to perform the \
             correction via forward modeling. For adding CTI only one run is required and iterations is ignored.
+        parallel_sequence : [float]
+            The array or single value of the time between clock shifts.
         parallel_express : int
             The factor by which pixel-to-pixel transfers are combined for efficiency.
         parallel_charge_injection_mode : bool
@@ -100,8 +104,10 @@ class Clocker(object):
         ----------
         image : np.ndarray
             The input array of pixel values.
-        traps : [Trap]
-            A list of one or more trap objects.
+        traps : [Trap] or [[Trap]]
+            A list of one or more trap objects. To use different types of traps 
+            that will require different watermark levels, pass a 2D list of 
+            lists, comprised of a list of one or more traps for each type.
         ccd_volume : CCDVolume
             The object describing the CCD volume.
 
@@ -113,6 +119,10 @@ class Clocker(object):
 
         rows, columns = image.shape
 
+        # Make sure traps is a 2D array
+        if not isinstance(traps[0], list):
+            traps = [traps]
+
         # Default to no express and calculate every step
         express = rows if express == 0 else express
 
@@ -120,8 +130,15 @@ class Clocker(object):
             rows=rows, express=express
         )
 
-        # Set up the trap manager
-        trap_manager = TrapManager(traps=traps, rows=rows)
+        # Set up the array of trap managers
+        trap_managers = []
+        for trap_group in traps:
+            if type(traps) is TrapNonUniformDistribution:
+                trap_managers.append(
+                    TrapManagerNonUniformDistribution(traps=trap_group, rows=rows)
+                )
+            else:
+                trap_managers.append(TrapManager(traps=trap_group, rows=rows))
 
         # Each independent column of pixels
         for column_index in range(columns):
@@ -130,13 +147,12 @@ class Clocker(object):
             for express_index in range(express):
 
                 # Reset the trap states
-                trap_manager.reset_traps_for_next_express_loop()
+                for trap_manager in trap_managers:
+                    trap_manager.reset_traps_for_next_express_loop()
 
                 # Each pixel
                 for row_index in range(rows):
-                    express_multiplier = express_matrix[
-                        express_index, row_index
-                    ]
+                    express_multiplier = express_matrix[express_index, row_index]
                     if express_multiplier == 0:
                         continue
 
@@ -145,16 +161,18 @@ class Clocker(object):
                     electrons_available = electrons_initial
 
                     # Release
-                    electrons_released = (
-                        trap_manager.electrons_released_in_pixel()
-                    )
+                    electrons_released = 0
+                    for trap_manager in trap_managers:
+                        electrons_released += trap_manager.electrons_released_in_pixel()
                     electrons_available += electrons_released
 
                     # Capture
-                    electrons_captured = trap_manager.electrons_captured_in_pixel(
-                        electrons_available=electrons_available,
-                        ccd_volume=ccd_volume,
-                    )
+                    electrons_captured = 0
+                    for trap_manager in trap_managers:
+                        electrons_captured += trap_manager.electrons_captured_in_pixel(
+                            electrons_available=electrons_available,
+                            ccd_volume=ccd_volume,
+                        )
 
                     # Total change to electrons in pixel
                     electrons_initial += (

@@ -91,6 +91,80 @@ class Clocker(object):
 
         return express_multiplier
 
+    def _add_cti_to_image(self, image, traps, ccd_volume, express):
+        """
+        Add CTI trails to an image by trapping, releasing, and moving electrons 
+        along their independent columns.
+
+        Parameters
+        ----------
+        image : np.ndarray
+            The input array of pixel values.
+        traps : [Trap]
+            A list of one or more trap objects.
+        ccd_volume : CCDVolume
+            The object describing the CCD volume.
+
+        Returns
+        -------
+        image : np.ndarray
+            The output array of pixel values.
+        """
+
+        rows, columns = image.shape
+
+        # Default to no express and calculate every step
+        express = rows if express == 0 else express
+
+        express_matrix = self.express_matrix_from_rows_and_express(
+            rows=rows, express=express
+        )
+
+        # Set up the trap manager
+        trap_manager = TrapManager(traps=traps, rows=rows)
+
+        # Each independent column of pixels
+        for column_index in range(columns):
+
+            # Each calculation of the effects of traps on the pixels
+            for express_index in range(express):
+
+                # Reset the trap states
+                trap_manager.reset_traps_for_next_express_loop()
+
+                # Each pixel
+                for row_index in range(rows):
+                    express_multiplier = express_matrix[
+                        express_index, row_index
+                    ]
+                    if express_multiplier == 0:
+                        continue
+
+                    # Initial number of electrons available for trapping
+                    electrons_initial = image[row_index, column_index]
+                    electrons_available = electrons_initial
+
+                    # Release
+                    electrons_released = (
+                        trap_manager.electrons_released_in_pixel()
+                    )
+                    electrons_available += electrons_released
+
+                    # Capture
+                    electrons_captured = trap_manager.electrons_captured_in_pixel(
+                        electrons_available=electrons_available,
+                        ccd_volume=ccd_volume,
+                    )
+
+                    # Total change to electrons in pixel
+                    electrons_initial += (
+                        electrons_released - electrons_captured
+                    ) * express_multiplier
+
+                    image[row_index, column_index] = electrons_initial
+
+        return image
+
     def add_cti(
         self,
         image,
@@ -100,16 +174,21 @@ class Clocker(object):
         serial_ccd_volume=None,
     ):
         """
-        Add CTI trails to an image by trapping, releasing, and moving electrons along their independent columns.
+        Add CTI trails to an image by trapping, releasing, and moving electrons 
+        along their independent columns, for parallel and serial clocking.
 
         Parameters
         ----------
         image : np.ndarray
             The input array of pixel values.
         parallel_traps : [Trap]
-            A list of one or more trap objects.
+            A list of one or more trap objects for parallel clocking.
         parallel_ccd_volume : CCDVolume
-            The object describing the CCD volume.
+            The object describing the CCD volume for parallel clocking.
+        serial_traps : [Trap]
+            A list of one or more trap objects for serial clocking.
+        serial_ccd_volume : CCDVolume
+            The object describing the CCD volume for serial clocking.
 
         Returns
         -------
@@ -188,59 +267,3 @@ class Clocker(object):
             image_remove_cti += image - image_add_cti
 
         return image_remove_cti
-
-    def _add_cti_to_image(self, image, traps, ccd_volume, express):
-
-        rows, columns = image.shape
-
-        # Default to no express and calculate every step
-        express = rows if express == 0 else express
-
-        express_matrix = self.express_matrix_from_rows_and_express(
-            rows=rows, express=express
-        )
-
-        # Set up the trap manager
-        trap_manager = TrapManager(traps=traps, rows=rows)
-
-        # Each independent column of pixels
-        for column_index in range(columns):
-
-            # Each calculation of the effects of traps on the pixels
-            for express_index in range(express):
-
-                # Reset the trap states
-                trap_manager.reset_traps_for_next_express_loop()
-
-                # Each pixel
-                for row_index in range(rows):
-                    express_multiplier = express_matrix[
-                        express_index, row_index
-                    ]
-                    if express_multiplier == 0:
-                        continue
-
-                    # Initial number of electrons available for trapping
-                    electrons_initial = image[row_index, column_index]
-                    electrons_available = electrons_initial
-
-                    # Release
-                    electrons_released = (
-                        trap_manager.electrons_released_in_pixel()
-                    )
-                    electrons_available += electrons_released
-
-                    # Capture
-                    electrons_captured = trap_manager.electrons_captured_in_pixel(
-                        electrons_available=electrons_available,
-                        ccd_volume=ccd_volume,
-                    )
-
-                    # Total change to electrons in pixel
-                    electrons_initial += (
-                        electrons_released - electrons_captured
-                    ) * express_multiplier
-
-                    image[row_index, column_index] = electrons_initial
-
-        return image

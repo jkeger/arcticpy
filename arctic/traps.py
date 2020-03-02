@@ -509,6 +509,10 @@ class TrapManagerNonUniformDistribution(TrapManager):
     ):
         """The manager for potentially multiple trap species that must use 
         watermarks in the same way as each other.
+        
+        Allows a non-uniform distribution of trap heights within the pixel, by 
+        modifying the effective height that the electron cloud reaches in terms 
+        of the proportion of traps that are reached.
 
         Parameters
         ----------

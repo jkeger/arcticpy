@@ -1095,7 +1095,10 @@ class TestAddCTIParallelMultiPhase:
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
 
-        clocker = ac.Clocker(parallel_sequence=[0.5, 0.2, 0.2, 0.1],)
+        clocker = ac.Clocker(
+            parallel_sequence=[0.5, 0.2, 0.2, 0.1], 
+            parallel_phase_widths=[0.5, 0.2, 0.2, 0.1],
+        )
 
         image_post_cti = clocker.add_cti(
             image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume,
@@ -1112,7 +1115,7 @@ class TestAddCTIParallelMultiPhase:
         assert (
             image_difference[3:-1, :] > 0.0
         ).all()  # All other pixels should have charge trailed into them
-
+    
 
 class TestArcticCorrectCTIParallelOnly:
     def test__square__horizontal_line__corrected_image_more_like_original(self):

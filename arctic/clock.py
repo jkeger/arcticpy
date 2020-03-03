@@ -19,11 +19,13 @@ class Clocker(object):
         self,
         iterations=1,
         parallel_sequence=[1],
+        parallel_phase_widths=[1],
         parallel_express=0,
         parallel_charge_injection_mode=False,
         parallel_readout_offset=0,
         parallel_initial_phase=0,
         serial_sequence=[1],
+        serial_phase_widths=[1],
         serial_express=0,
         serial_readout_offset=0,
         serial_initial_phase=0,
@@ -42,6 +44,10 @@ class Clocker(object):
             phase or single phase for parallel clocking. The trap release 
             lifetimes must be in the same units. Different CCDVolume parameters 
             may be used for each phase.
+        parallel_phase_widths : float or [float]
+            The array or single value of the physical width of each phase as a 
+            fraction of the pixel for parallel multi-phase clocking. Must be the 
+            same size as parallel_sequence.
         parallel_express : int
             The factor by which pixel-to-pixel transfers are combined for 
             efficiency for parallel clocking.
@@ -61,6 +67,10 @@ class Clocker(object):
             phase or single phase for serial clocking. The trap release 
             lifetimes must be in the same units. Different CCDVolume parameters 
             may be used for each phase.
+        serial_phase_widths : float or [float]
+            The array or single value of the physical width of each phase as a 
+            fraction of the pixel for serial multi-phase clocking. Must be the 
+            same size as serial_sequence.
         serial_express : int
             The factor by which pixel-to-pixel transfers are combined for 
             efficiency for serial clocking.
@@ -78,16 +88,22 @@ class Clocker(object):
         # Make sure the arrays are arrays
         if not isinstance(parallel_sequence, list):
             parallel_sequence = [parallel_sequence]
+        if not isinstance(parallel_phase_widths, list):
+            parallel_phase_widths = [parallel_phase_widths]
         if not isinstance(serial_sequence, list):
             serial_sequence = [serial_sequence]
+        if not isinstance(serial_phase_widths, list):
+            serial_phase_widths = [serial_phase_widths]
 
         self.parallel_sequence = parallel_sequence
+        self.parallel_phase_widths = parallel_phase_widths
         self.parallel_express = parallel_express
         self.parallel_charge_injection_mode = parallel_charge_injection_mode
         self.parallel_readout_offset = parallel_readout_offset
         self.parallel_initial_phase = parallel_initial_phase
 
         self.serial_sequence = serial_sequence
+        self.serial_phase_widths = serial_phase_widths
         self.serial_express = serial_express
         self.serial_readout_offset = serial_readout_offset
         self.serial_initial_phase = serial_initial_phase
@@ -132,7 +148,8 @@ class Clocker(object):
         return express_multiplier
 
     def _add_cti_to_image(
-        self, image, sequence, traps, ccd_volume, express, initial_phase
+        self, image, sequence, phase_widths, traps, ccd_volume, express, 
+        initial_phase
     ):
         """
         Add CTI trails to an image by trapping, releasing, and moving electrons 
@@ -147,6 +164,10 @@ class Clocker(object):
             phase or single phase. The trap release lifetimes must be in the 
             same units. Different CCDVolume parameters may be used for each 
             phase.
+        phase_widths : float or [float]
+            The array or single value of the physical width of each phase as a 
+            fraction of the pixel for multi-phase clocking. Must be the same
+            size as sequence.
         traps : [Trap] or [[Trap]]
             A list of one or more trap objects. To use different types of traps 
             that will require different watermark levels, pass a 2D list of 
@@ -174,13 +195,18 @@ class Clocker(object):
         # Make sure the arrays are arrays
         if not isinstance(sequence, list):
             sequence = [sequence]
+        if not isinstance(phase_widths, list):
+            phase_widths = [phase_widths]
         if not isinstance(traps[0], list):
             traps = [traps]
         if not isinstance(ccd_volume, list):
             ccd_volume = [ccd_volume]
 
-        # Assume the same CCD volume for all phases if not otherwise specified
         phases = len(sequence)
+        assert len(phase_widths) == phases
+        assert np.amax(phase_widths) <= 1
+        
+        # Assume the same CCD volume for all phases if not otherwise specified
         if len(ccd_volume) == 1 and len(ccd_volume) != phases:
             ccd_volume *= phases
         assert len(ccd_volume) == phases
@@ -213,7 +239,7 @@ class Clocker(object):
             else:
                 trap_managers.append(TrapManager(traps=trap_group, rows=rows))
 
-        # Each independent column of pixels
+        # Clock each independent column of pixels
         for column_index in range(columns):
 
             # Each calculation of the effects of traps on the pixels
@@ -240,7 +266,8 @@ class Clocker(object):
                     electrons_released = 0
                     for trap_manager in trap_managers:
                         electrons_released += trap_manager.electrons_released_in_pixel(
-                            sequence[phase]
+                            time=sequence[phase], 
+                            width=phase_widths[phase]
                         )
                     electrons_available += electrons_released
 
@@ -249,7 +276,8 @@ class Clocker(object):
                     for trap_manager in trap_managers:
                         electrons_captured += trap_manager.electrons_captured_in_pixel(
                             electrons_available=electrons_available,
-                            ccd_volume=ccd_volume[phase],
+                            ccd_volume=ccd_volume[phase], 
+                            width=phase_widths[phase],
                         )
 
                     # Total change to electrons in pixel
@@ -290,8 +318,8 @@ class Clocker(object):
             one or more traps for each type. 
         parallel_ccd_volume : CCDVolume or [CCDVolume]
             The object describing the CCD volume for parallel clocking. For 
-            multi-phase clocking optionally enter use a list of different CCD
-            volumes for each phase, in the same size list as parallel_sequence.
+            multi-phase clocking optionally use a list of different CCD volumes
+            for each phase, in the same size list as parallel_sequence.
         serial_traps : [Trap] or [[Trap]]
             A list of one or more trap objects for serial clocking. To use 
             different types of traps that will require different watermark 
@@ -299,8 +327,8 @@ class Clocker(object):
             one or more traps for each type. 
         serial_ccd_volume : CCDVolume or [CCDVolume]
             The object describing the CCD volume for serial clocking. For 
-            multi-phase clocking optionally enter use a list of different CCD
-            volumes for each phase, in the same size list as parallel_sequence.
+            multi-phase clocking optionally use a list of different CCD volumes
+            for each phase, in the same size list as serial_sequence.
 
         Returns
         -------
@@ -316,6 +344,7 @@ class Clocker(object):
             image = self._add_cti_to_image(
                 image=image,
                 sequence=self.parallel_sequence,
+                phase_widths=self.parallel_phase_widths,
                 traps=parallel_traps,
                 ccd_volume=parallel_ccd_volume,
                 express=self.parallel_express,
@@ -329,6 +358,7 @@ class Clocker(object):
             image = self._add_cti_to_image(
                 image=image,
                 sequence=self.serial_sequence,
+                phase_widths=self.serial_phase_widths,
                 traps=serial_traps,
                 ccd_volume=serial_ccd_volume,
                 express=self.serial_express,

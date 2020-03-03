@@ -91,6 +91,40 @@ class TestElectronsReleasedAndUpdatedWatermarks:
             )
         )
 
+    def test__single_trap__change_time(self):
+
+        # Half the time, half the liftime --> same result
+        traps = [ac.Trap(density=10, lifetime=-0.5 / np.log(0.5))]
+        trap_manager = ac.TrapManager(traps=traps, rows=6)
+
+        trap_manager.watermarks = np.array(
+            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]]
+        )
+
+        electrons_released = trap_manager.electrons_released_in_pixel(time=0.5)
+
+        assert electrons_released == pytest.approx(2.5)
+        assert trap_manager.watermarks == pytest.approx(
+            np.array([[0.5, 0.4], [0.2, 0.2], [0.1, 0.1], [0, 0], [0, 0], [0, 0]])
+        )
+
+    def test__single_trap__change_width(self):
+    
+        # Half the time, double the density --> same result
+        traps = [ac.Trap(density=20, lifetime=-1 / np.log(0.5))]
+        trap_manager = ac.TrapManager(traps=traps, rows=6)
+    
+        trap_manager.watermarks = np.array(
+            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]]
+        )
+    
+        electrons_released = trap_manager.electrons_released_in_pixel(width=0.5)
+    
+        assert electrons_released == pytest.approx(2.5)
+        assert trap_manager.watermarks == pytest.approx(
+            np.array([[0.5, 0.4], [0.2, 0.2], [0.1, 0.1], [0, 0], [0, 0], [0, 0]])
+        )
+
 
 class TestElectronsCapturedByTraps:
     def test__first_capture(self):

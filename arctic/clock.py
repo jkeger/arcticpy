@@ -211,21 +211,21 @@ class Clocker(object):
             ccd_volume *= phases
         assert len(ccd_volume) == phases
 
-        # Prepare the image for multi-phase clocking
-        if phases != 1:
-            new_image = np.zeros((rows * phases, columns))
-            new_image[initial_phase::phases] = image
-            print(image)  ###
-            print(new_image)  ###
-            image = new_image
-            rows, columns = image.shape
-
         # Default to no express and calculate every step
         express = rows if express == 0 else express
 
         express_matrix = self.express_matrix_from_rows_and_express(
             rows=rows, express=express
         )
+
+        # Prepare the image and express for multi-phase clocking
+        if phases != 1:
+            new_image = np.zeros((rows * phases, columns))
+            new_image[initial_phase::phases] = image
+            image = new_image
+            rows, columns = image.shape
+            
+            express_matrix = np.repeat(express_matrix, phases, axis=1)
 
         # Set up the array of trap managers
         trap_managers = []

@@ -338,14 +338,8 @@ class TestArcticParams:
 
         assert parameters.parallel_traps[0].density == 0.1
         assert parameters.parallel_traps[0].lifetime == 1.0
-        assert parameters.parallel_traps[0].exponential_factor == pytest.approx(
-            0.6321, 1.0e-4
-        )
         assert parameters.parallel_traps[1].density == 0.2
         assert parameters.parallel_traps[1].lifetime == 2.0
-        assert parameters.parallel_traps[1].exponential_factor == pytest.approx(
-            0.39346, 1.0e-4
-        )
 
         assert type(parameters) == ac.ArcticParams
         assert type(parameters.serial_traps[0]) == ac.Trap
@@ -353,14 +347,8 @@ class TestArcticParams:
 
         assert parameters.serial_traps[0].density == 0.3
         assert parameters.serial_traps[0].lifetime == 3.0
-        assert parameters.serial_traps[0].exponential_factor == pytest.approx(
-            0.28346, 1.0e-4
-        )
         assert parameters.serial_traps[1].density == 0.4
         assert parameters.serial_traps[1].lifetime == 4.0
-        assert parameters.serial_traps[1].exponential_factor == pytest.approx(
-            0.22119, 1.0e-4
-        )
 
     def test__ccd_volume_class___sets_value_correctly(self):
 

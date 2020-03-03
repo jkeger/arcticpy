@@ -1085,6 +1085,38 @@ class TestArcticAddCTIParallelAndSerial:
         ).all()  # fewer captures in 2, so fainter trails trail region
 
 
+class TestAddCTIParallelMultiPhase:
+    def test__square__horizontal_line__line_loses_charge_trails_appear(self):
+        image_pre_cti = np.zeros((5, 5))
+        image_pre_cti[2, :] += 100
+
+        trap = ac.Trap(density=0.1, lifetime=1.0)
+        ccd_volume = ac.CCDVolume(
+            well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
+        )
+
+        clocker = ac.Clocker(
+            parallel_sequence=[0.5, 0.2, 0.2, 0.1], 
+            parallel_phase_widths=[0.5, 0.2, 0.2, 0.1],
+        )
+
+        image_post_cti = clocker.add_cti(
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd_volume=ccd_volume,
+        )
+
+        image_difference = image_post_cti - image_pre_cti
+
+        assert (
+            image_difference[0:2, :] == 0.0
+        ).all()  # First four rows should all remain zero
+        assert (
+            image_difference[2, :] < 0.0
+        ).all()  # All pixels in the charge line should lose charge due to capture
+        assert (
+            image_difference[3:-1, :] > 0.0
+        ).all()  # All other pixels should have charge trailed into them
+    
+
 class TestArcticCorrectCTIParallelOnly:
     def test__square__horizontal_line__corrected_image_more_like_original(self):
         image_pre_cti = np.zeros((5, 5))

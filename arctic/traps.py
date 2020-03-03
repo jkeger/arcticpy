@@ -10,25 +10,29 @@ class Trap(object):
         density : float
             The trap density of the trap.
         lifetime : float
-            The trap lifetimes of the trap.
+            The release lifetime of the trap, in the same units as the time 
+            spent in each pixel or phase (Clocker sequence).
         """
         self.density = density
         self.lifetime = lifetime
-        self.exponential_factor = 1 - np.exp(-1 / lifetime)
-        # self.exponential_factor = 1 - np.exp(-time / lifetime) ###wip
 
-    def electrons_released_from_electrons(self, electrons):
+    def electrons_released_from_electrons(self, electrons, time=1):
         """ Calculate the number of released electrons from the trap.
 
-            Args:
-                electrons : float
-                    The initial number of trapped electrons.
+            Parameters
+            ----------
+            electrons : float
+                The initial number of trapped electrons.
+            time : float
+                The time spent in this pixel or phase, in the same units as the 
+                trap lifetime.
 
-            Returns:
-                electrons_released : float
-                    The number of released electrons.
+            Returns
+            -------
+            electrons_released : float
+                The number of released electrons.
         """
-        return electrons * self.exponential_factor
+        return electrons * (1 - np.exp(-time / self.lifetime))
 
     @property
     def delta_ellipticity(self):
@@ -108,8 +112,7 @@ class TrapNonUniformDistribution(Trap):
             height of 0 (1), with a linear relation in between.
         """
         super(TrapNonUniformDistribution, self).__init__(
-            density=density, 
-            lifetime=lifetime
+            density=density, lifetime=lifetime
         )
 
         self.electron_fractional_height_min = electron_fractional_height_min
@@ -165,9 +168,17 @@ class TrapManager(object):
         """
         self.watermarks.fill(0)
 
-    def electrons_released_in_pixel(self):
+    def electrons_released_in_pixel(self, time=1, width=1):
         """ Release electrons from traps and update the trap watermarks.
 
+        Parameters
+        ----------
+        time : float
+            The time spent in this pixel or phase, in the same units as the 
+            trap lifetime.
+        wdith : float
+            The width of this pixel or phase, as a fraction of the whole pixel.
+            
         Returns
         -------
         electrons_released : float
@@ -193,7 +204,8 @@ class TrapManager(object):
             for trap_index, trap in enumerate(self.traps):
                 # Number of released electrons (not yet including the trap density)
                 electrons_released_from_trap = trap.electrons_released_from_electrons(
-                    electrons=self.watermarks[watermark_index, 1 + trap_index]
+                    electrons=self.watermarks[watermark_index, 1 + trap_index],
+                    time=time
                 )
 
                 # Update the watermark fill fraction
@@ -203,7 +215,7 @@ class TrapManager(object):
 
                 # Update the actual number of released electrons
                 electrons_released_watermark += (
-                    electrons_released_from_trap * trap.density
+                    electrons_released_from_trap * trap.density * width
                 )
 
             # Multiply the summed fill fractions by the height
@@ -214,7 +226,7 @@ class TrapManager(object):
         return electrons_released
 
     def electrons_captured_by_traps(
-        self, electron_fractional_height, watermarks, traps
+        self, electron_fractional_height, watermarks, traps, width=1
     ):
         """
         Find the total number of electrons that the traps can capture.
@@ -223,12 +235,12 @@ class TrapManager(object):
         -----------
         electron_fractional_height : float
             The fractional height of the electron cloud in the pixel.
-
         watermarks : np.ndarray
             The initial watermarks. See initial_watermarks_from_rows_and_total_traps().
-
         traps : [TrapSpecies]
             An array of one or more objects describing a trap of trap.
+        wdith : float
+            The width of this pixel or phase, as a fraction of the whole pixel.
 
         Returns
         -------
@@ -239,7 +251,7 @@ class TrapManager(object):
         electrons_captured = 0
 
         # The number of traps of each species
-        densities = [trap.density for trap in traps]
+        densities = np.array([trap.density for trap in traps]) * width
 
         # Find the highest active watermark
         max_watermark_index = np.argmax(watermarks[:, 0] == 0) - 1
@@ -449,7 +461,7 @@ class TrapManager(object):
 
         return watermarks
 
-    def electrons_captured_in_pixel(self, electrons_available, ccd_volume):
+    def electrons_captured_in_pixel(self, electrons_available, ccd_volume, width=1):
         """
         Capture electrons in traps and update the trap watermarks.
 
@@ -459,6 +471,8 @@ class TrapManager(object):
             The number of available electrons for trapping.
         ccd_volume : CCDVolume
             The object describing the CCD.
+        width : float
+            The width of this pixel or phase, as a fraction of the whole pixel.
 
         Returns
         -------
@@ -485,6 +499,7 @@ class TrapManager(object):
             electron_fractional_height=electron_fractional_height,
             watermarks=self.watermarks,
             traps=self.traps,
+            width=width,
         )
 
         # Stop if no capture
@@ -570,7 +585,7 @@ class TrapManagerNonUniformDistribution(TrapManager):
                 - self.electron_fractional_height_min
             )
 
-    def electrons_captured_in_pixel(self, electrons_available, ccd_volume):
+    def electrons_captured_in_pixel(self, electrons_available, ccd_volume, width=1):
         """
         Capture electrons in traps and update the trap watermarks.
 
@@ -580,6 +595,8 @@ class TrapManagerNonUniformDistribution(TrapManager):
             The number of available electrons for trapping.
         ccd_volume : CCDVolume
             The object describing the CCD.
+        width : float
+            The width of this pixel or phase, as a fraction of the whole pixel.
 
         Returns
         -------
@@ -611,6 +628,7 @@ class TrapManagerNonUniformDistribution(TrapManager):
             electron_fractional_height=electron_fractional_height,
             watermarks=self.watermarks,
             traps=self.traps,
+            width=width,
         )
 
         # Stop if no capture

@@ -206,7 +206,9 @@ class Clocker(object):
         for trap_group in traps:
             if type(traps) is TrapNonUniformDistribution:
                 trap_managers.append(
-                    TrapManagerNonUniformDistribution(traps=trap_group, rows=rows)
+                    TrapManagerNonUniformDistribution(
+                        traps=trap_group, rows=rows
+                    )
                 )
             else:
                 trap_managers.append(TrapManager(traps=trap_group, rows=rows))
@@ -224,7 +226,9 @@ class Clocker(object):
                 # Each pixel
                 for row_index in range(rows):
                     phase = row_index % phases
-                    express_multiplier = express_matrix[express_index, row_index]
+                    express_multiplier = express_matrix[
+                        express_index, row_index
+                    ]
                     if express_multiplier == 0:
                         continue
 
@@ -235,7 +239,9 @@ class Clocker(object):
                     # Release
                     electrons_released = 0
                     for trap_manager in trap_managers:
-                        electrons_released += trap_manager.electrons_released_in_pixel()
+                        electrons_released += trap_manager.electrons_released_in_pixel(
+                            sequence[phase]
+                        )
                     electrons_available += electrons_released
 
                     # Capture
@@ -255,7 +261,9 @@ class Clocker(object):
 
         # Recombine the image for multi-phase clocking
         if phases != 1:
-            image = image.reshape((int(rows / phases), phases, columns)).sum(axis=1)
+            image = image.reshape((int(rows / phases), phases, columns)).sum(
+                axis=1
+            )
 
         return image
 

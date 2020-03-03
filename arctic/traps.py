@@ -10,25 +10,29 @@ class Trap(object):
         density : float
             The trap density of the trap.
         lifetime : float
-            The trap lifetimes of the trap.
+            The release lifetime of the trap, in the same units as the time 
+            spent in each pixel or phase (Clocker sequence).
         """
         self.density = density
         self.lifetime = lifetime
-        self.exponential_factor = 1 - np.exp(-1 / lifetime)
-        # self.exponential_factor = 1 - np.exp(-time / lifetime) ###wip
 
-    def electrons_released_from_electrons(self, electrons):
+    def electrons_released_from_electrons(self, electrons, time=1):
         """ Calculate the number of released electrons from the trap.
 
-            Args:
-                electrons : float
-                    The initial number of trapped electrons.
+            Parameters
+            ----------
+            electrons : float
+                The initial number of trapped electrons.
+            time : float
+                The time spent in this pixel or phase, in the same units as the 
+                trap lifetime.
 
-            Returns:
-                electrons_released : float
-                    The number of released electrons.
+            Returns
+            -------
+            electrons_released : float
+                The number of released electrons.
         """
-        return electrons * self.exponential_factor
+        return electrons * (1 - np.exp(-time / self.lifetime))
 
     @property
     def delta_ellipticity(self):
@@ -44,7 +48,12 @@ class Trap(object):
         return self.density * (
             a
             + d_a * (np.arctan((np.log(self.lifetime) - d_p) / d_w))
-            + (g_a * np.exp(-((np.log(self.lifetime) - g_p) ** 2.0) / (2 * g_w ** 2.0)))
+            + (
+                g_a
+                * np.exp(
+                    -((np.log(self.lifetime) - g_p) ** 2.0) / (2 * g_w ** 2.0)
+                )
+            )
         )
 
     def __repr__(self):
@@ -81,7 +90,9 @@ class Trap(object):
         poisson_trap = []
         for densities in poisson_densities:
             for i, s in enumerate(trap):
-                poisson_trap.append(Trap(density=densities[i], lifetime=s.lifetime))
+                poisson_trap.append(
+                    Trap(density=densities[i], lifetime=s.lifetime)
+                )
 
         return poisson_trap
 
@@ -164,9 +175,15 @@ class TrapManager(object):
         """
         self.watermarks.fill(0)
 
-    def electrons_released_in_pixel(self):
+    def electrons_released_in_pixel(self, time=1):
         """ Release electrons from traps and update the trap watermarks.
 
+        Parameters
+        ----------
+        time : float
+            The time spent in this pixel or phase, in the same units as the 
+            trap lifetime.
+            
         Returns
         -------
         electrons_released : float
@@ -192,7 +209,8 @@ class TrapManager(object):
             for trap_index, trap in enumerate(self.traps):
                 # Number of released electrons (not yet including the trap density)
                 electrons_released_from_trap = trap.electrons_released_from_electrons(
-                    electrons=self.watermarks[watermark_index, 1 + trap_index]
+                    electrons=self.watermarks[watermark_index, 1 + trap_index],
+                    time=time,
                 )
 
                 # Update the watermark fill fraction
@@ -207,7 +225,8 @@ class TrapManager(object):
 
             # Multiply the summed fill fractions by the height
             electrons_released += (
-                electrons_released_watermark * self.watermarks[watermark_index, 0]
+                electrons_released_watermark
+                * self.watermarks[watermark_index, 0]
             )
 
         return electrons_released
@@ -276,7 +295,9 @@ class TrapManager(object):
 
         return electrons_captured
 
-    def updated_watermarks_from_capture(self, electron_fractional_height, watermarks):
+    def updated_watermarks_from_capture(
+        self, electron_fractional_height, watermarks
+    ):
         """ Update the trap watermarks for capturing electrons.
 
         Parameters
@@ -331,7 +352,9 @@ class TrapManager(object):
             watermarks[: watermark_index_above_cloud - 1, :] = 0
 
             # Move the no-longer-needed watermarks to the end of the list
-            watermarks = np.roll(watermarks, 1 - watermark_index_above_cloud, axis=0)
+            watermarks = np.roll(
+                watermarks, 1 - watermark_index_above_cloud, axis=0
+            )
 
             # Edit the new first watermark
             watermarks[0, 0] = electron_fractional_height
@@ -417,7 +440,8 @@ class TrapManager(object):
             # original fill) * enough.
             # e.g. enough = 0.5 --> fill half way to 1.
             watermarks[: watermark_index_above_height + 1, 1:] = (
-                watermarks[: watermark_index_above_height + 1, 1:] * (1 - enough)
+                watermarks[: watermark_index_above_height + 1, 1:]
+                * (1 - enough)
                 + enough
             )
 
@@ -431,7 +455,9 @@ class TrapManager(object):
             else:
                 # Edit the new watermarks' heights
                 watermarks[
-                    watermark_index_above_height : watermark_index_above_height + 2, 0,
+                    watermark_index_above_height : watermark_index_above_height
+                    + 2,
+                    0,
                 ] *= (1 - enough)
 
         # If none will be overwritten
@@ -534,10 +560,16 @@ class TrapManagerNonUniformDistribution(TrapManager):
             The number of rows in the image. i.e. the maximum number of
             possible electron trap/release events.
         """
-        super(TrapManagerNonUniformDistribution, self).__init__(traps=traps, rows=rows)
+        super(TrapManagerNonUniformDistribution, self).__init__(
+            traps=traps, rows=rows
+        )
 
-        self.electron_fractional_height_min = traps[0].electron_fractional_height_min
-        self.electron_fractional_height_max = traps[0].electron_fractional_height_max
+        self.electron_fractional_height_min = traps[
+            0
+        ].electron_fractional_height_min
+        self.electron_fractional_height_max = traps[
+            0
+        ].electron_fractional_height_max
 
     def effective_non_uniform_electron_fractional_height(
         self, electron_fractional_height

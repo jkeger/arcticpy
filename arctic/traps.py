@@ -16,7 +16,38 @@ class Trap(object):
         self.density = density
         self.lifetime = lifetime
 
-    def electrons_released_from_electrons(self, electrons, time=1):
+    def fill_fraction_from_time(self, time):
+        """ Calculate the fraction of filled traps after a certain time.
+
+            Parameters
+            ----------
+            time : float
+                The time spent in this pixel or phase, in the same units as the 
+                trap lifetime.
+
+            Returns
+            -------
+            fill : float
+                The fraction of filled traps.
+        """
+        return np.exp(-time / self.lifetime)
+
+    def time_from_fill_fraction(self, fill):
+        """ Calculate the time elapsed from the fraction of filled traps.
+
+            Parameters
+            ----------
+            fill : float
+                The fraction of filled traps.
+
+            Returns
+            -------
+            time : float
+                The time elapsed, in the same units as the trap lifetime.
+        """
+        return -self.lifetime * np.log(fill)
+
+    def electrons_released_from_electrons_and_time(self, electrons, time=1):
         """ Calculate the number of released electrons from the trap.
 
             Parameters
@@ -32,7 +63,24 @@ class Trap(object):
             electrons_released : float
                 The number of released electrons.
         """
-        return electrons * (1 - np.exp(-time / self.lifetime))
+        return electrons * (1 - self.fill_fraction_from_time(time))
+
+    def electrons_released_from_electrons_and_fill_fraction(self, electrons, fill):
+        """ Calculate the number of released electrons from the trap.
+
+            Parameters
+            ----------
+            electrons : float
+                The initial number of trapped electrons.
+            fill : float
+                The fraction of filled traps.
+
+            Returns
+            -------
+            electrons_released : float
+                The number of released electrons.
+        """
+        return electrons * (1 - fill)
 
     @property
     def delta_ellipticity(self):
@@ -203,7 +251,7 @@ class TrapManager(object):
             # For each traps
             for trap_index, trap in enumerate(self.traps):
                 # Number of released electrons (not yet including the trap density)
-                electrons_released_from_trap = trap.electrons_released_from_electrons(
+                electrons_released_from_trap = trap.electrons_released_from_electrons_and_time(
                     electrons=self.watermarks[watermark_index, 1 + trap_index],
                     time=time
                 )

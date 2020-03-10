@@ -109,17 +109,17 @@ class TestElectronsReleasedAndUpdatedWatermarks:
         )
 
     def test__single_trap__change_width(self):
-    
+
         # Half the time, double the density --> same result
         traps = [ac.Trap(density=20, lifetime=-1 / np.log(0.5))]
         trap_manager = ac.TrapManager(traps=traps, rows=6)
-    
+
         trap_manager.watermarks = np.array(
             [[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]]
         )
-    
+
         electrons_released = trap_manager.electrons_released_in_pixel(width=0.5)
-    
+
         assert electrons_released == pytest.approx(2.5)
         assert trap_manager.watermarks == pytest.approx(
             np.array([[0.5, 0.4], [0.2, 0.2], [0.1, 0.1], [0, 0], [0, 0], [0, 0]])
@@ -684,3 +684,29 @@ class TestTrapManagerNonUniformDistribution:
         )
 
         assert electrons_captured == pytest.approx((0.96 * 0.2 + 0.01 * 0.6) * 10)
+
+
+class TestTimeAndFillFraction:
+    def test__fill_fraction_from_time_or_fill_fraction(self):
+
+        trap = ac.Trap(density=10, lifetime=2)
+
+        fill = trap.fill_fraction_from_time(1)
+        assert fill == np.exp(-0.5)
+
+        time = trap.time_from_fill_fraction(0.5)
+        assert time == -2 * np.log(0.5)
+
+        assert fill == trap.fill_fraction_from_time(trap.time_from_fill_fraction(fill))
+        assert time == trap.time_from_fill_fraction(trap.fill_fraction_from_time(time))
+
+    def test__electrons_released_from_electrons_and_time_or_fill_fraction(self):
+
+        trap = ac.Trap(density=10, lifetime=2)
+        electrons = 1e3
+        time = 1
+        fill = trap.fill_fraction_from_time(time)
+
+        assert trap.electrons_released_from_electrons_and_time(
+            electrons, time
+        ) == trap.electrons_released_from_electrons_and_fill_fraction(electrons, fill)

@@ -5,23 +5,23 @@ import arctic as ac
 
 
 class TestSpecies:
-    def test__electrons_released_from_electrons(self):
+    def test__electrons_released_from_electrons_and_time(self):
 
         trap = ac.Trap(lifetime=1.0)
 
-        assert trap.electrons_released_from_electrons(
+        assert trap.electrons_released_from_electrons_and_time(
             electrons=1.0
         ) == pytest.approx(0.6321, 1.0e-4)
-        assert trap.electrons_released_from_electrons(
+        assert trap.electrons_released_from_electrons_and_time(
             electrons=2.0
         ) == pytest.approx(2.0 * 0.6321, 1.0e-4)
 
         trap = ac.Trap(lifetime=2.0)
 
-        assert trap.electrons_released_from_electrons(
+        assert trap.electrons_released_from_electrons_and_time(
             electrons=1.0
         ) == pytest.approx(0.39346, 1.0e-4)
-        assert trap.electrons_released_from_electrons(
+        assert trap.electrons_released_from_electrons_and_time(
             electrons=2.0
         ) == pytest.approx(2.0 * 0.39346, 1.0e-4)
 

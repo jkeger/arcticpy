@@ -700,13 +700,27 @@ class TestTimeAndFillFraction:
         assert fill == trap.fill_fraction_from_time(trap.time_from_fill_fraction(fill))
         assert time == trap.time_from_fill_fraction(trap.fill_fraction_from_time(time))
 
-    def test__electrons_released_from_electrons_and_time_or_fill_fraction(self):
+    def test__electrons_released_in_pixel_time_or_fill(self):
 
-        trap = ac.Trap(density=10, lifetime=2)
-        electrons = 1e3
-        time = 1
-        fill = trap.fill_fraction_from_time(time)
+        trap = ac.Trap(density=10, lifetime=-1 / np.log(0.5))
+        trap_manager_fill = ac.TrapManager(traps=[trap], rows=6)
+        trap_manager_time = ac.TrapManagerTrackTime(traps=[trap], rows=6)
 
-        assert trap.electrons_released_from_electrons_and_time(
-            electrons, time
-        ) == trap.electrons_released_from_electrons_and_fill_fraction(electrons, fill)
+        trap_manager_fill.watermarks = np.array(
+            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]]
+        )
+        trap_manager_time.watermarks = np.array(
+            [
+                [0.5, trap.time_from_fill_fraction(0.8)],
+                [0.2, trap.time_from_fill_fraction(0.4)],
+                [0.1, trap.time_from_fill_fraction(0.2)],
+                [0, 0],
+                [0, 0],
+                [0, 0],
+            ]
+        )
+
+        electrons_released_fill = trap_manager_fill.electrons_released_in_pixel()
+        electrons_released_time = trap_manager_time.electrons_released_in_pixel()
+
+        assert electrons_released_fill == electrons_released_time

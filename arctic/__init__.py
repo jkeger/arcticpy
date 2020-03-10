@@ -5,5 +5,6 @@ from arctic.traps import (
     TrapNonUniformDistribution,
     TrapManager,
     TrapManagerNonUniformDistribution,
+    TrapManagerTrackTime,
 )
 from arctic import util

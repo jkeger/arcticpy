@@ -22,8 +22,8 @@ class Trap(object):
             Parameters
             ----------
             time : float
-                The time spent in this pixel or phase, in the same units as the 
-                trap lifetime.
+                The total time elapsed since the traps were filled, in the same 
+                units as the trap lifetime.
 
             Returns
             -------
@@ -33,7 +33,7 @@ class Trap(object):
         return np.exp(-time / self.lifetime)
 
     def time_from_fill_fraction(self, fill):
-        """ Calculate the time elapsed from the fraction of filled traps.
+        """ Calculate the total time elapsed from the fraction of filled traps.
 
             Parameters
             ----------
@@ -64,23 +64,6 @@ class Trap(object):
                 The number of released electrons.
         """
         return electrons * (1 - self.fill_fraction_from_time(time))
-
-    def electrons_released_from_electrons_and_fill_fraction(self, electrons, fill):
-        """ Calculate the number of released electrons from the trap.
-
-            Parameters
-            ----------
-            electrons : float
-                The initial number of trapped electrons.
-            fill : float
-                The fraction of filled traps.
-
-            Returns
-            -------
-            electrons_released : float
-                The number of released electrons.
-        """
-        return electrons * (1 - fill)
 
     @property
     def delta_ellipticity(self):
@@ -253,7 +236,7 @@ class TrapManager(object):
                 # Number of released electrons (not yet including the trap density)
                 electrons_released_from_trap = trap.electrons_released_from_electrons_and_time(
                     electrons=self.watermarks[watermark_index, 1 + trap_index],
-                    time=time
+                    time=time,
                 )
 
                 # Update the watermark fill fraction
@@ -702,3 +685,105 @@ class TrapManagerNonUniformDistribution(TrapManager):
             electrons_captured *= enough
 
         return electrons_captured
+
+
+class TrapManagerTrackTime(TrapManager):
+    """ Track the time since capture instead of the fill fraction. Should give 
+        the same result for normal traps.
+    """
+
+    def __init__(self, traps, rows):
+        """The manager for potentially multiple trap species that must use 
+        watermarks in the same way as each other.
+
+        Parameters
+        ----------
+        traps : [Trap]
+            A list of one or more trap objects.
+        rows :int
+            The number of rows in the image. i.e. the maximum number of
+            possible electron trap/release events.            
+        """
+        super(TrapManagerTrackTime, self).__init__(traps=traps, rows=rows)
+
+    def initial_watermarks_from_rows_and_total_traps(self, rows, total_traps):
+        """ Initialise the watermark array of trap states.
+
+        Parameters
+        ----------
+        rows :int
+            The number of rows in the image. i.e. the maximum number of
+            possible electron trap/release events.
+        total_traps : int
+            The number of traps being modelled.
+
+        Returns
+        --------
+        watermarks : np.ndarray
+            Array of watermark heights and times to describe the trap states. 
+            Lists each (active) watermark height_e fraction and the 
+            corresponding total time elapsed since the traps were filled for 
+            each trap species. Inactive elements are set to 0.
+
+            [[height_e, time, time, ...],
+             [height_e, time, time, ...],
+             ...                        ]
+        """
+        return np.zeros((rows, 1 + total_traps), dtype=float)
+
+    def electrons_released_in_pixel(self, time=1, width=1):
+        """ Release electrons from traps and update the trap watermarks.
+
+        Parameters
+        ----------
+        time : float
+            The time spent in this pixel or phase, in the same units as the 
+            trap lifetime.
+        wdith : float
+            The width of this pixel or phase, as a fraction of the whole pixel.
+            
+        Returns
+        -------
+        electrons_released : float
+            The number of released electrons.
+        
+        Updates
+        -------
+        watermarks : np.ndarray
+            The updated watermarks. See initial_watermarks_from_rows_and_total_traps().
+        """
+        # Initialise the number of released electrons
+        electrons_released = 0
+
+        # Find the highest active watermark
+        max_watermark_index = np.argmax(self.watermarks[:, 0] == 0) - 1
+
+        # For each watermark
+        for watermark_index in range(max_watermark_index + 1):
+            # Initialise the number of released electrons from this watermark level
+            electrons_released_watermark = 0
+
+            # For each traps
+            for trap_index, trap in enumerate(self.traps):
+                # Number of released electrons (not yet including the trap density)
+                fill = trap.fill_fraction_from_time(
+                    self.watermarks[watermark_index, 1 + trap_index]
+                )
+                electrons_released_from_trap = trap.electrons_released_from_electrons_and_time(
+                    electrons=fill, time=time,
+                )
+
+                # Update the watermark times
+                self.watermarks[watermark_index, 1 + trap_index] += time
+
+                # Update the actual number of released electrons
+                electrons_released_watermark += (
+                    electrons_released_from_trap * trap.density * width
+                )
+
+            # Multiply the summed fill fractions by the height
+            electrons_released += (
+                electrons_released_watermark * self.watermarks[watermark_index, 0]
+            )
+
+        return electrons_released

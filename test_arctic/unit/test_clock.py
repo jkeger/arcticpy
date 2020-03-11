@@ -70,9 +70,7 @@ class TestClocker:
             abs=1e-3,
         )
 
-    def test__remove_cti__parallel_only__single_pixel__compare_to_cplusplus_version(
-        self,
-    ):
+    def test__remove_cti__parallel_only__single_pixel__successive_iterations(self,):
         image = np.zeros((6, 2))
         image[2, 1] = 1000
 
@@ -162,7 +160,7 @@ class TestClocker:
         traps = [
             [ac.Trap(density=10, lifetime=-1 / np.log(0.5))],
             [
-                ac.TrapNonUniformDistribution(
+                ac.TrapNonUniformHeightDistribution(
                     density=5,
                     lifetime=-1 / np.log(0.5),
                     electron_fractional_height_min=0,
@@ -1096,7 +1094,7 @@ class TestAddCTIParallelMultiPhase:
         )
 
         clocker = ac.Clocker(
-            parallel_sequence=[0.5, 0.2, 0.2, 0.1], 
+            parallel_sequence=[0.5, 0.2, 0.2, 0.1],
             parallel_phase_widths=[0.5, 0.2, 0.2, 0.1],
         )
 
@@ -1115,7 +1113,7 @@ class TestAddCTIParallelMultiPhase:
         assert (
             image_difference[3:-1, :] > 0.0
         ).all()  # All other pixels should have charge trailed into them
-    
+
 
 class TestArcticCorrectCTIParallelOnly:
     def test__square__horizontal_line__corrected_image_more_like_original(self):

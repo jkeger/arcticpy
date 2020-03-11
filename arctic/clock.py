@@ -8,9 +8,9 @@ import numpy as np
 from copy import deepcopy
 
 from arctic.traps import (
-    TrapNonUniformDistribution,
+    TrapNonUniformHeightDistribution,
     TrapManager,
-    TrapManagerNonUniformDistribution,
+    TrapManagerNonUniformHeightDistribution,
 )
 
 
@@ -148,8 +148,7 @@ class Clocker(object):
         return express_multiplier
 
     def _add_cti_to_image(
-        self, image, sequence, phase_widths, traps, ccd_volume, express, 
-        initial_phase
+        self, image, sequence, phase_widths, traps, ccd_volume, express, initial_phase
     ):
         """
         Add CTI trails to an image by trapping, releasing, and moving electrons 
@@ -205,7 +204,7 @@ class Clocker(object):
         phases = len(sequence)
         assert len(phase_widths) == phases
         assert np.amax(phase_widths) <= 1
-        
+
         # Assume the same CCD volume for all phases if not otherwise specified
         if len(ccd_volume) == 1 and len(ccd_volume) != phases:
             ccd_volume *= phases
@@ -224,17 +223,15 @@ class Clocker(object):
             new_image[initial_phase::phases] = image
             image = new_image
             rows, columns = image.shape
-            
+
             express_matrix = np.repeat(express_matrix, phases, axis=1)
 
         # Set up the array of trap managers
         trap_managers = []
         for trap_group in traps:
-            if type(traps) is TrapNonUniformDistribution:
+            if type(traps) is TrapNonUniformHeightDistribution:
                 trap_managers.append(
-                    TrapManagerNonUniformDistribution(
-                        traps=trap_group, rows=rows
-                    )
+                    TrapManagerNonUniformHeightDistribution(traps=trap_group, rows=rows)
                 )
             else:
                 trap_managers.append(TrapManager(traps=trap_group, rows=rows))
@@ -252,9 +249,7 @@ class Clocker(object):
                 # Each pixel
                 for row_index in range(rows):
                     phase = row_index % phases
-                    express_multiplier = express_matrix[
-                        express_index, row_index
-                    ]
+                    express_multiplier = express_matrix[express_index, row_index]
                     if express_multiplier == 0:
                         continue
 
@@ -266,8 +261,7 @@ class Clocker(object):
                     electrons_released = 0
                     for trap_manager in trap_managers:
                         electrons_released += trap_manager.electrons_released_in_pixel(
-                            time=sequence[phase], 
-                            width=phase_widths[phase]
+                            time=sequence[phase], width=phase_widths[phase]
                         )
                     electrons_available += electrons_released
 
@@ -276,7 +270,7 @@ class Clocker(object):
                     for trap_manager in trap_managers:
                         electrons_captured += trap_manager.electrons_captured_in_pixel(
                             electrons_available=electrons_available,
-                            ccd_volume=ccd_volume[phase], 
+                            ccd_volume=ccd_volume[phase],
                             width=phase_widths[phase],
                         )
 
@@ -289,9 +283,7 @@ class Clocker(object):
 
         # Recombine the image for multi-phase clocking
         if phases != 1:
-            image = image.reshape((int(rows / phases), phases, columns)).sum(
-                axis=1
-            )
+            image = image.reshape((int(rows / phases), phases, columns)).sum(axis=1)
 
         return image
 

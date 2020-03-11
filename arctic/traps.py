@@ -1,5 +1,5 @@
 import numpy as np
-from scipy import integrate
+from scipy import integrate, optimize
 
 
 class Trap(object):
@@ -207,7 +207,52 @@ class TrapLifetimeContinuum(Trap):
         self.distribution_of_traps_with_lifetime = distribution_of_traps_with_lifetime
         self.middle_lifetime = middle_lifetime
         self.scale_lifetime = scale_lifetime
-
+    
+    def fill_fraction_from_time_elapsed(self, time):
+        """ Calculate the fraction of filled traps after a certain time.
+    
+            Parameters
+            ----------
+            time : float
+                The total time elapsed since the traps were filled, in the same 
+                units as the trap lifetime.
+    
+            Returns
+            -------
+            fill : float
+                The fraction of filled traps.
+        """
+        def integrand(lifetime, time, middle, scale):
+            return (
+                self.distribution_of_traps_with_lifetime(lifetime, middle, scale)
+                * np.exp(-time / lifetime)
+            )
+    
+        return integrate.quad(
+            integrand, 0, np.inf, args=(
+                time, self.middle_lifetime, self.scale_lifetime
+            )
+        )[0]
+    
+    def time_elapsed_from_fill_fraction(self, fill):
+        """ Calculate the total time elapsed from the fraction of filled traps.
+    
+            Parameters
+            ----------
+            fill : float
+                The fraction of filled traps.
+    
+            Returns
+            -------
+            time : float
+                The time elapsed, in the same units as the trap lifetime.
+        """
+        # Crudely iterate to find the time that gives the required fill fraction
+        def find_time(time):
+            return self.fill_fraction_from_time_elapsed(time) - fill
+    
+        return optimize.fsolve(find_time, 1)[0]
+    
     def electrons_released_from_time_elapsed_and_time(self, time_elapsed, time=1):
         """ Calculate the number of released electrons from the trap.
 
@@ -224,9 +269,9 @@ class TrapLifetimeContinuum(Trap):
             electrons_released : float
                 The number of released electrons.
         """
-        def integrand(lifetime, time_elapsed, time, mean, scale):
+        def integrand(lifetime, time_elapsed, time, middle, scale):
             return (
-                self.distribution_of_traps_with_lifetime(lifetime, mean, scale)
+                self.distribution_of_traps_with_lifetime(lifetime, middle, scale)
                 * np.exp(-time_elapsed / lifetime)
                 * (1 - np.exp(-time / lifetime))
             )

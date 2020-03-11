@@ -857,9 +857,77 @@ class TestTrapLifetimeContinuum:
                 trap.middle_lifetime, trap.scale_lifetime
             )
         )[0] == pytest.approx(1)
-        
-    def test__electrons_released_from_time_elapsed_and_time_narrow_continuum(self):
 
+    def test__fill_fraction_from_time_elapsed_narrow_continuum(self):
+
+        # Check that narrow distribution gives similar result to single lifetime  
+        # Simple trap
+        trap = ac.Trap(density=10, lifetime=1)
+        fill_single = trap.fill_fraction_from_time_elapsed(1)
+        
+        # Narrow continuum
+        median_lifetime = 1
+        scale_lifetime = 0.1
+        def trap_distribution(lifetime, median, scale):
+            return np.exp(-(np.log(lifetime) - np.log(median))**2 / (2 * scale**2)) / (
+                lifetime * scale * np.sqrt(2*np.pi)
+            )
+        trap = ac.TrapLifetimeContinuum(
+            density=10, 
+            distribution_of_traps_with_lifetime=trap_distribution,
+            middle_lifetime=median_lifetime,
+            scale_lifetime=scale_lifetime,
+        )
+        fill_continuum = trap.fill_fraction_from_time_elapsed(1)
+        
+        assert fill_continuum == pytest.approx(fill_single, rel=0.01)
+
+    def test__time_elapsed_from_fill_fraction_narrow_continuum(self):
+
+        # Check that narrow distribution gives similar result to single lifetime  
+        # Simple trap
+        trap = ac.Trap(density=10, lifetime=1)
+        time_single = trap.time_elapsed_from_fill_fraction(0.5)
+        
+        # Narrow continuum
+        median_lifetime = 1
+        scale_lifetime = 0.1
+        def trap_distribution(lifetime, median, scale):
+            return np.exp(-(np.log(lifetime) - np.log(median))**2 / (2 * scale**2)) / (
+                lifetime * scale * np.sqrt(2*np.pi)
+            )
+        trap = ac.TrapLifetimeContinuum(
+            density=10, 
+            distribution_of_traps_with_lifetime=trap_distribution,
+            middle_lifetime=median_lifetime,
+            scale_lifetime=scale_lifetime,
+        )
+        time_continuum = trap.time_elapsed_from_fill_fraction(0.5)
+        
+        assert time_continuum == pytest.approx(time_single, rel=0.01)
+        
+    def test__time_elapsed_from_fill_fraction_continuum(self):
+        
+        median_lifetime = 1
+        scale_lifetime = 1
+        def trap_distribution(lifetime, median, scale):
+            return np.exp(-(np.log(lifetime) - np.log(median))**2 / (2 * scale**2)) / (
+                lifetime * scale * np.sqrt(2*np.pi)
+            )
+        trap = ac.TrapLifetimeContinuum(
+            density=10, 
+            distribution_of_traps_with_lifetime=trap_distribution,
+            middle_lifetime=median_lifetime,
+            scale_lifetime=scale_lifetime,
+        )
+        time = 1
+        
+        assert trap.time_elapsed_from_fill_fraction(
+            trap.fill_fraction_from_time_elapsed(time)
+        ) == time
+       
+    def test__electrons_released_from_time_elapsed_and_time_narrow_continuum(self):
+    
         # Check that narrow distribution gives similar result to single lifetime  
         # Simple trap
         trap = ac.Trap(density=10, lifetime=1)
@@ -868,7 +936,7 @@ class TestTrapLifetimeContinuum:
             [[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]]
         )
         electrons_released_single = trap_manager.electrons_released_in_pixel()
-        
+    
         # Narrow continuum
         median_lifetime = 1
         scale_lifetime = 0.1
@@ -894,13 +962,13 @@ class TestTrapLifetimeContinuum:
             ]
         )        
         electrons_released_continuum = trap_manager.electrons_released_in_pixel()
-        
+    
         assert electrons_released_continuum == pytest.approx(
             electrons_released_single, rel=0.01
         )
-        
+    
     def test__electrons_released_from_time_elapsed_and_time_continuum(self):
-
+    
         # Check that distribution gives somewhat similar result to single lifetime  
         # Simple trap
         trap = ac.Trap(density=10, lifetime=1)
@@ -909,7 +977,7 @@ class TestTrapLifetimeContinuum:
             [[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]]
         )
         electrons_released_single = trap_manager.electrons_released_in_pixel()
-        
+    
         # Continuum
         median_lifetime = 1
         scale_lifetime = 1
@@ -935,7 +1003,8 @@ class TestTrapLifetimeContinuum:
             ]
         )        
         electrons_released_continuum = trap_manager.electrons_released_in_pixel()
-        
+    
         assert electrons_released_continuum == pytest.approx(
-            electrons_released_single, rel=0.5
+            electrons_released_single, rel=1
         )
+    

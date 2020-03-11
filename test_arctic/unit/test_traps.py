@@ -860,7 +860,7 @@ class TestTrapLifetimeContinuum:
 
     def test__fill_fraction_from_time_elapsed_narrow_continuum(self):
 
-        # Check that narrow distribution gives similar result to single lifetime  
+        # Check that narrow continuum gives similar results to single lifetime  
         # Simple trap
         trap = ac.Trap(density=10, lifetime=1)
         fill_single = trap.fill_fraction_from_time_elapsed(1)
@@ -884,7 +884,7 @@ class TestTrapLifetimeContinuum:
 
     def test__time_elapsed_from_fill_fraction_narrow_continuum(self):
 
-        # Check that narrow distribution gives similar result to single lifetime  
+        # Check that narrow continuum gives similar results to single lifetime  
         # Simple trap
         trap = ac.Trap(density=10, lifetime=1)
         time_single = trap.time_elapsed_from_fill_fraction(0.5)
@@ -928,7 +928,7 @@ class TestTrapLifetimeContinuum:
        
     def test__electrons_released_from_time_elapsed_and_time_narrow_continuum(self):
     
-        # Check that narrow distribution gives similar result to single lifetime  
+        # Check that narrow continuum gives similar results to single lifetime  
         # Simple trap
         trap = ac.Trap(density=10, lifetime=1)
         trap_manager = ac.TrapManager(traps=[trap], rows=6)
@@ -969,7 +969,7 @@ class TestTrapLifetimeContinuum:
     
     def test__electrons_released_from_time_elapsed_and_time_continuum(self):
     
-        # Check that distribution gives somewhat similar result to single lifetime  
+        # Check that continuum gives somewhat similar results to single lifetime  
         # Simple trap
         trap = ac.Trap(density=10, lifetime=1)
         trap_manager = ac.TrapManager(traps=[trap], rows=6)
@@ -1006,5 +1006,107 @@ class TestTrapLifetimeContinuum:
     
         assert electrons_released_continuum == pytest.approx(
             electrons_released_single, rel=1
+        )
+
+    def test__electrons_captured_by_traps_narrow_continuum(self):
+            
+        # Check that narrow continuum gives similar results to single lifetime  
+        # Simple trap
+        trap = ac.Trap(density=10, lifetime=1)
+        trap_manager = ac.TrapManager(traps=[trap], rows=6)
+        trap_manager.watermarks = np.array(
+            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]]
+        )
+        electron_fractional_height = 0.6
+        electrons_captured_single = trap_manager.electrons_captured_by_traps(
+            electron_fractional_height=electron_fractional_height,
+            watermarks=trap_manager.watermarks,
+            traps=trap_manager.traps,
+        )
+    
+        # Narrow continuum
+        median_lifetime = 1
+        scale_lifetime = 0.1
+        def trap_distribution(lifetime, median, scale):
+            return np.exp(-(np.log(lifetime) - np.log(median))**2 / (2 * scale**2)) / (
+                lifetime * scale * np.sqrt(2*np.pi)
+            )
+        trap = ac.TrapLifetimeContinuum(
+            density=10, 
+            distribution_of_traps_with_lifetime=trap_distribution,
+            middle_lifetime=median_lifetime,
+            scale_lifetime=scale_lifetime,
+        )        
+        trap_manager = ac.TrapManagerTrackTime(traps=[trap], rows=6)
+        trap_manager.watermarks = np.array(
+            [
+                [0.5, trap.time_elapsed_from_fill_fraction(0.8)],
+                [0.2, trap.time_elapsed_from_fill_fraction(0.4)],
+                [0.1, trap.time_elapsed_from_fill_fraction(0.2)],
+                [0, 0],
+                [0, 0],
+                [0, 0],
+            ]
+        )
+        electron_fractional_height = 0.6
+        electrons_captured_continuum = trap_manager.electrons_captured_by_traps(
+            electron_fractional_height=electron_fractional_height,
+            watermarks=trap_manager.watermarks,
+            traps=trap_manager.traps,
+        )
+
+        assert electrons_captured_continuum == pytest.approx(
+            electrons_captured_single, rel=0.01
+        )
+    
+    def test__electrons_captured_by_traps_continuum(self):
+            
+        # Check that continuum gives somewhat similar results to single lifetime 
+        # Simple trap
+        trap = ac.Trap(density=10, lifetime=1)
+        trap_manager = ac.TrapManager(traps=[trap], rows=6)
+        trap_manager.watermarks = np.array(
+            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]]
+        )
+        electron_fractional_height = 0.6
+        electrons_captured_single = trap_manager.electrons_captured_by_traps(
+            electron_fractional_height=electron_fractional_height,
+            watermarks=trap_manager.watermarks,
+            traps=trap_manager.traps,
+        )
+    
+        # Narrow continuum
+        median_lifetime = 1
+        scale_lifetime = 1
+        def trap_distribution(lifetime, median, scale):
+            return np.exp(-(np.log(lifetime) - np.log(median))**2 / (2 * scale**2)) / (
+                lifetime * scale * np.sqrt(2*np.pi)
+            )
+        trap = ac.TrapLifetimeContinuum(
+            density=10, 
+            distribution_of_traps_with_lifetime=trap_distribution,
+            middle_lifetime=median_lifetime,
+            scale_lifetime=scale_lifetime,
+        )        
+        trap_manager = ac.TrapManagerTrackTime(traps=[trap], rows=6)
+        trap_manager.watermarks = np.array(
+            [
+                [0.5, trap.time_elapsed_from_fill_fraction(0.8)],
+                [0.2, trap.time_elapsed_from_fill_fraction(0.4)],
+                [0.1, trap.time_elapsed_from_fill_fraction(0.2)],
+                [0, 0],
+                [0, 0],
+                [0, 0],
+            ]
+        )
+        electron_fractional_height = 0.6
+        electrons_captured_continuum = trap_manager.electrons_captured_by_traps(
+            electron_fractional_height=electron_fractional_height,
+            watermarks=trap_manager.watermarks,
+            traps=trap_manager.traps,
+        )
+
+        assert electrons_captured_single == pytest.approx(
+            electrons_captured_continuum, rel=1
         )
     

@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+from scipy import integrate
 
 import arctic as ac
 
@@ -831,3 +832,28 @@ class TestTrapManagerTrackTime:
                 ]
             )
         )
+
+
+class TestTrapLifetimeContinuum:
+    def test__distribution_of_traps_with_lifetime(self):
+        
+        median_lifetime = 1
+        scale_lifetime = 0.5
+        def trap_distribution(lifetime, median, scale):
+            return np.exp(-(np.log(lifetime) - np.log(median))**2 / (2 * scale**2)) / (
+                lifetime * scale * np.sqrt(2*np.pi)
+            )
+
+        trap = ac.TrapLifetimeContinuum(
+            density=10, 
+            distribution_of_traps_with_lifetime=trap_distribution,
+            middle_lifetime=median_lifetime,
+            scale_lifetime=scale_lifetime,
+        )
+                
+        # Test integral from zero to infinity is one
+        assert pytest.approx(integrate.quad(
+            trap.distribution_of_traps_with_lifetime, 0, np.inf, args=(
+                trap.middle_lifetime, trap.scale_lifetime
+            )
+        )[0]) == 1

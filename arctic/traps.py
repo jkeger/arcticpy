@@ -1,5 +1,4 @@
 import numpy as np
-
 from scipy import integrate
 
 
@@ -171,6 +170,43 @@ class TrapNonUniformHeightDistribution(Trap):
 
         self.electron_fractional_height_min = electron_fractional_height_min
         self.electron_fractional_height_max = electron_fractional_height_max
+
+
+class TrapLifetimeContinuum(Trap):
+    """ For a continuum distribution of release lifetimes for the traps.
+        Must be used with TrapManagerTrackTime.
+    """
+    
+    def __init__(
+        self,
+        density,
+        distribution_of_traps_with_lifetime,
+        middle_lifetime=None,
+        scale_lifetime=None,
+    ):
+        """The parameters for a single trap species.
+
+        Parameters
+        ----------
+        density : float
+            The density of the trap species in a pixel.
+        distribution_of_traps_with_lifetime : func
+            The distribution of traps as a function of lifetime, middle lifetime, 
+            and lifetime scale, such that its integral from 0 to infinity = 1.
+            e.g. a log-normal probability density function.
+        middle_lifetime : float
+            The middle (e.g. mean or median depending on the distribution) 
+            release lifetime of the trap.
+        scale_lifetime : float
+            The scale of release lifetimes of the trap.
+        """
+        super(TrapLifetimeContinuum, self).__init__(
+            density=density, lifetime=middle_lifetime
+        )
+
+        self.distribution_of_traps_with_lifetime = distribution_of_traps_with_lifetime
+        self.middle_lifetime = middle_lifetime
+        self.scale_lifetime = scale_lifetime
 
 
 class TrapManager(object):
@@ -1050,3 +1086,4 @@ class TrapManagerTrackTime(TrapManager):
             ]
 
         return watermarks
+

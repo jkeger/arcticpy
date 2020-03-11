@@ -3,6 +3,7 @@ from arctic.model import ArcticParams, CCDVolume, CCDVolumeComplex
 from arctic.traps import (
     Trap,
     TrapNonUniformHeightDistribution,
+    TrapLifetimeContinuum,
     TrapManager,
     TrapManagerNonUniformHeightDistribution,
     TrapManagerTrackTime,

@@ -787,3 +787,260 @@ class TrapManagerTrackTime(TrapManager):
             )
 
         return electrons_released
+
+    def electrons_captured_by_traps(
+        self, electron_fractional_height, watermarks, traps, width=1
+    ):
+        """
+        Find the total number of electrons that the traps can capture.
+
+        Parameters
+        -----------
+        electron_fractional_height : float
+            The fractional height of the electron cloud in the pixel.
+        watermarks : np.ndarray
+            The initial watermarks. See initial_watermarks_from_rows_and_total_traps().
+        traps : [TrapSpecies]
+            An array of one or more objects describing a trap of trap.
+        wdith : float
+            The width of this pixel or phase, as a fraction of the whole pixel.
+
+        Returns
+        -------
+        electrons_captured : float
+            The number of captured electrons.
+        """
+        # Initialise the number of captured electrons
+        electrons_captured = 0
+
+        # The number of traps of each species
+        densities = np.array([trap.density for trap in traps]) * width
+
+        # Find the highest active watermark
+        max_watermark_index = np.argmax(watermarks[:, 0] == 0) - 1
+
+        # Initialise cumulative watermark height
+        cumulative_watermark_height = 0
+
+        # Capture electrons above each existing watermark level below the highest
+        for watermark_index in range(max_watermark_index + 1):
+            # Update cumulative watermark height
+            watermark_height = watermarks[watermark_index, 0]
+            cumulative_watermark_height += watermark_height
+
+            # Fill fractions from elapsed times
+            fill_fractions = np.array(
+                [
+                    trap.fill_fraction_from_time(time)
+                    for trap, time in zip(traps, watermarks[watermark_index, 1:])
+                ]
+            )
+
+            # Capture electrons all the way to this watermark (for all traps)
+            if cumulative_watermark_height < electron_fractional_height:
+                electrons_captured += watermark_height * np.sum(
+                    (1 - fill_fractions) * densities
+                )
+
+            # Capture electrons part-way between the previous and this watermark
+            else:
+                electrons_captured += (
+                    electron_fractional_height
+                    - (cumulative_watermark_height - watermark_height)
+                ) * np.sum((1 - fill_fractions) * densities)
+
+                # No point in checking even higher watermarks
+                return electrons_captured
+
+        # Capture any electrons above the highest existing watermark
+        if watermarks[max_watermark_index, 0] < electron_fractional_height:
+            electrons_captured += (
+                electron_fractional_height - cumulative_watermark_height
+            ) * np.sum(densities)
+
+        return electrons_captured
+
+    def updated_watermarks_from_capture(self, electron_fractional_height, watermarks):
+        """ Update the trap watermarks for capturing electrons.
+
+        Parameters
+        ----------
+        electron_fractional_height : float
+            The fractional height of the electron cloud in the pixel.
+
+        watermarks : np.ndarray
+            The initial watermarks. See initial_watermarks_from_rows_and_total_traps().
+
+        Returns
+        -------
+        watermarks : np.ndarray
+            The updated watermarks. See initial_watermarks_from_rows_and_total_traps().
+        """
+
+        # Find the highest active watermark
+        max_watermark_index = np.argmax(watermarks[:, 0] == 0) - 1
+        if max_watermark_index == -1:
+            max_watermark_index = 0
+
+        # Cumulative watermark heights
+        cumulative_watermark_height = np.cumsum(
+            watermarks[: max_watermark_index + 1, 0]
+        )
+
+        # If all watermarks will be overwritten
+        if cumulative_watermark_height[-1] < electron_fractional_height:
+            # Overwrite the first watermark
+            watermarks[0, 0] = electron_fractional_height
+            watermarks[0, 1:] = 0
+
+            # Remove all higher watermarks
+            watermarks[1:, :] = 0
+
+            return watermarks
+
+        # Find the first watermark above the cloud, which won't be fully overwritten
+        watermark_index_above_cloud = np.argmax(
+            electron_fractional_height < cumulative_watermark_height
+        )
+
+        # If some will be overwritten
+        if 0 < watermark_index_above_cloud:
+            # Edit the partially overwritten watermark
+            watermarks[watermark_index_above_cloud, 0] -= (
+                electron_fractional_height
+                - cumulative_watermark_height[watermark_index_above_cloud - 1]
+            )
+
+            # Remove the no-longer-needed overwritten watermarks
+            watermarks[: watermark_index_above_cloud - 1, :] = 0
+
+            # Move the no-longer-needed watermarks to the end of the list
+            watermarks = np.roll(watermarks, 1 - watermark_index_above_cloud, axis=0)
+
+            # Edit the new first watermark
+            watermarks[0, 0] = electron_fractional_height
+            watermarks[0, 1:] = 0
+
+        # If none will be overwritten
+        else:
+            # Move an empty watermark to the start of the list
+            watermarks = np.roll(watermarks, 1, axis=0)
+
+            # Edit the partially overwritten watermark
+            watermarks[1, 0] -= electron_fractional_height
+
+            # Edit the new first watermark
+            watermarks[0, 0] = electron_fractional_height
+            watermarks[0, 1:] = 0
+
+        return watermarks
+
+    def updated_watermarks_from_capture_not_enough(
+        self, electron_fractional_height, watermarks, enough
+    ):
+        """
+        Update the trap watermarks for capturing electrons when not enough are available to fill every trap below the
+        cloud height (rare!).
+
+        Like update_trap_wmk_capture(), but instead of setting filled trap fractions to 1, increase them by the enough
+        fraction towards 1.
+
+        Parameters
+        ----------
+        electron_fractional_height : float
+            The fractional height of the electron cloud in the pixel.
+        watermarks : np.ndarray
+            The initial watermarks. See initial_watermarks_from_rows_and_total_traps().
+        enough : float
+            The ratio of available electrons to traps up to this height.
+
+        Returns
+        --------
+        watermarks : np.ndarray
+            The updated watermarks. See initial_watermarks_from_rows_and_total_traps().
+        """
+        # Find the highest active watermark
+        max_watermark_index = np.argmax(watermarks[:, 0] == 0) - 1
+        if max_watermark_index == -1:
+            max_watermark_index = 0
+
+        # If the first capture
+        if max_watermark_index == 0:
+            # Edit the new watermark
+            watermarks[0, 0] = electron_fractional_height
+            watermarks[0, 1:] = [trap.time_from_fill_fraction(enough) for trap in self.traps]
+
+            return watermarks
+
+        # Cumulative watermark heights
+        cumulative_watermark_height = np.cumsum(
+            watermarks[: max_watermark_index + 1, 0]
+        )
+
+        # Find the first watermark above the cloud, which won't be fully overwritten
+        watermark_index_above_height = np.argmax(
+            electron_fractional_height < cumulative_watermark_height
+        )
+
+        # If all watermarks will be overwritten
+        if cumulative_watermark_height[-1] < electron_fractional_height:
+            # Do the same as the only-some case (unlike update_trap_wmk_capture())
+            watermark_index_above_height = max_watermark_index
+
+        # If some (or all) will be overwritten
+        if 0 < watermark_index_above_height:
+            # Move one new empty watermark to the start of the list
+            watermarks = np.roll(watermarks, 1, axis=0)
+
+            # Reorder the relevant watermarks near the start of the list
+            watermarks[: 2 * watermark_index_above_height] = watermarks[
+                1 : 2 * watermark_index_above_height + 1
+            ]
+
+            # Edit the new watermarks' times to correspond to the original fill
+            # fraction plus (1 - original fill) * enough.
+            # e.g. enough = 0.5 --> time equivalent of fill half way to full.
+            # Awkwardly need to convert to fill fractions first using each 
+            # trap's lifetime separately, but can still do all levels at once.
+            watermarks[: watermark_index_above_height + 1, 1:] = np.transpose([
+                trap.time_from_fill_fraction(
+                    trap.fill_fraction_from_time(time) * (1 - enough) + enough
+                )
+                for trap, time in zip(
+                    self.traps, watermarks[: watermark_index_above_height + 1, 1:].T
+                )
+            ])
+
+            # If all watermarks will be overwritten
+            if cumulative_watermark_height[-1] < electron_fractional_height:
+                # Edit the new highest watermark
+                watermarks[watermark_index_above_height + 1, 0] = (
+                    electron_fractional_height - cumulative_watermark_height[-1]
+                )
+                watermarks[watermark_index_above_height + 1, 1:] = [
+                    trap.time_from_fill_fraction(enough) for trap in self.traps
+                ]
+            else:
+                # Edit the new watermarks' heights
+                watermarks[
+                    watermark_index_above_height : watermark_index_above_height + 2, 0,
+                ] *= (1 - enough)
+
+        # If none will be overwritten
+        else:
+            # Move an empty watermark to the start of the list
+            watermarks = np.roll(watermarks, 1, axis=0)
+
+            # Edit the partially overwritten watermark
+            watermarks[1, 0] -= electron_fractional_height
+
+            # Edit the new first watermark
+            watermarks[0, 0] = electron_fractional_height
+            watermarks[0, 1:] = [
+                trap.time_from_fill_fraction(
+                    trap.fill_fraction_from_time(time) * (1 - enough) + enough
+                )
+                for trap, time in zip(self.traps, watermarks[1, 1:])
+            ]
+
+        return watermarks

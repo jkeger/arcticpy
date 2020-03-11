@@ -686,7 +686,7 @@ class TestTrapManagerNonUniformDistribution:
         assert electrons_captured == pytest.approx((0.96 * 0.2 + 0.01 * 0.6) * 10)
 
 
-class TestTimeAndFillFraction:
+class TestTrapManagerTrackTime:
     def test__fill_fraction_from_time_or_fill_fraction(self):
 
         trap = ac.Trap(density=10, lifetime=2)
@@ -700,7 +700,7 @@ class TestTimeAndFillFraction:
         assert fill == trap.fill_fraction_from_time(trap.time_from_fill_fraction(fill))
         assert time == trap.time_from_fill_fraction(trap.fill_fraction_from_time(time))
 
-    def test__electrons_released_in_pixel_time_or_fill(self):
+    def test__electrons_released_in_pixel_using_time(self):
 
         trap = ac.Trap(density=10, lifetime=-1 / np.log(0.5))
         trap_manager_fill = ac.TrapManager(traps=[trap], rows=6)
@@ -724,3 +724,110 @@ class TestTimeAndFillFraction:
         electrons_released_time = trap_manager_time.electrons_released_in_pixel()
 
         assert electrons_released_fill == electrons_released_time
+
+    def test__electrons_captured_by_traps_using_time(self):
+
+        trap = ac.Trap(density=10, lifetime=-1 / np.log(0.5))
+        trap_manager_fill = ac.TrapManager(traps=[trap], rows=6)
+        trap_manager_time = ac.TrapManagerTrackTime(traps=[trap], rows=6)
+
+        trap_manager_fill.watermarks = np.array(
+            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0], [0, 0]]
+        )
+        trap_manager_time.watermarks = np.array(
+            [
+                [0.5, trap.time_from_fill_fraction(0.8)],
+                [0.2, trap.time_from_fill_fraction(0.4)],
+                [0.1, trap.time_from_fill_fraction(0.3)],
+                [0, 0],
+                [0, 0],
+                [0, 0],
+            ]
+        )
+        electron_fractional_height = 0.6
+
+        electrons_captured_fill = trap_manager_fill.electrons_captured_by_traps(
+            electron_fractional_height=electron_fractional_height,
+            watermarks=trap_manager_fill.watermarks,
+            traps=trap_manager_fill.traps,
+        )
+        electrons_captured_time = trap_manager_time.electrons_captured_by_traps(
+            electron_fractional_height=electron_fractional_height,
+            watermarks=trap_manager_time.watermarks,
+            traps=trap_manager_time.traps,
+        )
+
+        assert electrons_captured_fill == electrons_captured_time
+
+    def test__updated_watermarks_from_capture_using_time(self):
+
+        trap = ac.Trap(density=10, lifetime=-1 / np.log(0.5))
+        trap_manager = ac.TrapManagerTrackTime(traps=[trap], rows=6)
+
+        watermarks = np.array(
+            [
+                [0.5, trap.time_from_fill_fraction(0.8)],
+                [0.2, trap.time_from_fill_fraction(0.4)],
+                [0.1, trap.time_from_fill_fraction(0.3)],
+                [0, 0],
+                [0, 0],
+                [0, 0],
+            ]
+        )
+        electron_fractional_height = 0.75
+
+        watermarks = trap_manager.updated_watermarks_from_capture(
+            electron_fractional_height=electron_fractional_height,
+            watermarks=watermarks,
+        )
+
+        assert watermarks == pytest.approx(
+            np.array(
+                [
+                    [0.75, 0],
+                    [0.05, trap.time_from_fill_fraction(0.3)],
+                    [0, 0],
+                    [0, 0],
+                    [0, 0],
+                    [0, 0],
+                ]
+            )
+        )
+
+    def test__updated_watermarks_from_capture_not_enough_multiple_traps_using_time(self):
+        
+        trap_1 = ac.Trap(density=10, lifetime=-1 / np.log(0.5))
+        trap_2 = ac.Trap(density=10, lifetime=-2 / np.log(0.5))
+        trap_manager = ac.TrapManagerTrackTime(traps=[trap_1, trap_2], rows=6)
+
+        watermarks = np.array(
+            [
+                [0.5, trap_1.time_from_fill_fraction(0.8), trap_2.time_from_fill_fraction(0.6)],
+                [0.2, trap_1.time_from_fill_fraction(0.4), trap_2.time_from_fill_fraction(0.2)],
+                [0.1, trap_1.time_from_fill_fraction(0.3), trap_2.time_from_fill_fraction(0.1)],
+                [0, 0, 0],
+                [0, 0, 0],
+                [0, 0, 0],
+            ]
+        )        
+        electron_fractional_height = 0.6
+        enough = 0.5
+        
+        watermarks = trap_manager.updated_watermarks_from_capture_not_enough(
+            electron_fractional_height=electron_fractional_height,
+            watermarks=watermarks,
+            enough=enough,
+        )
+        
+        assert watermarks == pytest.approx(
+            np.array(
+                [
+                    [0.5, trap_1.time_from_fill_fraction(0.9), trap_2.time_from_fill_fraction(0.8)], 
+                    [0.1, trap_1.time_from_fill_fraction(0.7), trap_2.time_from_fill_fraction(0.6)], 
+                    [0.1, trap_1.time_from_fill_fraction(0.4), trap_2.time_from_fill_fraction(0.2)], 
+                    [0.1, trap_1.time_from_fill_fraction(0.3), trap_2.time_from_fill_fraction(0.1)], 
+                    [0, 0, 0], 
+                    [0, 0, 0]
+                ]
+            )
+        )

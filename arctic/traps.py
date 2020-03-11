@@ -1,5 +1,7 @@
 import numpy as np
 
+from scipy import integrate
+
 
 class Trap(object):
     def __init__(self, density=0.13, lifetime=0.25):
@@ -8,7 +10,7 @@ class Trap(object):
         Parameters
         ----------
         density : float
-            The trap density of the trap.
+            The density of the trap species in a pixel.
         lifetime : float
             The release lifetime of the trap, in the same units as the time 
             spent in each pixel or phase (Clocker sequence).
@@ -64,6 +66,24 @@ class Trap(object):
                 The number of released electrons.
         """
         return electrons * (1 - self.fill_fraction_from_time(time))
+
+    def electrons_released_from_time_elapsed_and_time(self, time_elapsed, time=1):
+        """ Calculate the number of released electrons from the trap.
+
+            Parameters
+            ----------
+            time_elapsed : float
+                The time elapsed since capture.
+            time : float
+                The time spent in this pixel or phase, in the same units as the 
+                trap lifetime.
+
+            Returns
+            -------
+            electrons_released : float
+                The number of released electrons.
+        """
+        return np.exp(-time_elapsed / self.lifetime) * (1 - np.exp(-time / self.lifetime))
 
     @property
     def delta_ellipticity(self):
@@ -137,7 +157,7 @@ class TrapNonUniformHeightDistribution(Trap):
         Parameters
         ----------
         density : float
-            The trap density of the trap.
+            The density of the trap species in a pixel.
         lifetime : float
             The release lifetime of the trap.
         electron_fractional_height_min, electron_fractional_height_max : float
@@ -695,20 +715,6 @@ class TrapManagerTrackTime(TrapManager):
         the same result for normal traps.
     """
 
-    def __init__(self, traps, rows):
-        """The manager for potentially multiple trap species that must use 
-        watermarks in the same way as each other.
-
-        Parameters
-        ----------
-        traps : [Trap]
-            A list of one or more trap objects.
-        rows :int
-            The number of rows in the image. i.e. the maximum number of
-            possible electron trap/release events.            
-        """
-        super(TrapManagerTrackTime, self).__init__(traps=traps, rows=rows)
-
     def initial_watermarks_from_rows_and_total_traps(self, rows, total_traps):
         """ Initialise the watermark array of trap states.
 
@@ -769,11 +775,8 @@ class TrapManagerTrackTime(TrapManager):
             # For each traps
             for trap_index, trap in enumerate(self.traps):
                 # Number of released electrons (not yet including the trap density)
-                fill = trap.fill_fraction_from_time(
-                    self.watermarks[watermark_index, 1 + trap_index]
-                )
-                electrons_released_from_trap = trap.electrons_released_from_electrons_and_time(
-                    electrons=fill, time=time,
+                electrons_released_from_trap = trap.electrons_released_from_time_elapsed_and_time(
+                    time_elapsed=self.watermarks[watermark_index, 1 + trap_index], time=time,
                 )
 
                 # Update the watermark times

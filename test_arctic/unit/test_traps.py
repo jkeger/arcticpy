@@ -698,8 +698,12 @@ class TestTrapManagerTrackTime:
         time = trap.time_elapsed_from_fill_fraction(0.5)
         assert time == -2 * np.log(0.5)
 
-        assert fill == trap.fill_fraction_from_time_elapsed(trap.time_elapsed_from_fill_fraction(fill))
-        assert time == trap.time_elapsed_from_fill_fraction(trap.fill_fraction_from_time_elapsed(time))
+        assert fill == trap.fill_fraction_from_time_elapsed(
+            trap.time_elapsed_from_fill_fraction(fill)
+        )
+        assert time == trap.time_elapsed_from_fill_fraction(
+            trap.fill_fraction_from_time_elapsed(time)
+        )
 
     def test__electrons_released_in_pixel_using_time(self):
 
@@ -725,7 +729,7 @@ class TestTrapManagerTrackTime:
         electrons_released_time = trap_manager_time.electrons_released_in_pixel()
 
         assert electrons_released_fill == electrons_released_time
-        
+
         assert trap_manager_time.watermarks == pytest.approx(
             [
                 [0.5, trap.time_elapsed_from_fill_fraction(0.4)],
@@ -806,40 +810,70 @@ class TestTrapManagerTrackTime:
             )
         )
 
-    def test__updated_watermarks_from_capture_not_enough_multiple_traps_using_time(self):
-        
+    def test__updated_watermarks_from_capture_not_enough_multiple_traps_using_time(
+        self,
+    ):
+
         trap_1 = ac.Trap(density=10, lifetime=-1 / np.log(0.5))
         trap_2 = ac.Trap(density=10, lifetime=-2 / np.log(0.5))
         trap_manager = ac.TrapManagerTrackTime(traps=[trap_1, trap_2], rows=6)
 
         watermarks = np.array(
             [
-                [0.5, trap_1.time_elapsed_from_fill_fraction(0.8), trap_2.time_elapsed_from_fill_fraction(0.6)],
-                [0.2, trap_1.time_elapsed_from_fill_fraction(0.4), trap_2.time_elapsed_from_fill_fraction(0.2)],
-                [0.1, trap_1.time_elapsed_from_fill_fraction(0.3), trap_2.time_elapsed_from_fill_fraction(0.1)],
+                [
+                    0.5,
+                    trap_1.time_elapsed_from_fill_fraction(0.8),
+                    trap_2.time_elapsed_from_fill_fraction(0.6),
+                ],
+                [
+                    0.2,
+                    trap_1.time_elapsed_from_fill_fraction(0.4),
+                    trap_2.time_elapsed_from_fill_fraction(0.2),
+                ],
+                [
+                    0.1,
+                    trap_1.time_elapsed_from_fill_fraction(0.3),
+                    trap_2.time_elapsed_from_fill_fraction(0.1),
+                ],
                 [0, 0, 0],
                 [0, 0, 0],
                 [0, 0, 0],
             ]
-        )        
+        )
         electron_fractional_height = 0.6
         enough = 0.5
-        
+
         watermarks = trap_manager.updated_watermarks_from_capture_not_enough(
             electron_fractional_height=electron_fractional_height,
             watermarks=watermarks,
             enough=enough,
         )
-        
+
         assert watermarks == pytest.approx(
             np.array(
                 [
-                    [0.5, trap_1.time_elapsed_from_fill_fraction(0.9), trap_2.time_elapsed_from_fill_fraction(0.8)], 
-                    [0.1, trap_1.time_elapsed_from_fill_fraction(0.7), trap_2.time_elapsed_from_fill_fraction(0.6)], 
-                    [0.1, trap_1.time_elapsed_from_fill_fraction(0.4), trap_2.time_elapsed_from_fill_fraction(0.2)], 
-                    [0.1, trap_1.time_elapsed_from_fill_fraction(0.3), trap_2.time_elapsed_from_fill_fraction(0.1)], 
-                    [0, 0, 0], 
-                    [0, 0, 0]
+                    [
+                        0.5,
+                        trap_1.time_elapsed_from_fill_fraction(0.9),
+                        trap_2.time_elapsed_from_fill_fraction(0.8),
+                    ],
+                    [
+                        0.1,
+                        trap_1.time_elapsed_from_fill_fraction(0.7),
+                        trap_2.time_elapsed_from_fill_fraction(0.6),
+                    ],
+                    [
+                        0.1,
+                        trap_1.time_elapsed_from_fill_fraction(0.4),
+                        trap_2.time_elapsed_from_fill_fraction(0.2),
+                    ],
+                    [
+                        0.1,
+                        trap_1.time_elapsed_from_fill_fraction(0.3),
+                        trap_2.time_elapsed_from_fill_fraction(0.1),
+                    ],
+                    [0, 0, 0],
+                    [0, 0, 0],
                 ]
             )
         )
@@ -847,99 +881,110 @@ class TestTrapManagerTrackTime:
 
 class TestTrapLifetimeContinuum:
     def test__distribution_of_traps_with_lifetime(self):
-        
+
         median_lifetime = -1 / np.log(0.5)
         scale_lifetime = 0.5
+
         def trap_distribution(lifetime, median, scale):
-            return np.exp(-(np.log(lifetime) - np.log(median))**2 / (2 * scale**2)) / (
-                lifetime * scale * np.sqrt(2*np.pi)
-            )
+            return np.exp(
+                -((np.log(lifetime) - np.log(median)) ** 2) / (2 * scale ** 2)
+            ) / (lifetime * scale * np.sqrt(2 * np.pi))
 
         trap = ac.TrapLifetimeContinuum(
-            density=10, 
+            density=10,
             distribution_of_traps_with_lifetime=trap_distribution,
             middle_lifetime=median_lifetime,
             scale_lifetime=scale_lifetime,
         )
-                
+
         # Check that the integral from zero to infinity is one
         assert integrate.quad(
-            trap.distribution_of_traps_with_lifetime, 0, np.inf, args=(
-                trap.middle_lifetime, trap.scale_lifetime
-            )
+            trap.distribution_of_traps_with_lifetime,
+            0,
+            np.inf,
+            args=(trap.middle_lifetime, trap.scale_lifetime),
         )[0] == pytest.approx(1)
 
     def test__fill_fraction_from_time_elapsed_narrow_continuum(self):
 
-        # Check that narrow continuum gives similar results to single lifetime  
+        # Check that narrow continuum gives similar results to single lifetime
         # Simple trap
         trap = ac.Trap(density=10, lifetime=1)
         fill_single = trap.fill_fraction_from_time_elapsed(1)
-        
+
         # Narrow continuum
         median_lifetime = 1
         scale_lifetime = 0.1
+
         def trap_distribution(lifetime, median, scale):
-            return np.exp(-(np.log(lifetime) - np.log(median))**2 / (2 * scale**2)) / (
-                lifetime * scale * np.sqrt(2*np.pi)
-            )
+            return np.exp(
+                -((np.log(lifetime) - np.log(median)) ** 2) / (2 * scale ** 2)
+            ) / (lifetime * scale * np.sqrt(2 * np.pi))
+
         trap = ac.TrapLifetimeContinuum(
-            density=10, 
+            density=10,
             distribution_of_traps_with_lifetime=trap_distribution,
             middle_lifetime=median_lifetime,
             scale_lifetime=scale_lifetime,
         )
         fill_continuum = trap.fill_fraction_from_time_elapsed(1)
-        
+
         assert fill_continuum == pytest.approx(fill_single, rel=0.01)
 
     def test__time_elapsed_from_fill_fraction_narrow_continuum(self):
 
-        # Check that narrow continuum gives similar results to single lifetime  
+        # Check that narrow continuum gives similar results to single lifetime
         # Simple trap
         trap = ac.Trap(density=10, lifetime=1)
         time_single = trap.time_elapsed_from_fill_fraction(0.5)
-        
+
         # Narrow continuum
         median_lifetime = 1
         scale_lifetime = 0.1
+
         def trap_distribution(lifetime, median, scale):
-            return np.exp(-(np.log(lifetime) - np.log(median))**2 / (2 * scale**2)) / (
-                lifetime * scale * np.sqrt(2*np.pi)
-            )
+            return np.exp(
+                -((np.log(lifetime) - np.log(median)) ** 2) / (2 * scale ** 2)
+            ) / (lifetime * scale * np.sqrt(2 * np.pi))
+
         trap = ac.TrapLifetimeContinuum(
-            density=10, 
+            density=10,
             distribution_of_traps_with_lifetime=trap_distribution,
             middle_lifetime=median_lifetime,
             scale_lifetime=scale_lifetime,
         )
         time_continuum = trap.time_elapsed_from_fill_fraction(0.5)
-        
+
         assert time_continuum == pytest.approx(time_single, rel=0.01)
-        
+
     def test__time_elapsed_from_fill_fraction_continuum(self):
-        
+
         median_lifetime = 1
         scale_lifetime = 1
+
         def trap_distribution(lifetime, median, scale):
-            return np.exp(-(np.log(lifetime) - np.log(median))**2 / (2 * scale**2)) / (
-                lifetime * scale * np.sqrt(2*np.pi)
-            )
+            return np.exp(
+                -((np.log(lifetime) - np.log(median)) ** 2) / (2 * scale ** 2)
+            ) / (lifetime * scale * np.sqrt(2 * np.pi))
+
         trap = ac.TrapLifetimeContinuum(
-            density=10, 
+            density=10,
             distribution_of_traps_with_lifetime=trap_distribution,
             middle_lifetime=median_lifetime,
             scale_lifetime=scale_lifetime,
         )
         time = 1
-        
-        assert trap.time_elapsed_from_fill_fraction(
-            trap.fill_fraction_from_time_elapsed(time)
-        ) == time
-       
+
+        assert (
+            trap.time_elapsed_from_fill_fraction(
+                trap.fill_fraction_from_time_elapsed(time)
+            )
+            == time
+        )
+
     def test__electrons_released_from_time_elapsed_and_time_narrow_continuum(self):
-    
-        # Check that narrow continuum gives similar results to single lifetime  
+
+        # Check that narrow continuum gives similar results to single lifetime
         # Simple trap
         trap = ac.Trap(density=10, lifetime=1)
         trap_manager = ac.TrapManager(traps=[trap], rows=6)
@@ -947,20 +992,22 @@ class TestTrapLifetimeContinuum:
             [[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]]
         )
         electrons_released_single = trap_manager.electrons_released_in_pixel()
-    
+
         # Narrow continuum
         median_lifetime = 1
         scale_lifetime = 0.1
+
         def trap_distribution(lifetime, median, scale):
-            return np.exp(-(np.log(lifetime) - np.log(median))**2 / (2 * scale**2)) / (
-                lifetime * scale * np.sqrt(2*np.pi)
-            )
+            return np.exp(
+                -((np.log(lifetime) - np.log(median)) ** 2) / (2 * scale ** 2)
+            ) / (lifetime * scale * np.sqrt(2 * np.pi))
+
         trap = ac.TrapLifetimeContinuum(
-            density=10, 
+            density=10,
             distribution_of_traps_with_lifetime=trap_distribution,
             middle_lifetime=median_lifetime,
             scale_lifetime=scale_lifetime,
-        )        
+        )
         trap_manager = ac.TrapManagerTrackTime(traps=[trap], rows=6)
         trap_manager.watermarks = np.array(
             [
@@ -971,16 +1018,16 @@ class TestTrapLifetimeContinuum:
                 [0, 0],
                 [0, 0],
             ]
-        )        
+        )
         electrons_released_continuum = trap_manager.electrons_released_in_pixel()
-    
+
         assert electrons_released_continuum == pytest.approx(
             electrons_released_single, rel=0.01
         )
-    
+
     def test__electrons_released_from_time_elapsed_and_time_continuum(self):
-    
-        # Check that continuum gives somewhat similar results to single lifetime  
+
+        # Check that continuum gives somewhat similar results to single lifetime
         # Simple trap
         trap = ac.Trap(density=10, lifetime=1)
         trap_manager = ac.TrapManager(traps=[trap], rows=6)
@@ -988,20 +1035,22 @@ class TestTrapLifetimeContinuum:
             [[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]]
         )
         electrons_released_single = trap_manager.electrons_released_in_pixel()
-    
+
         # Continuum
         median_lifetime = 1
         scale_lifetime = 1
+
         def trap_distribution(lifetime, median, scale):
-            return np.exp(-(np.log(lifetime) - np.log(median))**2 / (2 * scale**2)) / (
-                lifetime * scale * np.sqrt(2*np.pi)
-            )
+            return np.exp(
+                -((np.log(lifetime) - np.log(median)) ** 2) / (2 * scale ** 2)
+            ) / (lifetime * scale * np.sqrt(2 * np.pi))
+
         trap = ac.TrapLifetimeContinuum(
-            density=10, 
+            density=10,
             distribution_of_traps_with_lifetime=trap_distribution,
             middle_lifetime=median_lifetime,
             scale_lifetime=scale_lifetime,
-        )        
+        )
         trap_manager = ac.TrapManagerTrackTime(traps=[trap], rows=6)
         trap_manager.watermarks = np.array(
             [
@@ -1012,16 +1061,16 @@ class TestTrapLifetimeContinuum:
                 [0, 0],
                 [0, 0],
             ]
-        )        
+        )
         electrons_released_continuum = trap_manager.electrons_released_in_pixel()
-    
+
         assert electrons_released_continuum == pytest.approx(
             electrons_released_single, rel=1
         )
 
     def test__electrons_captured_by_traps_narrow_continuum(self):
-            
-        # Check that narrow continuum gives similar results to single lifetime  
+
+        # Check that narrow continuum gives similar results to single lifetime
         # Simple trap
         trap = ac.Trap(density=10, lifetime=1)
         trap_manager = ac.TrapManager(traps=[trap], rows=6)
@@ -1034,20 +1083,22 @@ class TestTrapLifetimeContinuum:
             watermarks=trap_manager.watermarks,
             traps=trap_manager.traps,
         )
-    
+
         # Narrow continuum
         median_lifetime = 1
         scale_lifetime = 0.1
+
         def trap_distribution(lifetime, median, scale):
-            return np.exp(-(np.log(lifetime) - np.log(median))**2 / (2 * scale**2)) / (
-                lifetime * scale * np.sqrt(2*np.pi)
-            )
+            return np.exp(
+                -((np.log(lifetime) - np.log(median)) ** 2) / (2 * scale ** 2)
+            ) / (lifetime * scale * np.sqrt(2 * np.pi))
+
         trap = ac.TrapLifetimeContinuum(
-            density=10, 
+            density=10,
             distribution_of_traps_with_lifetime=trap_distribution,
             middle_lifetime=median_lifetime,
             scale_lifetime=scale_lifetime,
-        )        
+        )
         trap_manager = ac.TrapManagerTrackTime(traps=[trap], rows=6)
         trap_manager.watermarks = np.array(
             [
@@ -1069,10 +1120,10 @@ class TestTrapLifetimeContinuum:
         assert electrons_captured_continuum == pytest.approx(
             electrons_captured_single, rel=0.01
         )
-    
+
     def test__electrons_captured_by_traps_continuum(self):
-            
-        # Check that continuum gives somewhat similar results to single lifetime 
+
+        # Check that continuum gives somewhat similar results to single lifetime
         # Simple trap
         trap = ac.Trap(density=10, lifetime=1)
         trap_manager = ac.TrapManager(traps=[trap], rows=6)
@@ -1085,20 +1136,22 @@ class TestTrapLifetimeContinuum:
             watermarks=trap_manager.watermarks,
             traps=trap_manager.traps,
         )
-    
+
         # Narrow continuum
         median_lifetime = 1
         scale_lifetime = 1
+
         def trap_distribution(lifetime, median, scale):
-            return np.exp(-(np.log(lifetime) - np.log(median))**2 / (2 * scale**2)) / (
-                lifetime * scale * np.sqrt(2*np.pi)
-            )
+            return np.exp(
+                -((np.log(lifetime) - np.log(median)) ** 2) / (2 * scale ** 2)
+            ) / (lifetime * scale * np.sqrt(2 * np.pi))
+
         trap = ac.TrapLifetimeContinuum(
-            density=10, 
+            density=10,
             distribution_of_traps_with_lifetime=trap_distribution,
             middle_lifetime=median_lifetime,
             scale_lifetime=scale_lifetime,
-        )        
+        )
         trap_manager = ac.TrapManagerTrackTime(traps=[trap], rows=6)
         trap_manager.watermarks = np.array(
             [
@@ -1122,8 +1175,8 @@ class TestTrapLifetimeContinuum:
         )
 
     def test__updated_watermarks_from_capture_narrow_continuum(self):
-    
-        # Check that narrow continuum gives similar results to single lifetime  
+
+        # Check that narrow continuum gives similar results to single lifetime
         # Simple trap
         trap = ac.Trap(density=10, lifetime=-1 / np.log(0.5))
         trap_manager = ac.TrapManagerTrackTime(traps=[trap], rows=6)
@@ -1139,23 +1192,24 @@ class TestTrapLifetimeContinuum:
         )
         electron_fractional_height = 0.75
         watermarks_single = trap_manager.updated_watermarks_from_capture(
-            electron_fractional_height=electron_fractional_height,
-            watermarks=watermarks
-        ) 
-    
+            electron_fractional_height=electron_fractional_height, watermarks=watermarks
+        )
+
         # Narrow continuum
         median_lifetime = 1
         scale_lifetime = 0.1
+
         def trap_distribution(lifetime, median, scale):
-            return np.exp(-(np.log(lifetime) - np.log(median))**2 / (2 * scale**2)) / (
-                lifetime * scale * np.sqrt(2*np.pi)
-            )
+            return np.exp(
+                -((np.log(lifetime) - np.log(median)) ** 2) / (2 * scale ** 2)
+            ) / (lifetime * scale * np.sqrt(2 * np.pi))
+
         trap = ac.TrapLifetimeContinuum(
-            density=10, 
+            density=10,
             distribution_of_traps_with_lifetime=trap_distribution,
             middle_lifetime=median_lifetime,
             scale_lifetime=scale_lifetime,
-        )        
+        )
         trap_manager = ac.TrapManagerTrackTime(traps=[trap], rows=6)
         watermarks = np.array(
             [
@@ -1169,15 +1223,14 @@ class TestTrapLifetimeContinuum:
         )
         electron_fractional_height = 0.75
         watermarks_continuum = trap_manager.updated_watermarks_from_capture(
-            electron_fractional_height=electron_fractional_height,
-            watermarks=watermarks
+            electron_fractional_height=electron_fractional_height, watermarks=watermarks
         )
-        
+
         assert watermarks_continuum == pytest.approx(watermarks_single, rel=0.1)
-        
+
     def test__updated_watermarks_from_capture_not_enough_narrow_continuum(self):
-    
-        # Check that narrow continuum gives similar results to single lifetime  
+
+        # Check that narrow continuum gives similar results to single lifetime
         # Simple trap
         trap = ac.Trap(density=10, lifetime=-1 / np.log(0.5))
         trap_manager = ac.TrapManagerTrackTime(traps=[trap], rows=6)
@@ -1196,22 +1249,24 @@ class TestTrapLifetimeContinuum:
         watermarks_single = trap_manager.updated_watermarks_from_capture_not_enough(
             electron_fractional_height=electron_fractional_height,
             watermarks=watermarks,
-            enough=enough
-        ) 
-    
+            enough=enough,
+        )
+
         # Narrow continuum
         median_lifetime = 1
         scale_lifetime = 0.01
+
         def trap_distribution(lifetime, median, scale):
-            return np.exp(-(np.log(lifetime) - np.log(median))**2 / (2 * scale**2)) / (
-                lifetime * scale * np.sqrt(2*np.pi)
-            )
+            return np.exp(
+                -((np.log(lifetime) - np.log(median)) ** 2) / (2 * scale ** 2)
+            ) / (lifetime * scale * np.sqrt(2 * np.pi))
+
         trap = ac.TrapLifetimeContinuum(
-            density=10, 
+            density=10,
             distribution_of_traps_with_lifetime=trap_distribution,
             middle_lifetime=median_lifetime,
             scale_lifetime=scale_lifetime,
-        )        
+        )
         trap_manager = ac.TrapManagerTrackTime(traps=[trap], rows=6)
         watermarks = np.array(
             [
@@ -1228,8 +1283,7 @@ class TestTrapLifetimeContinuum:
         watermarks_continuum = trap_manager.updated_watermarks_from_capture_not_enough(
             electron_fractional_height=electron_fractional_height,
             watermarks=watermarks,
-            enough=enough
+            enough=enough,
         )
-                
+
         assert watermarks_continuum == pytest.approx(watermarks_single, rel=0.5)
-        

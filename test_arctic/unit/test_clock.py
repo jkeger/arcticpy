@@ -70,7 +70,7 @@ class TestClocker:
             abs=1e-3,
         )
 
-    def test__remove_cti__parallel_only__single_pixel__compare_to_cplusplus_version(
+    def test__remove_cti__parallel_only__single_pixel__successive_iterations(
         self,
     ):
         image = np.zeros((6, 2))

@@ -121,7 +121,10 @@ class Trap(object):
         return poisson_trap
 
 
-class TrapNonUniformDistribution(Trap):
+class TrapNonUniformHeightDistribution(Trap):
+    """ For a non-uniform distribution of traps with height within the pixel.
+    """
+    
     def __init__(
         self,
         density,
@@ -129,20 +132,20 @@ class TrapNonUniformDistribution(Trap):
         electron_fractional_height_min,
         electron_fractional_height_max,
     ):
-        """The parameters for a single trap species 
+        """The parameters for a single trap species. 
 
         Parameters
         ----------
         density : float
             The trap density of the trap.
         lifetime : float
-            The trap lifetimes of the trap.
+            The release lifetime of the trap.
         electron_fractional_height_min, electron_fractional_height_max : float
             The minimum (maximum) fractional height of the electron cloud in 
             the pixel below (above) which corresponds to an effective fractional 
             height of 0 (1), with a linear relation in between.
         """
-        super(TrapNonUniformDistribution, self).__init__(
+        super(TrapNonUniformHeightDistribution, self).__init__(
             density=density, lifetime=lifetime
         )
 
@@ -558,7 +561,7 @@ class TrapManager(object):
         return electrons_captured
 
 
-class TrapManagerNonUniformDistribution(TrapManager):
+class TrapManagerNonUniformHeightDistribution(TrapManager):
     """ For a non-uniform distribution of traps with height within the pixel.
     """
 
@@ -581,7 +584,7 @@ class TrapManagerNonUniformDistribution(TrapManager):
             The number of rows in the image. i.e. the maximum number of
             possible electron trap/release events.
         """
-        super(TrapManagerNonUniformDistribution, self).__init__(traps=traps, rows=rows)
+        super(TrapManagerNonUniformHeightDistribution, self).__init__(traps=traps, rows=rows)
 
         self.electron_fractional_height_min = traps[0].electron_fractional_height_min
         self.electron_fractional_height_max = traps[0].electron_fractional_height_max

@@ -162,7 +162,7 @@ class TestClocker:
         traps = [
             [ac.Trap(density=10, lifetime=-1 / np.log(0.5))],
             [
-                ac.TrapNonUniformDistribution(
+                ac.TrapNonUniformHeightDistribution(
                     density=5,
                     lifetime=-1 / np.log(0.5),
                     electron_fractional_height_min=0,

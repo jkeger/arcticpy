@@ -607,18 +607,18 @@ class TestElectronsCapturedInPixel:
         )
 
 
-class TestTrapManagerNonUniformDistribution:
+class TestTrapManagerNonUniformHeightDistribution:
     def test__effective_non_uniform_electron_fractional_height(self):
 
         traps = [
-            ac.TrapNonUniformDistribution(
+            ac.TrapNonUniformHeightDistribution(
                 density=10,
                 lifetime=-1 / np.log(0.5),
                 electron_fractional_height_min=0.95,
                 electron_fractional_height_max=1,
             )
         ]
-        trap_manager = ac.TrapManagerNonUniformDistribution(traps=traps, rows=6,)
+        trap_manager = ac.TrapManagerNonUniformHeightDistribution(traps=traps, rows=6,)
 
         assert trap_manager.effective_non_uniform_electron_fractional_height(0.9) == 0
         assert trap_manager.effective_non_uniform_electron_fractional_height(1) == 1
@@ -629,14 +629,14 @@ class TestTrapManagerNonUniformDistribution:
     def test__first_capture(self):
 
         traps = [
-            ac.TrapNonUniformDistribution(
+            ac.TrapNonUniformHeightDistribution(
                 density=10,
                 lifetime=-1 / np.log(0.5),
                 electron_fractional_height_min=0.95,
                 electron_fractional_height_max=1,
             )
         ]
-        trap_manager = ac.TrapManagerNonUniformDistribution(traps=traps, rows=6,)
+        trap_manager = ac.TrapManagerNonUniformHeightDistribution(traps=traps, rows=6,)
 
         electron_fractional_height = 0.5
 
@@ -648,7 +648,7 @@ class TestTrapManagerNonUniformDistribution:
 
         assert electrons_captured == pytest.approx(0.5 * 10)
 
-        trap_manager = ac.TrapManagerNonUniformDistribution(traps=traps, rows=6,)
+        trap_manager = ac.TrapManagerNonUniformHeightDistribution(traps=traps, rows=6,)
 
         electron_fractional_height = 0.99
 
@@ -663,14 +663,14 @@ class TestTrapManagerNonUniformDistribution:
     def test__middle_new_watermarks(self):
 
         traps = [
-            ac.TrapNonUniformDistribution(
+            ac.TrapNonUniformHeightDistribution(
                 density=10,
                 lifetime=-1 / np.log(0.5),
                 electron_fractional_height_min=0.95,
                 electron_fractional_height_max=1,
             )
         ]
-        trap_manager = ac.TrapManagerNonUniformDistribution(traps=traps, rows=6,)
+        trap_manager = ac.TrapManagerNonUniformHeightDistribution(traps=traps, rows=6,)
 
         trap_manager.watermarks = np.array(
             [[0.96, 0.8], [0.98, 0.4], [0.99, 0.3], [0, 0], [0, 0], [0, 0]]

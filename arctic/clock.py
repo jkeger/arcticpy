@@ -8,9 +8,9 @@ import numpy as np
 from copy import deepcopy
 
 from arctic.traps import (
-    TrapNonUniformDistribution,
+    TrapNonUniformHeightDistribution,
     TrapManager,
-    TrapManagerNonUniformDistribution,
+    TrapManagerNonUniformHeightDistribution,
 )
 
 
@@ -230,9 +230,9 @@ class Clocker(object):
         # Set up the array of trap managers
         trap_managers = []
         for trap_group in traps:
-            if type(traps) is TrapNonUniformDistribution:
+            if type(traps) is TrapNonUniformHeightDistribution:
                 trap_managers.append(
-                    TrapManagerNonUniformDistribution(
+                    TrapManagerNonUniformHeightDistribution(
                         traps=trap_group, rows=rows
                     )
                 )

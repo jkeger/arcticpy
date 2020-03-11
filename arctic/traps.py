@@ -208,6 +208,35 @@ class TrapLifetimeContinuum(Trap):
         self.middle_lifetime = middle_lifetime
         self.scale_lifetime = scale_lifetime
 
+    def electrons_released_from_time_elapsed_and_time(self, time_elapsed, time=1):
+        """ Calculate the number of released electrons from the trap.
+
+            Parameters
+            ----------
+            time_elapsed : float
+                The time elapsed since capture.
+            time : float
+                The time spent in this pixel or phase, in the same units as the 
+                trap lifetime.
+
+            Returns
+            -------
+            electrons_released : float
+                The number of released electrons.
+        """
+        def integrand(lifetime, time_elapsed, time, mean, scale):
+            return (
+                self.distribution_of_traps_with_lifetime(lifetime, mean, scale)
+                * np.exp(-time_elapsed / lifetime)
+                * (1 - np.exp(-time / lifetime))
+            )
+
+        return integrate.quad(
+            integrand, 0, np.inf, args=(
+                time_elapsed, time, self.middle_lifetime, self.scale_lifetime
+            )
+        )[0]
+
 
 class TrapManager(object):
     def __init__(self, traps, rows):

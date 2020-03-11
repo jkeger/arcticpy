@@ -688,18 +688,18 @@ class TestTrapManagerNonUniformHeightDistribution:
 
 
 class TestTrapManagerTrackTime:
-    def test__fill_fraction_from_time_or_fill_fraction(self):
+    def test__fill_fraction_from_time_elapsed(self):
 
         trap = ac.Trap(density=10, lifetime=2)
 
-        fill = trap.fill_fraction_from_time(1)
+        fill = trap.fill_fraction_from_time_elapsed(1)
         assert fill == np.exp(-0.5)
 
-        time = trap.time_from_fill_fraction(0.5)
+        time = trap.time_elapsed_from_fill_fraction(0.5)
         assert time == -2 * np.log(0.5)
 
-        assert fill == trap.fill_fraction_from_time(trap.time_from_fill_fraction(fill))
-        assert time == trap.time_from_fill_fraction(trap.fill_fraction_from_time(time))
+        assert fill == trap.fill_fraction_from_time_elapsed(trap.time_elapsed_from_fill_fraction(fill))
+        assert time == trap.time_elapsed_from_fill_fraction(trap.fill_fraction_from_time_elapsed(time))
 
     def test__electrons_released_in_pixel_using_time(self):
 
@@ -712,9 +712,9 @@ class TestTrapManagerTrackTime:
         )
         trap_manager_time.watermarks = np.array(
             [
-                [0.5, trap.time_from_fill_fraction(0.8)],
-                [0.2, trap.time_from_fill_fraction(0.4)],
-                [0.1, trap.time_from_fill_fraction(0.2)],
+                [0.5, trap.time_elapsed_from_fill_fraction(0.8)],
+                [0.2, trap.time_elapsed_from_fill_fraction(0.4)],
+                [0.1, trap.time_elapsed_from_fill_fraction(0.2)],
                 [0, 0],
                 [0, 0],
                 [0, 0],
@@ -737,9 +737,9 @@ class TestTrapManagerTrackTime:
         )
         trap_manager_time.watermarks = np.array(
             [
-                [0.5, trap.time_from_fill_fraction(0.8)],
-                [0.2, trap.time_from_fill_fraction(0.4)],
-                [0.1, trap.time_from_fill_fraction(0.3)],
+                [0.5, trap.time_elapsed_from_fill_fraction(0.8)],
+                [0.2, trap.time_elapsed_from_fill_fraction(0.4)],
+                [0.1, trap.time_elapsed_from_fill_fraction(0.3)],
                 [0, 0],
                 [0, 0],
                 [0, 0],
@@ -767,9 +767,9 @@ class TestTrapManagerTrackTime:
 
         watermarks = np.array(
             [
-                [0.5, trap.time_from_fill_fraction(0.8)],
-                [0.2, trap.time_from_fill_fraction(0.4)],
-                [0.1, trap.time_from_fill_fraction(0.3)],
+                [0.5, trap.time_elapsed_from_fill_fraction(0.8)],
+                [0.2, trap.time_elapsed_from_fill_fraction(0.4)],
+                [0.1, trap.time_elapsed_from_fill_fraction(0.3)],
                 [0, 0],
                 [0, 0],
                 [0, 0],
@@ -786,7 +786,7 @@ class TestTrapManagerTrackTime:
             np.array(
                 [
                     [0.75, 0],
-                    [0.05, trap.time_from_fill_fraction(0.3)],
+                    [0.05, trap.time_elapsed_from_fill_fraction(0.3)],
                     [0, 0],
                     [0, 0],
                     [0, 0],
@@ -803,9 +803,9 @@ class TestTrapManagerTrackTime:
 
         watermarks = np.array(
             [
-                [0.5, trap_1.time_from_fill_fraction(0.8), trap_2.time_from_fill_fraction(0.6)],
-                [0.2, trap_1.time_from_fill_fraction(0.4), trap_2.time_from_fill_fraction(0.2)],
-                [0.1, trap_1.time_from_fill_fraction(0.3), trap_2.time_from_fill_fraction(0.1)],
+                [0.5, trap_1.time_elapsed_from_fill_fraction(0.8), trap_2.time_elapsed_from_fill_fraction(0.6)],
+                [0.2, trap_1.time_elapsed_from_fill_fraction(0.4), trap_2.time_elapsed_from_fill_fraction(0.2)],
+                [0.1, trap_1.time_elapsed_from_fill_fraction(0.3), trap_2.time_elapsed_from_fill_fraction(0.1)],
                 [0, 0, 0],
                 [0, 0, 0],
                 [0, 0, 0],
@@ -823,10 +823,10 @@ class TestTrapManagerTrackTime:
         assert watermarks == pytest.approx(
             np.array(
                 [
-                    [0.5, trap_1.time_from_fill_fraction(0.9), trap_2.time_from_fill_fraction(0.8)], 
-                    [0.1, trap_1.time_from_fill_fraction(0.7), trap_2.time_from_fill_fraction(0.6)], 
-                    [0.1, trap_1.time_from_fill_fraction(0.4), trap_2.time_from_fill_fraction(0.2)], 
-                    [0.1, trap_1.time_from_fill_fraction(0.3), trap_2.time_from_fill_fraction(0.1)], 
+                    [0.5, trap_1.time_elapsed_from_fill_fraction(0.9), trap_2.time_elapsed_from_fill_fraction(0.8)], 
+                    [0.1, trap_1.time_elapsed_from_fill_fraction(0.7), trap_2.time_elapsed_from_fill_fraction(0.6)], 
+                    [0.1, trap_1.time_elapsed_from_fill_fraction(0.4), trap_2.time_elapsed_from_fill_fraction(0.2)], 
+                    [0.1, trap_1.time_elapsed_from_fill_fraction(0.3), trap_2.time_elapsed_from_fill_fraction(0.1)], 
                     [0, 0, 0], 
                     [0, 0, 0]
                 ]
@@ -885,9 +885,9 @@ class TestTrapLifetimeContinuum:
         trap_manager = ac.TrapManagerTrackTime(traps=[trap], rows=6)
         trap_manager.watermarks = np.array(
             [
-                [0.5, trap.time_from_fill_fraction(0.8)],
-                [0.2, trap.time_from_fill_fraction(0.4)],
-                [0.1, trap.time_from_fill_fraction(0.2)],
+                [0.5, trap.time_elapsed_from_fill_fraction(0.8)],
+                [0.2, trap.time_elapsed_from_fill_fraction(0.4)],
+                [0.1, trap.time_elapsed_from_fill_fraction(0.2)],
                 [0, 0],
                 [0, 0],
                 [0, 0],
@@ -926,9 +926,9 @@ class TestTrapLifetimeContinuum:
         trap_manager = ac.TrapManagerTrackTime(traps=[trap], rows=6)
         trap_manager.watermarks = np.array(
             [
-                [0.5, trap.time_from_fill_fraction(0.8)],
-                [0.2, trap.time_from_fill_fraction(0.4)],
-                [0.1, trap.time_from_fill_fraction(0.2)],
+                [0.5, trap.time_elapsed_from_fill_fraction(0.8)],
+                [0.2, trap.time_elapsed_from_fill_fraction(0.4)],
+                [0.1, trap.time_elapsed_from_fill_fraction(0.2)],
                 [0, 0],
                 [0, 0],
                 [0, 0],

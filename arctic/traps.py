@@ -17,7 +17,7 @@ class Trap(object):
         self.density = density
         self.lifetime = lifetime
 
-    def fill_fraction_from_time(self, time):
+    def fill_fraction_from_time_elapsed(self, time):
         """ Calculate the fraction of filled traps after a certain time.
 
             Parameters
@@ -33,7 +33,7 @@ class Trap(object):
         """
         return np.exp(-time / self.lifetime)
 
-    def time_from_fill_fraction(self, fill):
+    def time_elapsed_from_fill_fraction(self, fill):
         """ Calculate the total time elapsed from the fraction of filled traps.
 
             Parameters
@@ -64,7 +64,7 @@ class Trap(object):
             electrons_released : float
                 The number of released electrons.
         """
-        return electrons * (1 - self.fill_fraction_from_time(time))
+        return electrons * (1 - self.fill_fraction_from_time_elapsed(time))
 
     def electrons_released_from_time_elapsed_and_time(self, time_elapsed, time=1):
         """ Calculate the number of released electrons from the trap.
@@ -902,7 +902,7 @@ class TrapManagerTrackTime(TrapManager):
             # Fill fractions from elapsed times
             fill_fractions = np.array(
                 [
-                    trap.fill_fraction_from_time(time)
+                    trap.fill_fraction_from_time_elapsed(time)
                     for trap, time in zip(traps, watermarks[watermark_index, 1:])
                 ]
             )
@@ -1039,7 +1039,7 @@ class TrapManagerTrackTime(TrapManager):
         if max_watermark_index == 0:
             # Edit the new watermark
             watermarks[0, 0] = electron_fractional_height
-            watermarks[0, 1:] = [trap.time_from_fill_fraction(enough) for trap in self.traps]
+            watermarks[0, 1:] = [trap.time_elapsed_from_fill_fraction(enough) for trap in self.traps]
 
             return watermarks
 
@@ -1074,8 +1074,8 @@ class TrapManagerTrackTime(TrapManager):
             # Awkwardly need to convert to fill fractions first using each 
             # trap's lifetime separately, but can still do all levels at once.
             watermarks[: watermark_index_above_height + 1, 1:] = np.transpose([
-                trap.time_from_fill_fraction(
-                    trap.fill_fraction_from_time(time) * (1 - enough) + enough
+                trap.time_elapsed_from_fill_fraction(
+                    trap.fill_fraction_from_time_elapsed(time) * (1 - enough) + enough
                 )
                 for trap, time in zip(
                     self.traps, watermarks[: watermark_index_above_height + 1, 1:].T
@@ -1089,7 +1089,7 @@ class TrapManagerTrackTime(TrapManager):
                     electron_fractional_height - cumulative_watermark_height[-1]
                 )
                 watermarks[watermark_index_above_height + 1, 1:] = [
-                    trap.time_from_fill_fraction(enough) for trap in self.traps
+                    trap.time_elapsed_from_fill_fraction(enough) for trap in self.traps
                 ]
             else:
                 # Edit the new watermarks' heights
@@ -1108,8 +1108,8 @@ class TrapManagerTrackTime(TrapManager):
             # Edit the new first watermark
             watermarks[0, 0] = electron_fractional_height
             watermarks[0, 1:] = [
-                trap.time_from_fill_fraction(
-                    trap.fill_fraction_from_time(time) * (1 - enough) + enough
+                trap.time_elapsed_from_fill_fraction(
+                    trap.fill_fraction_from_time_elapsed(time) * (1 - enough) + enough
                 )
                 for trap, time in zip(self.traps, watermarks[1, 1:])
             ]

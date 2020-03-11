@@ -1115,17 +1115,30 @@ class TrapManagerTrackTime(TrapManager):
 
             # Edit the new watermarks' times to correspond to the original fill
             # fraction plus (1 - original fill) * enough.
-            # e.g. enough = 0.5 --> time equivalent of fill half way to full.
+            # e.g. enough = 0.5 --> time equivalent of fill half way to full.            
             # Awkwardly need to convert to fill fractions first using each 
             # trap's lifetime separately, but can still do all levels at once.
-            watermarks[: watermark_index_above_height + 1, 1:] = np.transpose([
-                trap.time_elapsed_from_fill_fraction(
-                    trap.fill_fraction_from_time_elapsed(time) * (1 - enough) + enough
-                )
-                for trap, time in zip(
-                    self.traps, watermarks[: watermark_index_above_height + 1, 1:].T
-                )
-            ])
+            ### Actually can't do more than one at a time with continuum traps!
+            # watermarks[: watermark_index_above_height + 1, 1:] = np.transpose([
+            #     trap.time_elapsed_from_fill_fraction(
+            #         trap.fill_fraction_from_time_elapsed(time) * (1 - enough) + enough
+            #     )
+            #     for trap, time in zip(
+            #         self.traps, watermarks[: watermark_index_above_height + 1, 1:].T
+            #     )
+            # ])
+            
+            # Awkwardly need to convert to fill fractions first using each 
+            # trap's lifetime separately.
+            for watermark_index in range(watermark_index_above_height + 1):
+                watermarks[watermark_index, 1:] = [
+                    trap.time_elapsed_from_fill_fraction(
+                        trap.fill_fraction_from_time_elapsed(time) * (1 - enough) + enough
+                    )
+                    for trap, time in zip(
+                        self.traps, watermarks[watermark_index, 1:]
+                    )
+                ]
 
             # If all watermarks will be overwritten
             if cumulative_watermark_height[-1] < electron_fractional_height:

@@ -38,30 +38,30 @@ class TestSpecies:
         serial_1_trap = ac.Trap(density=0.2, lifetime=2.0)
         serial_2_trap = ac.Trap(density=0.7, lifetime=7.0)
 
-        parameters = ac.ArcticParams(parallel_traps=[parallel_1_trap])
-        assert parameters.delta_ellipticity == parallel_1_trap.delta_ellipticity
+        trap_manager = ac.TrapManager(traps=[parallel_1_trap], rows=1)
+        assert trap_manager.delta_ellipticity == parallel_1_trap.delta_ellipticity
 
-        parameters = ac.ArcticParams(parallel_traps=[parallel_1_trap, parallel_2_trap])
+        trap_manager = ac.TrapManager(traps=[parallel_1_trap, parallel_2_trap], rows=1)
         assert (
-            parameters.delta_ellipticity
+            trap_manager.delta_ellipticity
             == parallel_1_trap.delta_ellipticity + parallel_2_trap.delta_ellipticity
         )
 
-        parameters = ac.ArcticParams(serial_traps=[serial_1_trap])
-        assert parameters.delta_ellipticity == serial_1_trap.delta_ellipticity
+        trap_manager = ac.TrapManager(traps=[serial_1_trap], rows=1)
+        assert trap_manager.delta_ellipticity == serial_1_trap.delta_ellipticity
 
-        parameters = ac.ArcticParams(serial_traps=[serial_1_trap, serial_2_trap])
+        trap_manager = ac.TrapManager(traps=[serial_1_trap, serial_2_trap], rows=1)
         assert (
-            parameters.delta_ellipticity
+            trap_manager.delta_ellipticity
             == serial_1_trap.delta_ellipticity + serial_2_trap.delta_ellipticity
         )
 
-        parameters = ac.ArcticParams(
-            parallel_traps=[parallel_1_trap, parallel_2_trap],
-            serial_traps=[serial_1_trap, serial_2_trap],
+        trap_manager = ac.TrapManager(
+            traps=[parallel_1_trap, parallel_2_trap, serial_1_trap, serial_2_trap],
+            rows=1,
         )
 
-        assert parameters.delta_ellipticity == pytest.approx(
+        assert trap_manager.delta_ellipticity == pytest.approx(
             parallel_1_trap.delta_ellipticity
             + parallel_2_trap.delta_ellipticity
             + serial_1_trap.delta_ellipticity
@@ -292,7 +292,7 @@ class TestCCDVolumeComplex:
         assert eletron_fractional_height == 1.0 ** 0.5
 
 
-class TestArcticParams:
+class TestTrapParams:
     def test__parallel_x1__serial_x1_trap___sets_value_correctly(self):
 
         parallel_trap_0 = ac.Trap(density=0.1, lifetime=1.0)
@@ -301,28 +301,15 @@ class TestArcticParams:
         serial_trap_0 = ac.Trap(density=0.3, lifetime=3.0)
         serial_trap_1 = ac.Trap(density=0.4, lifetime=4.0)
 
-        parameters = ac.ArcticParams(
-            parallel_traps=[parallel_trap_0, parallel_trap_1],
-            serial_traps=[serial_trap_0, serial_trap_1],
-        )
+        assert parallel_trap_0.density == 0.1
+        assert parallel_trap_0.lifetime == 1.0
+        assert parallel_trap_1.density == 0.2
+        assert parallel_trap_1.lifetime == 2.0
 
-        assert type(parameters) == ac.ArcticParams
-        assert type(parameters.parallel_traps[0]) == ac.Trap
-        assert type(parameters.parallel_traps[1]) == ac.Trap
-
-        assert parameters.parallel_traps[0].density == 0.1
-        assert parameters.parallel_traps[0].lifetime == 1.0
-        assert parameters.parallel_traps[1].density == 0.2
-        assert parameters.parallel_traps[1].lifetime == 2.0
-
-        assert type(parameters) == ac.ArcticParams
-        assert type(parameters.serial_traps[0]) == ac.Trap
-        assert type(parameters.serial_traps[1]) == ac.Trap
-
-        assert parameters.serial_traps[0].density == 0.3
-        assert parameters.serial_traps[0].lifetime == 3.0
-        assert parameters.serial_traps[1].density == 0.4
-        assert parameters.serial_traps[1].lifetime == 4.0
+        assert serial_trap_0.density == 0.3
+        assert serial_trap_0.lifetime == 3.0
+        assert serial_trap_1.density == 0.4
+        assert serial_trap_1.lifetime == 4.0
 
     def test__ccd_volume_class___sets_value_correctly(self):
 
@@ -340,25 +327,14 @@ class TestArcticParams:
             well_fill_beta=1.4,
         )
 
-        parameters = ac.ArcticParams(
-            parallel_ccd_volume=parallel_ccd_volume,
-            serial_ccd_volume=serial_ccd_volume,
-        )
+        assert parallel_ccd_volume.well_max_height == 10000.0
+        assert parallel_ccd_volume.well_notch_depth == 0.01
+        assert parallel_ccd_volume.well_range == 9999.99
+        assert parallel_ccd_volume.well_fill_alpha == 0.2
+        assert parallel_ccd_volume.well_fill_beta == 0.8
 
-        assert type(parameters) == ac.ArcticParams
-        assert type(parameters.parallel_ccd_volume) == ac.CCDVolumeComplex
-
-        assert parameters.parallel_ccd_volume.well_max_height == 10000.0
-        assert parameters.parallel_ccd_volume.well_notch_depth == 0.01
-        assert parameters.parallel_ccd_volume.well_range == 9999.99
-        assert parameters.parallel_ccd_volume.well_fill_alpha == 0.2
-        assert parameters.parallel_ccd_volume.well_fill_beta == 0.8
-
-        assert type(parameters) == ac.ArcticParams
-        assert type(parameters.serial_ccd_volume) == ac.CCDVolumeComplex
-
-        assert parameters.serial_ccd_volume.well_max_height == 1000.0
-        assert parameters.serial_ccd_volume.well_notch_depth == 1.02
-        assert parameters.serial_ccd_volume.well_range == 998.98
-        assert parameters.serial_ccd_volume.well_fill_alpha == 1.1
-        assert parameters.serial_ccd_volume.well_fill_beta == 1.4
+        assert serial_ccd_volume.well_max_height == 1000.0
+        assert serial_ccd_volume.well_notch_depth == 1.02
+        assert serial_ccd_volume.well_range == 998.98
+        assert serial_ccd_volume.well_fill_alpha == 1.1
+        assert serial_ccd_volume.well_fill_beta == 1.4

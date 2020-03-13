@@ -731,14 +731,16 @@ class TestTrapManagerTrackTime:
         assert electrons_released_fill == electrons_released_time
 
         assert trap_manager_time.watermarks == pytest.approx(
-            [
-                [0.5, trap.time_elapsed_from_fill_fraction(0.4)],
-                [0.2, trap.time_elapsed_from_fill_fraction(0.2)],
-                [0.1, trap.time_elapsed_from_fill_fraction(0.1)],
-                [0, 0],
-                [0, 0],
-                [0, 0],
-            ]
+            np.array(
+                [
+                    [0.5, trap.time_elapsed_from_fill_fraction(0.4)],
+                    [0.2, trap.time_elapsed_from_fill_fraction(0.2)],
+                    [0.1, trap.time_elapsed_from_fill_fraction(0.1)],
+                    [0, 0],
+                    [0, 0],
+                    [0, 0],
+                ]
+            )
         )
 
     def test__electrons_captured_by_traps_using_time(self):

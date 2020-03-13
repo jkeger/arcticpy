@@ -306,6 +306,10 @@ class TrapManager(object):
             rows=self.rows, total_traps=len(self.traps)
         )
 
+    @property
+    def delta_ellipticity(self):
+        return sum([trap.delta_ellipticity for trap in self.traps])
+
     def initial_watermarks_from_rows_and_total_traps(self, rows, total_traps):
         """ Initialise the watermark array of trap states.
 

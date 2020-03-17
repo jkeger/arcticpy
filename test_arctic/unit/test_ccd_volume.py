@@ -133,3 +133,59 @@ class TestCCDVolumeComplex:
         )
 
         assert eletron_fractional_height == 1.0 ** 0.5
+
+
+class TestMultiPhase:
+    def test__mutli_phase_initialisation(self):
+        # All duplicated
+        ccd_volume = ac.CCDVolume(
+            well_notch_depth=0.01,
+            well_fill_beta=0.8,
+            well_max_height=84700,
+            phase_widths=[0.5, 0.2, 0.2, 0.1],
+        )
+
+        assert ccd_volume.well_notch_depth == [0.01] * 4
+        assert ccd_volume.well_fill_beta == [0.8] * 4
+        assert ccd_volume.well_max_height == [84700] * 4
+        assert ccd_volume.well_range == [84700 - 0.01] * 4
+
+        # Some duplicated
+        ccd_volume = ac.CCDVolume(
+            well_notch_depth=[0.01],
+            well_fill_beta=[0.8],
+            well_max_height=[84700, 1e5, 2e5, 3e5],
+            phase_widths=[0.5, 0.2, 0.2, 0.1],
+        )
+
+        assert ccd_volume.well_notch_depth == [0.01] * 4
+        assert ccd_volume.well_fill_beta == [0.8] * 4
+        assert ccd_volume.well_max_height == [84700, 1e5, 2e5, 3e5]
+        assert ccd_volume.well_range == [
+            84700 - 0.01,
+            1e5 - 0.01,
+            2e5 - 0.01,
+            3e5 - 0.01,
+        ]
+
+    def test__extract_phase(self):
+        ccd_volume = ac.CCDVolume(
+            well_notch_depth=0.01,
+            well_fill_beta=0.8,
+            well_max_height=[84700, 1e5, 2e5, 3e5],
+            phase_widths=[0.5, 0.2, 0.2, 0.1],
+        )
+
+        ccd_phase_0 = ccd_volume.extract_phase(0)
+        ccd_phase_1 = ccd_volume.extract_phase(1)
+        ccd_phase_2 = ccd_volume.extract_phase(2)
+        ccd_phase_3 = ccd_volume.extract_phase(3)
+
+        assert ccd_phase_0.well_notch_depth == 0.01
+        assert ccd_phase_0.well_max_height == 84700
+        assert ccd_phase_1.well_notch_depth == 0.01
+        assert ccd_phase_1.well_max_height == 1e5
+        assert ccd_phase_2.well_notch_depth == 0.01
+        assert ccd_phase_2.well_max_height == 2e5
+        assert ccd_phase_3.well_notch_depth == 0.01
+        assert ccd_phase_3.well_max_height == 3e5

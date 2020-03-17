@@ -5,7 +5,12 @@ from arctic import util
 
 class CCDVolume(object):
     def __init__(
-        self, well_max_height=1000.0, well_notch_depth=1e-9, well_fill_beta=0.58
+        self, 
+        well_max_height=1000.0, 
+        well_notch_depth=1e-9, 
+        well_fill_beta=0.58,
+        phase_widths=[1],
+        integration_phase=0,
     ):
         """The parameters for how electrons fill the CCD volume.
 
@@ -19,11 +24,24 @@ class CCDVolume(object):
             The volume-filling power (beta) of how an electron cloud fills the volume of a pixel.
         well_fill_gamma : float
             The volume-filling constant (gamma) of how an electron cloud fills the volume of a pixel.
+        phase_widths : float or [float]
+            The array or single value of the physical width of each phase as a 
+            fraction of the pixel for multi-phase clocking.
+        integration_phase : int
+            For multi-phase clocking, the initial phase in which the electrons 
+            start when the input image is divided into the separate phases.
         """
+
+        # Make sure the arrays are arrays        
+        if not isinstance(phase_widths, list):
+            phase_widths = [phase_widths]
+        
         self.well_max_height = well_max_height
         self.well_notch_depth = well_notch_depth
         self.well_range = well_max_height - well_notch_depth
         self.well_fill_beta = well_fill_beta
+        self.phase_widths = phase_widths
+        self.integration_phase = integration_phase
 
     def __repr__(self):
         return "\n".join(

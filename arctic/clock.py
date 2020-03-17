@@ -33,6 +33,6 @@ class Clocker(object):
 
         # Make sure the arrays are arrays
         if not isinstance(sequence, list):
-            parallel_sequence = [parallel_sequence]
+            sequence = [sequence]
 
         self.sequence = sequence

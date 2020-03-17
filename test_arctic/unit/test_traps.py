@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 from scipy import integrate
+import matplotlib.pyplot as plt
 
 import arctic as ac
 
@@ -1520,3 +1521,52 @@ class TestTrapLifetimeContinuum:
         assert trap.distribution_of_traps_with_lifetime(
             1.2345, median_lifetime, scale_lifetime
         ) == trap_distribution(1.2345, median_lifetime, scale_lifetime)
+
+    def test__trails_from_continuum_traps(self): 
+        # Plotting test -- manually set do_plot = True to make the plot
+
+        main = ac.ArcticMain(parallel_express=1)
+
+        size = 30
+        pixels = np.arange(size)
+        image_orig = np.zeros((size, 1))
+        image_orig[1, 0] = 100000
+
+        ccd_volume = ac.CCDVolume(
+            well_fill_beta=0.8, well_max_height=8.47e4, well_notch_depth=1e-7
+        )
+
+        # Set True to plot
+        do_plot = False
+        # do_plot = True
+
+        if do_plot:
+            plt.figure()
+
+            # Single trap
+            trap_single = ac.Trap(density=10, lifetime=5)
+            image_single = main.add_cti(
+                image=image_orig,
+                parallel_traps=[trap_single],
+                parallel_ccd_volume=ccd_volume,
+            )
+            plt.plot(pixels, image_single[:, 0], c="k", label="Single")
+
+            # Range of trap lifetime distributions
+            for scale in [0.5, 2, 5]:
+                trap = ac.TrapLogNormalLifetimeContinuum(
+                    density=10, middle_lifetime=5, scale_lifetime=scale,
+                )
+                image = main.add_cti(
+                    image=image_orig,
+                    parallel_traps=[trap],
+                    parallel_ccd_volume=ccd_volume,
+                )
+                plt.plot(pixels, image[:, 0], label=r"$\sigma = %.1f$" % scale)
+
+            plt.legend()
+            plt.yscale("log")
+            plt.xlabel("Pixel")
+            plt.ylabel("Counts")
+
+            plt.show()

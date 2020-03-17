@@ -14,8 +14,10 @@ from copy import deepcopy
 from arctic.clock import Clocker
 from arctic.traps import (
     TrapNonUniformHeightDistribution,
+    TrapLifetimeContinuum,
     TrapManager,
     TrapManagerNonUniformHeightDistribution,
+    TrapManagerTrackTime,
 )
 
 
@@ -152,10 +154,15 @@ class ArcticMain(object):
         # Set up the array of trap managers
         trap_managers = []
         for trap_group in traps:
-            if type(traps) is TrapNonUniformHeightDistribution:
+            if isinstance(traps, TrapNonUniformHeightDistribution):
                 trap_managers.append(
                     TrapManagerNonUniformHeightDistribution(traps=trap_group, rows=rows)
                 )
+            elif isinstance(
+                traps,
+                (TrapNonUniformHeightDistribution, TrapNonUniformHeightDistribution),
+            ):
+                trap_managers.append(TrapManagerTrackTime(traps=trap_group, rows=rows))
             else:
                 trap_managers.append(TrapManager(traps=trap_group, rows=rows))
 

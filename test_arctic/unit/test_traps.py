@@ -1494,3 +1494,29 @@ class TestTrapLifetimeContinuum:
         )
 
         assert watermarks_continuum == pytest.approx(watermarks_single, rel=0.5)
+
+    def test__TrapLogNormalLifetimeContinuum(self):
+
+        median_lifetime = -1 / np.log(0.5)
+        scale_lifetime = 0.5
+
+        def trap_distribution(lifetime, median, scale):
+            return np.exp(
+                -((np.log(lifetime) - np.log(median)) ** 2) / (2 * scale ** 2)
+            ) / (lifetime * scale * np.sqrt(2 * np.pi))
+
+        trap = ac.TrapLogNormalLifetimeContinuum(
+            density=10, middle_lifetime=median_lifetime, scale_lifetime=scale_lifetime,
+        )
+
+        # Check that the integral from zero to infinity is one
+        assert integrate.quad(
+            trap.distribution_of_traps_with_lifetime,
+            0,
+            np.inf,
+            args=(trap.middle_lifetime, trap.scale_lifetime),
+        )[0] == pytest.approx(1)
+
+        assert trap.distribution_of_traps_with_lifetime(
+            1.2345, median_lifetime, scale_lifetime
+        ) == trap_distribution(1.2345, median_lifetime, scale_lifetime)

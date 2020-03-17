@@ -198,9 +198,9 @@ class TrapLifetimeContinuum(Trap):
             e.g. a log-normal probability density function.
         middle_lifetime : float
             The middle (e.g. mean or median depending on the distribution) 
-            release lifetime of the trap.
+            release lifetime of the traps.
         scale_lifetime : float
-            The scale of release lifetimes of the trap.
+            The scale of release lifetimes of the traps.
         """
         super(TrapLifetimeContinuum, self).__init__(
             density=density, lifetime=middle_lifetime
@@ -283,6 +283,39 @@ class TrapLifetimeContinuum(Trap):
             np.inf,
             args=(time_elapsed, time, self.middle_lifetime, self.scale_lifetime),
         )[0]
+
+
+class TrapLogNormalLifetimeContinuum(TrapLifetimeContinuum):
+    """ For a log-normal continuum distribution of release lifetimes for the 
+        traps. Must be used with TrapManagerTrackTime.
+    """
+
+    def __init__(
+        self, density, middle_lifetime=None, scale_lifetime=None,
+    ):
+        """The parameters for a single trap species.
+
+        Parameters
+        ----------
+        density : float
+            The density of the trap species in a pixel.
+        middle_lifetime : float
+            The median release lifetime of the traps.
+        scale_lifetime : float
+            The scale of release lifetimes of the traps.
+        """
+
+        def log_normal_distribution(lifetime, median, scale):
+            return np.exp(
+                -((np.log(lifetime) - np.log(median)) ** 2) / (2 * scale ** 2)
+            ) / (lifetime * scale * np.sqrt(2 * np.pi))
+
+        super(TrapLogNormalLifetimeContinuum, self).__init__(
+            density=density,
+            distribution_of_traps_with_lifetime=log_normal_distribution,
+            middle_lifetime=middle_lifetime,
+            scale_lifetime=scale_lifetime,
+        )
 
 
 class TrapManager(object):

@@ -6,9 +6,9 @@ from arctic import util
 
 class CCDVolume(object):
     def __init__(
-        self, 
-        well_max_height=1000.0, 
-        well_notch_depth=1e-9, 
+        self,
+        well_max_height=1000.0,
+        well_notch_depth=1e-9,
         well_fill_beta=0.58,
         phase_widths=[1],
         integration_phase=0,
@@ -38,7 +38,7 @@ class CCDVolume(object):
         if not isinstance(phase_widths, list):
             phase_widths = [phase_widths]
         self.phases = len(phase_widths)
-        
+
         # For multi-phase clocking, use duplicate parameters if not provided
         if self.phases > 1:
             if not isinstance(well_max_height, list):
@@ -47,18 +47,18 @@ class CCDVolume(object):
                 well_notch_depth = [well_notch_depth]
             if not isinstance(well_fill_beta, list):
                 well_fill_beta = [well_fill_beta]
-                
+
             if len(well_max_height) == 1:
                 well_max_height *= self.phases
             if len(well_notch_depth) == 1:
                 well_notch_depth *= self.phases
             if len(well_fill_beta) == 1:
                 well_fill_beta *= self.phases
-                
+
             assert len(well_max_height) == self.phases
             assert len(well_notch_depth) == self.phases
             assert len(well_fill_beta) == self.phases
-        
+
         self.well_max_height = well_max_height
         self.well_notch_depth = well_notch_depth
         if self.phases > 1:
@@ -89,15 +89,15 @@ class CCDVolume(object):
             The phase to extract.
         """
         if self.phases == 1:
-            return self 
-        else:    
+            return self
+        else:
             copy = deepcopy(self)
-            
+
             copy.well_max_height = copy.well_max_height[phase]
             copy.well_notch_depth = copy.well_notch_depth[phase]
             copy.well_range = copy.well_range[phase]
             copy.well_fill_beta = copy.well_fill_beta[phase]
-            
+
             return copy
 
     def electron_fractional_height_from_electrons(self, electrons):
@@ -113,7 +113,7 @@ class CCDVolume(object):
 class CCDVolumeComplex(CCDVolume):
     """ For a more complex esimate of the height reached by an electron cloud.
     """
-    
+
     def __init__(
         self,
         well_max_height=1000.0,
@@ -150,12 +150,12 @@ class CCDVolumeComplex(CCDVolume):
             well_notch_depth=well_notch_depth,
             well_fill_beta=well_fill_beta,
         )
-        
+
         # For multi-phase clocking, use duplicate parameters if not provided
         if self.phases > 1:
             if not isinstance(well_fill_alpha, list):
                 well_fill_alpha = [well_fill_alpha]
-                
+
             if len(well_fill_alpha) == 1:
                 well_fill_alpha *= phases
 
@@ -172,14 +172,14 @@ class CCDVolumeComplex(CCDVolume):
             The phase to extract.
         """
         if self.phases == 1:
-            return self 
+            return self
         else:
             copy = super(CCDVolumeComplex, self).extract_phase(self, phase)
-            
+
             copy.well_fill_alpha = self.well_fill_alpha[phase]
-            
+
             return copy
-        
+
     def electron_fractional_height_from_electrons(self, electrons):
         """ Calculate the height the electrons reach within a CCD pixel well.
         """

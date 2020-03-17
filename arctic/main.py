@@ -7,7 +7,7 @@
 import numpy as np
 from copy import deepcopy
 
-from arctic.clock import Clocker 
+from arctic.clock import Clocker
 from arctic.traps import (
     TrapNonUniformHeightDistribution,
     TrapManager,
@@ -90,9 +90,7 @@ class ArcticMain(object):
 
         return express_multiplier
 
-    def _add_cti_to_image(
-        self, image, clocker, traps, ccd_volume, express
-    ):
+    def _add_cti_to_image(self, image, clocker, traps, ccd_volume, express):
         """
         Add CTI trails to an image by trapping, releasing, and moving electrons 
         along their independent columns.
@@ -141,7 +139,7 @@ class ArcticMain(object):
         # Prepare the image and express for multi-phase clocking
         if phases > 1:
             new_image = np.zeros((rows * phases, columns))
-            new_image[ccd_volume.integration_phase::phases] = image
+            new_image[ccd_volume.integration_phase :: phases] = image
             image = new_image
             rows, columns = image.shape
 
@@ -182,7 +180,8 @@ class ArcticMain(object):
                     electrons_released = 0
                     for trap_manager in trap_managers:
                         electrons_released += trap_manager.electrons_released_in_pixel(
-                            time=clocker.sequence[phase], width=ccd_volume.phase_widths[phase]
+                            time=clocker.sequence[phase],
+                            width=ccd_volume.phase_widths[phase],
                         )
                     electrons_available += electrons_released
 

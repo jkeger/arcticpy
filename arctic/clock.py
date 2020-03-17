@@ -16,8 +16,7 @@ from arctic.traps import (
 
 class Clocker(object):
     def __init__(
-        self,
-        sequence=[1],
+        self, sequence=[1],
     ):
         """
         The parameters for the clocking of electrons with read-out electronics.

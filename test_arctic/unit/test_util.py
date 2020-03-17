@@ -29,17 +29,17 @@ class TestFitsHeader:
         pass
         # parallel_clocker = ac.Clocker(sequence=1)
         # serial_clocker = ac.Clocker(sequence=1)
-        # 
+        #
         # hdu = fits.PrimaryHDU(np.ones((1, 1)), fits.Header())
         # hdu.header = ac.util.update_fits_header_info(
         #     ext_header=hdu.header,
         #     parallel_clocker=parallel_clocker,
         #     serial_clocker=serial_clocker,
         # )
-        # 
+        #
         # hdu.writeto(hdr_path + "hdr.fits")
         # hdu = fits.open(hdr_path + "hdr.fits")
         # ext_header = hdu[0].header
-        # 
+        #
         # assert ext_header["cte_pite"] == 1
         # assert ext_header["cte_site"] == 2

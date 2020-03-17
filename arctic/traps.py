@@ -640,7 +640,8 @@ class TrapManager(object):
         electrons_available : float
             The number of available electrons for trapping.
         ccd_volume : CCDVolume
-            The object describing the CCD.
+            The object describing the CCD. Must have only a single value for 
+            each parameter, as set by CCDVolume.extract_phase().
         width : float
             The width of this pixel or phase, as a fraction of the whole pixel.
 
@@ -766,7 +767,8 @@ class TrapManagerNonUniformHeightDistribution(TrapManager):
         electrons_available : float
             The number of available electrons for trapping.
         ccd_volume : CCDVolume
-            The object describing the CCD.
+            The object describing the CCD. Must have only a single value for 
+            each parameter, as set by CCDVolume.extract_phase().
         width : float
             The width of this pixel or phase, as a fraction of the whole pixel.
 

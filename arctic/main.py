@@ -7,6 +7,7 @@
 import numpy as np
 from copy import deepcopy
 
+from arctic.clock import Clocker 
 from arctic.traps import (
     TrapNonUniformHeightDistribution,
     TrapManager,
@@ -108,10 +109,8 @@ class ArcticMain(object):
             that will require different watermark levels, pass a 2D list of 
             lists, i.e. a list containing lists of one or more traps for each 
             type. 
-        ccd_volume : CCDVolume or [CCDVolume]
-            The object describing the CCD volume. For multi-phase clocking 
-            optionally enter use a list of different CCD volumes for each phase, 
-            in the same size list as clocker.sequence.
+        ccd_volume : CCDVolume
+            The object describing the CCD volume. 
         express : int
             The factor by which pixel-to-pixel transfers are combined for 
             efficiency.
@@ -127,17 +126,10 @@ class ArcticMain(object):
         # Make sure the arrays are arrays
         if not isinstance(traps[0], list):
             traps = [traps]
-        if not isinstance(ccd_volume, list):
-            ccd_volume = [ccd_volume]
 
         phases = len(clocker.sequence)
         assert len(ccd_volume.phase_widths) == phases
         assert np.amax(ccd_volume.phase_widths) <= 1
-
-        # Assume the same CCD volume for all phases if not otherwise specified
-        if len(ccd_volume) == 1 and len(ccd_volume) != phases:
-            ccd_volume *= phases
-        assert len(ccd_volume) == phases
 
         # Default to no express and calculate every step
         express = rows if express == 0 else express
@@ -147,7 +139,7 @@ class ArcticMain(object):
         )
 
         # Prepare the image and express for multi-phase clocking
-        if phases != 1:
+        if phases > 1:
             new_image = np.zeros((rows * phases, columns))
             new_image[ccd_volume.integration_phase::phases] = image
             image = new_image
@@ -199,7 +191,7 @@ class ArcticMain(object):
                     for trap_manager in trap_managers:
                         electrons_captured += trap_manager.electrons_captured_in_pixel(
                             electrons_available=electrons_available,
-                            ccd_volume=ccd_volume[phase],
+                            ccd_volume=ccd_volume.extract_phase(phase),
                             width=ccd_volume.phase_widths[phase],
                         )
 
@@ -211,7 +203,7 @@ class ArcticMain(object):
                     image[row_index, column_index] = electrons_initial
 
         # Recombine the image for multi-phase clocking
-        if phases != 1:
+        if phases > 1:
             image = image.reshape((int(rows / phases), phases, columns)).sum(axis=1)
 
         return image
@@ -264,6 +256,12 @@ class ArcticMain(object):
         image : np.ndarray
             The output array of pixel values.
         """
+
+        # If Clocker not provided then assume simple, single-phase clocking
+        if parallel_clocker is None:
+            parallel_clocker = Clocker()
+        if serial_clocker is None:
+            serial_clocker = Clocker()
 
         # Don't modify the external array passed to this function
         image = deepcopy(image)

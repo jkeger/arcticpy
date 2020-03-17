@@ -1,6 +1,10 @@
-""" CTI python
+""" AlgoRithm for Charge Transfer Inefficiency Correction
 
-    Jacob Kegerreis (2019) jacob.kegerreis@durham.ac.uk
+    https://github.com/jkeger/arcticpy
+
+    Jacob Kegerreis (2020) jacob.kegerreis@durham.ac.uk
+    James Nightingale
+    Richard Massey
 
     WIP...
 """
@@ -90,7 +94,7 @@ class ArcticMain(object):
 
         return express_multiplier
 
-    def _add_cti_to_image(self, image, clocker, traps, ccd_volume, express):
+    def _add_cti_to_image(self, image, clocker, ccd_volume, traps, express):
         """
         Add CTI trails to an image by trapping, releasing, and moving electrons 
         along their independent columns.
@@ -102,13 +106,13 @@ class ArcticMain(object):
         clocker : Clocker
             The object describing the clocking of electrons with read-out 
             electronics.
+        ccd_volume : CCDVolume
+            The object describing the CCD volume. 
         traps : [Trap] or [[Trap]]
             A list of one or more trap objects. To use different types of traps 
             that will require different watermark levels, pass a 2D list of 
             lists, i.e. a list containing lists of one or more traps for each 
             type. 
-        ccd_volume : CCDVolume
-            The object describing the CCD volume. 
         express : int
             The factor by which pixel-to-pixel transfers are combined for 
             efficiency.
@@ -211,11 +215,11 @@ class ArcticMain(object):
         self,
         image,
         parallel_clocker=None,
-        parallel_traps=None,
         parallel_ccd_volume=None,
+        parallel_traps=None,
         serial_clocker=None,
-        serial_traps=None,
         serial_ccd_volume=None,
+        serial_traps=None,
     ):
         """
         Add CTI trails to an image by trapping, releasing, and moving electrons 
@@ -228,27 +232,18 @@ class ArcticMain(object):
         parallel_clocker : Clocker
             The object describing the clocking read-out electronics for parallel 
             clocking.
+        parallel_ccd_volume : CCDVolume
+            The object describing the CCD volume for parallel clocking. For 
+            multi-phase clocking optionally use a list of different CCD volumes
+            for each phase, in the same size list as parallel_clocker.sequence.
         parallel_traps : [Trap] or [[Trap]]
             A list of one or more trap objects for parallel clocking. To use 
             different types of traps that will require different watermark 
             levels, pass a 2D list of lists, i.e. a list containing lists of 
-            one or more traps for each type. 
-        parallel_ccd_volume : CCDVolume or [CCDVolume]
-            The object describing the CCD volume for parallel clocking. For 
-            multi-phase clocking optionally use a list of different CCD volumes
-            for each phase, in the same size list as parallel_clocker.sequence.
-        serial_clocker : Clocker
-            The object describing the clocking read-out electronics for serial 
-            clocking.
-        serial_traps : [Trap] or [[Trap]]
-            A list of one or more trap objects for serial clocking. To use 
-            different types of traps that will require different watermark 
-            levels, pass a 2D list of lists, i.e. a list containing lists of 
-            one or more traps for each type. 
-        serial_ccd_volume : CCDVolume or [CCDVolume]
-            The object describing the CCD volume for serial clocking. For 
-            multi-phase clocking optionally use a list of different CCD volumes
-            for each phase, in the same size list as serial_clocker.sequence.
+            one or more traps for each type.
+        serial_* : *
+            The same as the parallel_* objects described above but for serial 
+            clocking instead.
 
         Returns
         -------
@@ -295,11 +290,11 @@ class ArcticMain(object):
         self,
         image,
         parallel_clocker=None,
-        parallel_traps=None,
         parallel_ccd_volume=None,
+        parallel_traps=None,
         serial_clocker=None,
-        serial_traps=None,
         serial_ccd_volume=None,
+        serial_traps=None,
     ):
         """
         Add CTI trails to an image by trapping, releasing, and moving electrons 
@@ -312,27 +307,18 @@ class ArcticMain(object):
         parallel_clocker : Clocker
             The object describing the clocking read-out electronics for parallel 
             clocking.
+        parallel_ccd_volume : CCDVolume
+            The object describing the CCD volume for parallel clocking. For 
+            multi-phase clocking optionally use a list of different CCD volumes
+            for each phase, in the same size list as parallel_clocker.sequence.
         parallel_traps : [Trap] or [[Trap]]
             A list of one or more trap objects for parallel clocking. To use 
             different types of traps that will require different watermark 
             levels, pass a 2D list of lists, i.e. a list containing lists of 
-            one or more traps for each type. 
-        parallel_ccd_volume : CCDVolume or [CCDVolume]
-            The object describing the CCD volume for parallel clocking. For 
-            multi-phase clocking optionally use a list of different CCD volumes
-            for each phase, in the same size list as parallel_clocker.sequence.
-        serial_clocker : Clocker
-            The object describing the clocking read-out electronics for serial 
-            clocking.
-        serial_traps : [Trap] or [[Trap]]
-            A list of one or more trap objects for serial clocking. To use 
-            different types of traps that will require different watermark 
-            levels, pass a 2D list of lists, i.e. a list containing lists of 
-            one or more traps for each type. 
-        serial_ccd_volume : CCDVolume or [CCDVolume]
-            The object describing the CCD volume for serial clocking. For 
-            multi-phase clocking optionally use a list of different CCD volumes
-            for each phase, in the same size list as serial_clocker.sequence.
+            one or more traps for each type.
+        serial_* : *
+            The same as the parallel_* objects described above but for serial 
+            clocking instead.
 
         Returns
         ---------
@@ -349,11 +335,11 @@ class ArcticMain(object):
             image_add_cti = self.add_cti(
                 image=image_remove_cti,
                 parallel_clocker=parallel_clocker,
-                parallel_traps=parallel_traps,
                 parallel_ccd_volume=parallel_ccd_volume,
+                parallel_traps=parallel_traps,
                 serial_clocker=serial_clocker,
-                serial_traps=serial_traps,
                 serial_ccd_volume=serial_ccd_volume,
+                serial_traps=serial_traps,
             )
 
             # Improved estimate of removed CTI

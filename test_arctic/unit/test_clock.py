@@ -740,9 +740,7 @@ class TestArcticAddCTIParallelAndSerial:
         clocker = ac.Clocker(
             iterations=1,
             parallel_express=5,
-            parallel_readout_offset=0,
             serial_express=5,
-            serial_readout_offset=0,
         )
 
         parallel_traps = [ac.Trap(density=0.4, lifetime=1.0)]
@@ -793,9 +791,7 @@ class TestArcticAddCTIParallelAndSerial:
         clocker = ac.Clocker(
             iterations=1,
             parallel_express=5,
-            parallel_readout_offset=0,
             serial_express=5,
-            serial_readout_offset=0,
         )
 
         parallel_traps = [ac.Trap(density=0.4, lifetime=1.0)]
@@ -843,9 +839,7 @@ class TestArcticAddCTIParallelAndSerial:
         clocker = ac.Clocker(
             iterations=1,
             parallel_express=5,
-            parallel_readout_offset=0,
             serial_express=5,
-            serial_readout_offset=0,
         )
 
         parallel_traps = [ac.Trap(density=0.4, lifetime=1.0)]
@@ -895,9 +889,7 @@ class TestArcticAddCTIParallelAndSerial:
         clocker = ac.Clocker(
             iterations=1,
             parallel_express=5,
-            parallel_readout_offset=0,
             serial_express=5,
-            serial_readout_offset=0,
         )
 
         parallel_ccd_volume = ac.CCDVolume(
@@ -963,9 +955,7 @@ class TestArcticAddCTIParallelAndSerial:
         clocker = ac.Clocker(
             iterations=1,
             parallel_express=5,
-            parallel_readout_offset=0,
             serial_express=5,
-            serial_readout_offset=0,
         )
 
         parallel_ccd_volume = ac.CCDVolume(
@@ -1025,9 +1015,7 @@ class TestArcticAddCTIParallelAndSerial:
         clocker = ac.Clocker(
             iterations=1,
             parallel_express=5,
-            parallel_readout_offset=0,
             serial_express=5,
-            serial_readout_offset=0,
         )
 
         parallel_traps = [ac.Trap(density=0.1, lifetime=1.0)]
@@ -1583,9 +1571,7 @@ class TestArcticCorrectCTIParallelAndSerial:
         clocker = ac.Clocker(
             iterations=1,
             parallel_express=5,
-            parallel_readout_offset=0,
             serial_express=5,
-            serial_readout_offset=0,
         )
 
         parallel_traps = [ac.Trap(density=0.4, lifetime=1.0)]

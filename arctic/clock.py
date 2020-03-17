@@ -22,12 +22,10 @@ class Clocker(object):
         parallel_phase_widths=[1],
         parallel_express=0,
         parallel_charge_injection_mode=False,
-        parallel_readout_offset=0,
         parallel_initial_phase=0,
         serial_sequence=[1],
         serial_phase_widths=[1],
         serial_express=0,
-        serial_readout_offset=0,
         serial_initial_phase=0,
     ):
         """
@@ -55,9 +53,6 @@ class Clocker(object):
             If True, parallel clocking is performed in charge injection line 
             mode, where each pixel is clocked and therefore trailed by traps 
             over the entire CCD (as opposed to its distance from the CCD register).
-        parallel_readout_offset : int
-            Introduces an offset which increases the number of transfers each 
-            pixel takes in the parallel direction.
         parallel_initial_phase : int
             For multi-phase parallel clocking, the initial phase in which the 
             electrons start when the input image is divided into the separate 
@@ -74,9 +69,6 @@ class Clocker(object):
         serial_express : int
             The factor by which pixel-to-pixel transfers are combined for 
             efficiency for serial clocking.
-        serial_readout_offset : int
-            Introduces an offset which increases the number of transfers each 
-            pixel takes in the serial direction.
         serial_initial_phase : int
             For multi-phase serial clocking, the initial phase in which the 
             electrons start when the input image is divided into the separate 
@@ -99,13 +91,11 @@ class Clocker(object):
         self.parallel_phase_widths = parallel_phase_widths
         self.parallel_express = parallel_express
         self.parallel_charge_injection_mode = parallel_charge_injection_mode
-        self.parallel_readout_offset = parallel_readout_offset
         self.parallel_initial_phase = parallel_initial_phase
 
         self.serial_sequence = serial_sequence
         self.serial_phase_widths = serial_phase_widths
         self.serial_express = serial_express
-        self.serial_readout_offset = serial_readout_offset
         self.serial_initial_phase = serial_initial_phase
 
     @staticmethod

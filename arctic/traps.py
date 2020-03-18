@@ -225,13 +225,20 @@ class TrapLifetimeContinuum(Trap):
             The fraction of filled traps.
         """
 
-        def integrand(lifetime, time, middle, scale):
-            return self.distribution_of_traps_with_lifetime(
-                lifetime, middle, scale
-            ) * np.exp(-time / lifetime)
+        def integrand(log_lifetime, time, middle, scale):
+            lifetime = np.exp(log_lifetime)
+
+            return (
+                self.distribution_of_traps_with_lifetime(lifetime, middle, scale)
+                * np.exp(-time / lifetime)
+                * lifetime
+            )
 
         return integrate.quad(
-            integrand, 0, np.inf, args=(time, self.middle_lifetime, self.scale_lifetime)
+            integrand,
+            np.log(1e-99),
+            np.log(1e99),
+            args=(time, self.middle_lifetime, self.scale_lifetime),
         )[0]
 
     def time_elapsed_from_fill_fraction(self, fill):
@@ -270,17 +277,20 @@ class TrapLifetimeContinuum(Trap):
             The number of released electrons.
         """
 
-        def integrand(lifetime, time_elapsed, time, middle, scale):
+        def integrand(log_lifetime, time_elapsed, time, middle, scale):
+            lifetime = np.exp(log_lifetime)
+
             return (
                 self.distribution_of_traps_with_lifetime(lifetime, middle, scale)
                 * np.exp(-time_elapsed / lifetime)
                 * (1 - np.exp(-time / lifetime))
+                * lifetime
             )
 
         return integrate.quad(
             integrand,
-            0,
-            np.inf,
+            np.log(1e-99),
+            np.log(1e99),
             args=(time_elapsed, time, self.middle_lifetime, self.scale_lifetime),
         )[0]
 
@@ -289,6 +299,7 @@ class TrapLogNormalLifetimeContinuum(TrapLifetimeContinuum):
     """ For a log-normal continuum distribution of release lifetimes for the 
         traps. Must be used with TrapManagerTrackTime.
     """
+
     @staticmethod
     def log_normal_distribution(x, median, scale):
         """ Return the log-normal probability density.
@@ -305,9 +316,9 @@ class TrapLogNormalLifetimeContinuum(TrapLifetimeContinuum):
         Returns
         --------
         """
-        return np.exp(
-            -((np.log(x) - np.log(median)) ** 2) / (2 * scale ** 2)
-        ) / (x * scale * np.sqrt(2 * np.pi))
+        return np.exp(-((np.log(x) - np.log(median)) ** 2) / (2 * scale ** 2)) / (
+            x * scale * np.sqrt(2 * np.pi)
+        )
 
     def __init__(
         self, density, middle_lifetime=None, scale_lifetime=None,

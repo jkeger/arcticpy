@@ -1501,11 +1501,6 @@ class TestTrapLifetimeContinuum:
         median_lifetime = -1 / np.log(0.5)
         scale_lifetime = 0.5
 
-        def trap_distribution(lifetime, median, scale):
-            return np.exp(
-                -((np.log(lifetime) - np.log(median)) ** 2) / (2 * scale ** 2)
-            ) / (lifetime * scale * np.sqrt(2 * np.pi))
-
         trap = ac.TrapLogNormalLifetimeContinuum(
             density=10, middle_lifetime=median_lifetime, scale_lifetime=scale_lifetime,
         )
@@ -1518,33 +1513,42 @@ class TestTrapLifetimeContinuum:
             args=(trap.middle_lifetime, trap.scale_lifetime),
         )[0] == pytest.approx(1)
 
+        # Check the automatic distribution function is set correctly
+        def trap_distribution(lifetime, median, scale):
+            return np.exp(
+                -((np.log(lifetime) - np.log(median)) ** 2) / (2 * scale ** 2)
+            ) / (lifetime * scale * np.sqrt(2 * np.pi))
+
         assert trap.distribution_of_traps_with_lifetime(
             1.2345, median_lifetime, scale_lifetime
         ) == trap_distribution(1.2345, median_lifetime, scale_lifetime)
 
-    def test__trails_from_continuum_traps(self): 
-        # Plotting test -- manually set do_plot = True to make the plot
+    def test__trails_from_continuum_traps_compare_with_single_trap(self): 
+        return 0 ###
+        
+        # Plotting test -- manually set True to make the plot
+        # do_plot = False
+        do_plot = True
 
-        main = ac.ArcticMain(parallel_express=1)
+        main = ac.ArcticMain(parallel_express=0)
 
-        size = 30
+        size = 20
         pixels = np.arange(size)
         image_orig = np.zeros((size, 1))
-        image_orig[1, 0] = 100000
+        image_orig[1, 0] = 1e5
 
         ccd_volume = ac.CCDVolume(
             well_fill_beta=0.8, well_max_height=8.47e4, well_notch_depth=1e-7
         )
-
-        # Set True to plot
-        do_plot = False
-        # do_plot = True
+        
+        density = 10
+        lifetime = 5
 
         if do_plot:
             plt.figure()
 
             # Single trap
-            trap_single = ac.Trap(density=10, lifetime=5)
+            trap_single = ac.Trap(density=density, lifetime=lifetime)
             image_single = main.add_cti(
                 image=image_orig,
                 parallel_traps=[trap_single],
@@ -1553,20 +1557,152 @@ class TestTrapLifetimeContinuum:
             plt.plot(pixels, image_single[:, 0], c="k", label="Single")
 
             # Range of trap lifetime distributions
-            for scale in [0.5, 2, 5]:
+            for scale in [0.1, 0.5, 1]:
                 trap = ac.TrapLogNormalLifetimeContinuum(
-                    density=10, middle_lifetime=5, scale_lifetime=scale,
+                    density=density, middle_lifetime=lifetime, scale_lifetime=scale,
                 )
-                image = main.add_cti(
+                image_continuum = main.add_cti(
                     image=image_orig,
                     parallel_traps=[trap],
                     parallel_ccd_volume=ccd_volume,
                 )
-                plt.plot(pixels, image[:, 0], label=r"$\sigma = %.1f$" % scale)
+                plt.plot(pixels, image_continuum[:, 0], label=r"$\sigma = %.1f$" % scale)
 
             plt.legend()
             plt.yscale("log")
             plt.xlabel("Pixel")
             plt.ylabel("Counts")
+            plt.xlim(0, size)
+            plt.ylim(0.1, 10)###
+
+            plt.show()
+
+    def test__trails_from_continuum_traps_compare_with_distribution_of_single_traps(self):
+        return 0 ###
+        
+        # Normal and plotting test -- manually set True to make the plot
+        # do_plot = False
+        do_plot = True
+
+        main = ac.ArcticMain(parallel_express=0)
+
+        size = 20
+        pixels = np.arange(size)
+        image_orig = np.zeros((size, 1))
+        image_orig[1, 0] = 1e5
+
+        ccd_volume = ac.CCDVolume(
+            well_fill_beta=0.8, well_max_height=8.47e4, well_notch_depth=1e-7
+        )
+
+        density = 10
+        lifetime = 5
+        scale = 0.5
+        min_log_lifetime = -1
+        max_log_lifetime = 3
+        low_sample = 10
+        mid_sample = 11
+        high_sample = 1000
+
+        # Continuum traps
+        trap_continuum = ac.TrapLogNormalLifetimeContinuum(
+            density=density, middle_lifetime=lifetime, scale_lifetime=scale,
+        )
+        image_continuum = main.add_cti(
+            image=image_orig,
+            parallel_traps=[trap_continuum],
+            parallel_ccd_volume=ccd_volume,
+        )
+        
+        # Equivalent distributions of single traps
+        trap_single = ac.Trap(density=density, lifetime=lifetime)
+        image_single = main.add_cti(
+            image=image_orig,
+            parallel_traps=[trap_single],
+            parallel_ccd_volume=ccd_volume,
+        )
+        
+        lifetimes_low = np.logspace(min_log_lifetime, max_log_lifetime, low_sample)
+        densities_low = ac.TrapLogNormalLifetimeContinuum.log_normal_distribution(
+            lifetimes_low, lifetime, scale
+        )
+        densities_low *= density / densities_low.sum()
+        traps_low = [
+            ac.Trap(density=density, lifetime=lifetime)
+            for density, lifetime in zip(densities_low, lifetimes_low)
+        ]
+        image_singles_low = main.add_cti(
+            image=image_orig,
+            parallel_traps=traps_low,
+            parallel_ccd_volume=ccd_volume,
+        )
+        
+        lifetimes_mid = np.logspace(min_log_lifetime, max_log_lifetime, mid_sample)
+        densities_mid = ac.TrapLogNormalLifetimeContinuum.log_normal_distribution(
+            lifetimes_mid, lifetime, scale
+        )
+        densities_mid *= density / densities_mid.sum()
+        traps_mid = [
+            ac.Trap(density=density, lifetime=lifetime)
+            for density, lifetime in zip(densities_mid, lifetimes_mid)
+        ]
+        image_singles_mid = main.add_cti(
+            image=image_orig,
+            parallel_traps=traps_mid,
+            parallel_ccd_volume=ccd_volume,
+        )
+        
+        lifetimes_high = np.logspace(min_log_lifetime, max_log_lifetime, high_sample)
+        densities_high = ac.TrapLogNormalLifetimeContinuum.log_normal_distribution(
+            lifetimes_high, lifetime, scale
+        )
+        densities_high *= density / densities_high.sum()
+        traps_high = [
+            ac.Trap(density=density, lifetime=lifetime)
+            for density, lifetime in zip(densities_high, lifetimes_high)
+        ]
+        image_singles_high = main.add_cti(
+            image=image_orig,
+            parallel_traps=traps_high,
+            parallel_ccd_volume=ccd_volume,
+        )
+        
+        if do_plot:
+            plt.figure()
+
+            plt.plot(pixels, image_continuum[:, 0], ls="--", zorder=9, label="Continuum")
+            plt.plot(pixels, image_single[:, 0], c="k", label="1 single")
+            plt.plot(pixels, image_singles_low[:, 0], label="%d singles" % low_sample)
+            plt.plot(pixels, image_singles_mid[:, 0], label="%d singles" % mid_sample)
+            plt.plot(pixels, image_singles_high[:, 0], label="%d singles" % high_sample)
+
+            plt.legend()
+            plt.yscale("log")
+            plt.xlabel("Pixel")
+            plt.ylabel("Counts")
+            plt.xlim(0, size)
+            plt.ylim(0.1, 10)###
+            
+            # plt.figure()
+            # 
+            # lifetimes_plot = np.logspace(min_log_lifetime - 1, max_log_lifetime + 1, 10000)
+            # densities_plot = trap_continuum.distribution_of_traps_with_lifetime(
+            #     lifetimes_plot, lifetime, scale
+            #     )
+            # densities_plot *= density / densities_plot.sum()
+            # plt.plot(lifetimes_plot, densities_plot, ls="--", zorder=9, label="Continuum")
+            # 
+            # plt.scatter(lifetime, density, c="k", label="1 single")
+            # plt.plot(lifetimes_low, densities_low, label="%d singles" % low_sample)
+            # plt.plot(lifetimes_mid, densities_mid, label="%d singles" % mid_sample)
+            # plt.plot(lifetimes_high, densities_high, label="%d singles" % high_sample)
+            # 
+            # plt.legend()
+            # plt.xscale("log")
+            # plt.yscale("log")
+            # plt.xlim(lifetimes_high[1], lifetimes_high[-1])
+            # # plt.ylim(densities_high[-1], None)
+            # plt.xlabel("Lifetime")
+            # plt.ylabel("Density")
 
             plt.show()

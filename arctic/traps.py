@@ -225,19 +225,15 @@ class TrapLifetimeContinuum(Trap):
             The fraction of filled traps.
         """
 
-        def integrand(log_lifetime, time, middle, scale):
-            lifetime = np.exp(log_lifetime)
-
-            return (
-                self.distribution_of_traps_with_lifetime(lifetime, middle, scale)
-                * np.exp(-time / lifetime)
-                * lifetime
-            )
+        def integrand(lifetime, time, middle, scale):
+            return self.distribution_of_traps_with_lifetime(
+                lifetime, middle, scale
+            ) * np.exp(-time / lifetime)
 
         return integrate.quad(
             integrand,
-            np.log(1e-99),
-            np.log(1e99),
+            0,
+            np.inf,
             args=(time, self.middle_lifetime, self.scale_lifetime),
         )[0]
 
@@ -277,20 +273,17 @@ class TrapLifetimeContinuum(Trap):
             The number of released electrons.
         """
 
-        def integrand(log_lifetime, time_elapsed, time, middle, scale):
-            lifetime = np.exp(log_lifetime)
-
+        def integrand(lifetime, time_elapsed, time, middle, scale):
             return (
                 self.distribution_of_traps_with_lifetime(lifetime, middle, scale)
                 * np.exp(-time_elapsed / lifetime)
                 * (1 - np.exp(-time / lifetime))
-                * lifetime
             )
 
         return integrate.quad(
             integrand,
-            np.log(1e-99),
-            np.log(1e99),
+            0,
+            np.inf,
             args=(time_elapsed, time, self.middle_lifetime, self.scale_lifetime),
         )[0]
 

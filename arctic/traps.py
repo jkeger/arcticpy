@@ -1137,6 +1137,7 @@ class TrapManagerTrackTime(TrapManager):
         watermarks : np.ndarray
             The updated watermarks. See initial_watermarks_from_rows_and_total_traps().
         """
+
         # Find the highest active watermark
         max_watermark_index = np.argmax(watermarks[:, 0] == 0) - 1
         if max_watermark_index == -1:

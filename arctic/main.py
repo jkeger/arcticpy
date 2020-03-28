@@ -15,6 +15,7 @@ from arctic.clock import Clocker
 from arctic.traps import (
     TrapNonUniformHeightDistribution,
     TrapLifetimeContinuum,
+    TrapLogNormalLifetimeContinuum,
     TrapManager,
     TrapManagerNonUniformHeightDistribution,
     TrapManagerTrackTime,
@@ -117,12 +118,12 @@ def _add_cti_to_image(image, clocker, ccd_volume, traps, express):
     # Set up the array of trap managers
     trap_managers = []
     for trap_group in traps:
-        if isinstance(traps, TrapNonUniformHeightDistribution):
+        if isinstance(trap_group[0], TrapNonUniformHeightDistribution):
             trap_managers.append(
                 TrapManagerNonUniformHeightDistribution(traps=trap_group, rows=rows)
             )
         elif isinstance(
-            traps, (TrapNonUniformHeightDistribution, TrapNonUniformHeightDistribution),
+            trap_group[0], (TrapLifetimeContinuum, TrapLogNormalLifetimeContinuum),
         ):
             trap_managers.append(TrapManagerTrackTime(traps=trap_group, rows=rows))
         else:

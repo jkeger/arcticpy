@@ -1,6 +1,7 @@
 import numpy as np
 import pytest
 from scipy import integrate
+import matplotlib.pyplot as plt
 
 import arctic as ac
 
@@ -582,7 +583,7 @@ class TestUpdateWatermarksNotEnough:
             watermarks=trap_manager.watermarks,
             enough=enough,
         )
-        print(watermarks)  ###
+
         assert watermarks == pytest.approx(
             np.array([[0.5, 0.7], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]])
         )
@@ -1494,3 +1495,456 @@ class TestTrapLifetimeContinuum:
         )
 
         assert watermarks_continuum == pytest.approx(watermarks_single, rel=0.5)
+
+    def test__TrapLogNormalLifetimeContinuum(self):
+
+        median_lifetime = -1 / np.log(0.5)
+        scale_lifetime = 0.5
+
+        trap = ac.TrapLogNormalLifetimeContinuum(
+            density=10, middle_lifetime=median_lifetime, scale_lifetime=scale_lifetime,
+        )
+
+        # Check that the integral from zero to infinity is one
+        assert integrate.quad(
+            trap.distribution_of_traps_with_lifetime,
+            0,
+            np.inf,
+            args=(trap.middle_lifetime, trap.scale_lifetime),
+        )[0] == pytest.approx(1)
+
+        # Check the automatic distribution function is set correctly
+        def trap_distribution(lifetime, median, scale):
+            return np.exp(
+                -((np.log(lifetime) - np.log(median)) ** 2) / (2 * scale ** 2)
+            ) / (lifetime * scale * np.sqrt(2 * np.pi))
+
+        assert trap.distribution_of_traps_with_lifetime(
+            1.2345, median_lifetime, scale_lifetime
+        ) == trap_distribution(1.2345, median_lifetime, scale_lifetime)
+
+    def test__electrons_released_from_continuum_traps_compare_with_distributions_of_single_traps(
+        self,
+    ):
+
+        ccd_volume = ac.CCDVolume(
+            well_fill_beta=0.8, well_max_height=8.47e4, well_notch_depth=1e-7
+        )
+
+        density = 10
+        lifetime = 5
+        scale = 1
+        linear_min_lifetime = 1e-3
+        linear_max_lifetime = 1000
+        linear_sample = 10000
+        min_log_lifetime = -3
+        max_log_lifetime = 5
+        log_sample = 1000
+        t_elapsed = 0
+        time = 1
+
+        # Log-normal distribution
+        def trap_distribution(lifetime, median, scale):
+            return np.exp(
+                -((np.log(lifetime) - np.log(median)) ** 2) / (2 * scale ** 2)
+            ) / (lifetime * scale * np.sqrt(2 * np.pi))
+
+        # Split into two
+        def trap_distribution_a(lifetime, median, scale):
+            return (
+                2
+                * np.heaviside(lifetime - 2 * median, 0)
+                * trap_distribution(lifetime, median, scale)
+            )
+
+        def trap_distribution_b(lifetime, median, scale):
+            return (
+                2
+                * np.heaviside(2 * median - lifetime, 0)
+                * trap_distribution(lifetime, median, scale)
+            )
+
+        # Continuum traps
+        trap_continuum = ac.TrapLifetimeContinuum(
+            density=density,
+            distribution_of_traps_with_lifetime=trap_distribution,
+            middle_lifetime=lifetime,
+            scale_lifetime=scale,
+        )
+        trap_manager_continuum = ac.TrapManagerTrackTime(traps=[trap_continuum], rows=6)
+        trap_manager_continuum.watermarks = np.array(
+            [[0.5, t_elapsed], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],]
+        )
+        electrons_released_continuum = trap_manager_continuum.electrons_released_in_pixel(
+            time=time
+        )
+
+        # Separated continuum traps
+        trap_continuum_split_a = ac.TrapLifetimeContinuum(
+            density=density / 2,
+            distribution_of_traps_with_lifetime=trap_distribution_a,
+            middle_lifetime=lifetime,
+            scale_lifetime=scale,
+        )
+        trap_continuum_split_b = ac.TrapLifetimeContinuum(
+            density=density / 2,
+            distribution_of_traps_with_lifetime=trap_distribution_b,
+            middle_lifetime=lifetime,
+            scale_lifetime=scale,
+        )
+        trap_manager_continuum_split = ac.TrapManagerTrackTime(
+            traps=[trap_continuum_split_a, trap_continuum_split_b], rows=6
+        )
+        trap_manager_continuum_split.watermarks = np.array(
+            [[0.5, t_elapsed, t_elapsed], [0] * 3, [0] * 3, [0] * 3, [0] * 3, [0] * 3,]
+        )
+        electrons_released_continuum_split = trap_manager_continuum_split.electrons_released_in_pixel(
+            time=time
+        )
+
+        # Equivalent distributions of single traps, linearly spaced
+        lifetimes_linear = np.linspace(
+            linear_min_lifetime, linear_max_lifetime, linear_sample
+        )
+        densities_linear = trap_distribution(lifetimes_linear, lifetime, scale)
+        densities_linear *= density / densities_linear.sum()
+        traps_linear = [
+            ac.Trap(density=density, lifetime=lifetime)
+            for density, lifetime in zip(densities_linear, lifetimes_linear)
+        ]
+        trap_manager_linear = ac.TrapManagerTrackTime(traps=traps_linear, rows=6)
+        trap_manager_linear.watermarks = np.array(
+            [
+                np.append([0.5], [t_elapsed] * linear_sample),
+                [0] * (linear_sample + 1),
+                [0] * (linear_sample + 1),
+                [0] * (linear_sample + 1),
+                [0] * (linear_sample + 1),
+                [0] * (linear_sample + 1),
+            ]
+        )
+        electrons_released_linear = trap_manager_linear.electrons_released_in_pixel(
+            time=time
+        )
+
+        # Equivalent distributions of single traps, logarithmically spaced
+        lifetimes_log = np.logspace(min_log_lifetime, max_log_lifetime, log_sample)
+        lifetimes_widths = np.append(
+            np.append(
+                np.exp(0.5 * (np.log(lifetimes_log[1]) + np.log(lifetimes_log[0]))),
+                np.exp(0.5 * (np.log(lifetimes_log[2:]) + np.log(lifetimes_log[:-2]))),
+            ),
+            np.exp(0.5 * (np.log(lifetimes_log[-1]) + np.log(lifetimes_log[-2]))),
+        )
+        densities_log = trap_distribution(lifetimes_log, lifetime, scale)
+        densities_log *= lifetimes_widths
+        densities_log *= density / densities_log.sum()
+        traps_log = [
+            ac.Trap(density=density, lifetime=lifetime)
+            for density, lifetime in zip(densities_log, lifetimes_log)
+        ]
+        trap_manager_log = ac.TrapManagerTrackTime(traps=traps_log, rows=6)
+        trap_manager_log.watermarks = np.array(
+            [
+                np.append([0.5], [t_elapsed] * log_sample),
+                [0] * (log_sample + 1),
+                [0] * (log_sample + 1),
+                [0] * (log_sample + 1),
+                [0] * (log_sample + 1),
+                [0] * (log_sample + 1),
+            ]
+        )
+        electrons_released_log = trap_manager_log.electrons_released_in_pixel(time=time)
+
+        time = 1.2
+        electrons_released_continuum = trap_manager_continuum.electrons_released_in_pixel(
+            time=time
+        )
+        electrons_released_continuum_split = trap_manager_continuum_split.electrons_released_in_pixel(
+            time=time
+        )
+        electrons_released_linear = trap_manager_linear.electrons_released_in_pixel(
+            time=time
+        )
+        electrons_released_log = trap_manager_log.electrons_released_in_pixel(time=time)
+
+        assert electrons_released_continuum == pytest.approx(
+            electrons_released_continuum_split
+        )
+        assert electrons_released_continuum == pytest.approx(
+            electrons_released_linear, rel=0.001
+        )
+        assert electrons_released_continuum == pytest.approx(
+            electrons_released_log, rel=0.001
+        )
+
+    def test__electrons_captured_from_continuum_traps_compare_with_distributions_of_single_traps(
+        self,
+    ):
+
+        ccd_volume = ac.CCDVolume(
+            well_fill_beta=0.8, well_max_height=8.47e4, well_notch_depth=1e-7
+        )
+
+        density = 10
+        lifetime = 5
+        scale = 1
+        linear_min_lifetime = 1e-3
+        linear_max_lifetime = 1000
+        linear_sample = 10000
+        min_log_lifetime = -3
+        max_log_lifetime = 5
+        log_sample = 1000
+        t_elapsed = 1
+        time = 1
+        electrons_available = 1e4
+
+        # Log-normal distribution
+        def trap_distribution(lifetime, median, scale):
+            return np.exp(
+                -((np.log(lifetime) - np.log(median)) ** 2) / (2 * scale ** 2)
+            ) / (lifetime * scale * np.sqrt(2 * np.pi))
+
+        # Split into two
+        def trap_distribution_a(lifetime, median, scale):
+            return (
+                2
+                * np.heaviside(lifetime - 2 * median, 0)
+                * trap_distribution(lifetime, median, scale)
+            )
+
+        def trap_distribution_b(lifetime, median, scale):
+            return (
+                2
+                * np.heaviside(2 * median - lifetime, 0)
+                * trap_distribution(lifetime, median, scale)
+            )
+
+        # Continuum traps
+        trap_continuum = ac.TrapLifetimeContinuum(
+            density=density,
+            distribution_of_traps_with_lifetime=trap_distribution,
+            middle_lifetime=lifetime,
+            scale_lifetime=scale,
+        )
+        trap_manager_continuum = ac.TrapManagerTrackTime(traps=[trap_continuum], rows=6)
+        trap_manager_continuum.watermarks = np.array(
+            [[0.5, t_elapsed], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],]
+        )
+        electrons_captured_continuum = trap_manager_continuum.electrons_captured_in_pixel(
+            electrons_available=electrons_available, ccd_volume=ccd_volume
+        )
+
+        # Separated continuum traps
+        trap_continuum_split_a = ac.TrapLifetimeContinuum(
+            density=density / 2,
+            distribution_of_traps_with_lifetime=trap_distribution_a,
+            middle_lifetime=lifetime,
+            scale_lifetime=scale,
+        )
+        trap_continuum_split_b = ac.TrapLifetimeContinuum(
+            density=density / 2,
+            distribution_of_traps_with_lifetime=trap_distribution_b,
+            middle_lifetime=lifetime,
+            scale_lifetime=scale,
+        )
+        trap_manager_continuum_split = ac.TrapManagerTrackTime(
+            traps=[trap_continuum_split_a, trap_continuum_split_b], rows=6
+        )
+        trap_manager_continuum_split.watermarks = np.array(
+            [[0.5, t_elapsed, t_elapsed], [0] * 3, [0] * 3, [0] * 3, [0] * 3, [0] * 3,]
+        )
+        electrons_captured_continuum_split = trap_manager_continuum_split.electrons_captured_in_pixel(
+            electrons_available=electrons_available, ccd_volume=ccd_volume
+        )
+
+        # Equivalent distributions of single traps, linearly spaced
+        lifetimes_linear = np.linspace(
+            linear_min_lifetime, linear_max_lifetime, linear_sample
+        )
+        densities_linear = trap_distribution(lifetimes_linear, lifetime, scale)
+        densities_linear *= density / densities_linear.sum()
+        traps_linear = [
+            ac.Trap(density=density, lifetime=lifetime)
+            for density, lifetime in zip(densities_linear, lifetimes_linear)
+        ]
+        trap_manager_linear = ac.TrapManagerTrackTime(traps=traps_linear, rows=6)
+        trap_manager_linear.watermarks = np.array(
+            [
+                np.append([0.5], [t_elapsed] * linear_sample),
+                [0] * (linear_sample + 1),
+                [0] * (linear_sample + 1),
+                [0] * (linear_sample + 1),
+                [0] * (linear_sample + 1),
+                [0] * (linear_sample + 1),
+            ]
+        )
+        electrons_captured_linear = trap_manager_linear.electrons_captured_in_pixel(
+            electrons_available=electrons_available, ccd_volume=ccd_volume
+        )
+
+        # Equivalent distributions of single traps, logarithmically spaced
+        lifetimes_log = np.logspace(min_log_lifetime, max_log_lifetime, log_sample)
+        lifetimes_widths = np.append(
+            np.append(
+                np.exp(0.5 * (np.log(lifetimes_log[1]) + np.log(lifetimes_log[0]))),
+                np.exp(0.5 * (np.log(lifetimes_log[2:]) + np.log(lifetimes_log[:-2]))),
+            ),
+            np.exp(0.5 * (np.log(lifetimes_log[-1]) + np.log(lifetimes_log[-2]))),
+        )
+        densities_log = trap_distribution(lifetimes_log, lifetime, scale)
+        densities_log *= lifetimes_widths
+        densities_log *= density / densities_log.sum()
+        traps_log = [
+            ac.Trap(density=density, lifetime=lifetime)
+            for density, lifetime in zip(densities_log, lifetimes_log)
+        ]
+        trap_manager_log = ac.TrapManagerTrackTime(traps=traps_log, rows=6)
+        trap_manager_log.watermarks = np.array(
+            [
+                np.append([0.5], [t_elapsed] * log_sample),
+                [0] * (log_sample + 1),
+                [0] * (log_sample + 1),
+                [0] * (log_sample + 1),
+                [0] * (log_sample + 1),
+                [0] * (log_sample + 1),
+            ]
+        )
+        electrons_captured_log = trap_manager_log.electrons_captured_in_pixel(
+            electrons_available=electrons_available, ccd_volume=ccd_volume
+        )
+        electrons_captured_log_2 = trap_manager_log.electrons_captured_in_pixel(
+            electrons_available=electrons_available, ccd_volume=ccd_volume
+        )
+
+        assert electrons_captured_continuum == pytest.approx(
+            electrons_captured_continuum_split
+        )
+        assert electrons_captured_continuum == pytest.approx(
+            electrons_captured_linear, rel=0.001
+        )
+        assert electrons_captured_continuum == pytest.approx(
+            electrons_captured_log, rel=0.001
+        )
+
+    def test__trails_from_continuum_traps_compare_with_distributions_of_single_traps(
+        self,
+    ):
+
+        size = 10
+        pixels = np.arange(size)
+        image_orig = np.zeros((size, 1))
+        image_orig[1, 0] = 1e4
+
+        ccd_volume = ac.CCDVolume(
+            well_fill_beta=0.8, well_max_height=8.47e4, well_notch_depth=1e-7
+        )
+
+        density = 10
+        lifetime = 5
+        scale = 1
+        min_log_lifetime = -3
+        max_log_lifetime = 5
+        log_sample = 100
+
+        # Log-normal distribution
+        def trap_distribution(lifetime, median, scale):
+            return np.exp(
+                -((np.log(lifetime) - np.log(median)) ** 2) / (2 * scale ** 2)
+            ) / (lifetime * scale * np.sqrt(2 * np.pi))
+
+        # Continuum traps
+        trap_continuum = ac.TrapLifetimeContinuum(
+            density=density,
+            distribution_of_traps_with_lifetime=trap_distribution,
+            middle_lifetime=lifetime,
+            scale_lifetime=scale,
+        )
+        image_continuum = ac.add_cti(
+            image=image_orig,
+            parallel_traps=[trap_continuum],
+            parallel_ccd_volume=ccd_volume,
+        )
+
+        # Equivalent distributions of single traps, logarithmically spaced
+        lifetimes_log = np.logspace(min_log_lifetime, max_log_lifetime, log_sample)
+        lifetimes_widths = np.append(
+            np.append(
+                np.exp(0.5 * (np.log(lifetimes_log[1]) + np.log(lifetimes_log[0]))),
+                np.exp(0.5 * (np.log(lifetimes_log[2:]) + np.log(lifetimes_log[:-2]))),
+            ),
+            np.exp(0.5 * (np.log(lifetimes_log[-1]) + np.log(lifetimes_log[-2]))),
+        )
+        densities_log = trap_distribution(lifetimes_log, lifetime, scale)
+        densities_log *= lifetimes_widths
+        densities_log *= density / densities_log.sum()
+        traps_log = [
+            ac.Trap(density=density, lifetime=lifetime)
+            for density, lifetime in zip(densities_log, lifetimes_log)
+        ]
+        image_log = ac.add_cti(
+            image=image_orig, parallel_traps=traps_log, parallel_ccd_volume=ccd_volume,
+        )
+
+        assert image_continuum == pytest.approx(image_log)
+
+    def test__plot_trails_from_continuum_traps_different_distributions(self,):
+
+        # Plotting test -- manually set True to make the plot
+        do_plot = False
+        # do_plot = True
+
+        size = 20
+        pixels = np.arange(size)
+        image_orig = np.zeros((size, 1))
+        image_orig[1, 0] = 1e4
+
+        ccd_volume = ac.CCDVolume(
+            well_fill_beta=0.8, well_max_height=8.47e4, well_notch_depth=1e-7
+        )
+
+        density = 10
+        lifetime = 5
+
+        # Log-normal distribution
+        def trap_distribution(lifetime, median, scale):
+            return np.exp(
+                -((np.log(lifetime) - np.log(median)) ** 2) / (2 * scale ** 2)
+            ) / (lifetime * scale * np.sqrt(2 * np.pi))
+
+        # Single trap
+        trap_single = ac.Trap(density=density, lifetime=lifetime)
+        image_single = ac.add_cti(
+            image=image_orig,
+            parallel_traps=[trap_single],
+            parallel_ccd_volume=ccd_volume,
+        )
+
+        if do_plot:
+            plt.figure()
+
+            plt.scatter(pixels, image_single[:, 0], c="k", marker=".", label="Single")
+
+            for scale in [0.1, 1, 2]:
+                trap_continuum = ac.TrapLifetimeContinuum(
+                    density=density,
+                    distribution_of_traps_with_lifetime=trap_distribution,
+                    middle_lifetime=lifetime,
+                    scale_lifetime=scale,
+                )
+                image_continuum = ac.add_cti(
+                    image=image_orig,
+                    parallel_traps=[trap_continuum],
+                    parallel_ccd_volume=ccd_volume,
+                )
+                plt.plot(
+                    pixels, image_continuum[:, 0], label=r"$\sigma = %.1f$" % scale
+                )
+
+            plt.legend()
+            plt.yscale("log")
+            plt.xlabel("Pixel")
+            plt.ylabel("Counts")
+            plt.ylim(None, 2)
+
+            plt.show()

@@ -20,67 +20,67 @@ class Trap(object):
     def fill_fraction_from_time_elapsed(self, time):
         """ Calculate the fraction of filled traps after a certain time.
 
-            Parameters
-            ----------
-            time : float
-                The total time elapsed since the traps were filled, in the same 
-                units as the trap lifetime.
+        Parameters
+        ----------
+        time : float
+            The total time elapsed since the traps were filled, in the same 
+            units as the trap lifetime.
 
-            Returns
-            -------
-            fill : float
-                The fraction of filled traps.
+        Returns
+        -------
+        fill : float
+            The fraction of filled traps.
         """
         return np.exp(-time / self.lifetime)
 
     def time_elapsed_from_fill_fraction(self, fill):
         """ Calculate the total time elapsed from the fraction of filled traps.
 
-            Parameters
-            ----------
-            fill : float
-                The fraction of filled traps.
+        Parameters
+        ----------
+        fill : float
+            The fraction of filled traps.
 
-            Returns
-            -------
-            time : float
-                The time elapsed, in the same units as the trap lifetime.
+        Returns
+        -------
+        time : float
+            The time elapsed, in the same units as the trap lifetime.
         """
         return -self.lifetime * np.log(fill)
 
     def electrons_released_from_electrons_and_time(self, electrons, time=1):
         """ Calculate the number of released electrons from the trap.
 
-            Parameters
-            ----------
-            electrons : float
-                The initial number of trapped electrons.
-            time : float
-                The time spent in this pixel or phase, in the same units as the 
-                trap lifetime.
+        Parameters
+        ----------
+        electrons : float
+            The initial number of trapped electrons.
+        time : float
+            The time spent in this pixel or phase, in the same units as the 
+            trap lifetime.
 
-            Returns
-            -------
-            electrons_released : float
-                The number of released electrons.
+        Returns
+        -------
+        electrons_released : float
+            The number of released electrons.
         """
         return electrons * (1 - self.fill_fraction_from_time_elapsed(time))
 
     def electrons_released_from_time_elapsed_and_time(self, time_elapsed, time=1):
         """ Calculate the number of released electrons from the trap.
 
-            Parameters
-            ----------
-            time_elapsed : float
-                The time elapsed since capture.
-            time : float
-                The time spent in this pixel or phase, in the same units as the 
-                trap lifetime.
+        Parameters
+        ----------
+        time_elapsed : float
+            The time elapsed since capture.
+        time : float
+            The time spent in this pixel or phase, in the same units as the 
+            trap lifetime.
 
-            Returns
-            -------
-            electrons_released : float
-                The number of released electrons.
+        Returns
+        -------
+        electrons_released : float
+            The number of released electrons.
         """
         return np.exp(-time_elapsed / self.lifetime) * (
             1 - np.exp(-time / self.lifetime)
@@ -198,9 +198,9 @@ class TrapLifetimeContinuum(Trap):
             e.g. a log-normal probability density function.
         middle_lifetime : float
             The middle (e.g. mean or median depending on the distribution) 
-            release lifetime of the trap.
+            release lifetime of the traps.
         scale_lifetime : float
-            The scale of release lifetimes of the trap.
+            The scale of release lifetimes of the traps.
         """
         super(TrapLifetimeContinuum, self).__init__(
             density=density, lifetime=middle_lifetime
@@ -213,16 +213,16 @@ class TrapLifetimeContinuum(Trap):
     def fill_fraction_from_time_elapsed(self, time):
         """ Calculate the fraction of filled traps after a certain time.
     
-            Parameters
-            ----------
-            time : float
-                The total time elapsed since the traps were filled, in the same 
-                units as the trap lifetime.
-    
-            Returns
-            -------
-            fill : float
-                The fraction of filled traps.
+        Parameters
+        ----------
+        time : float
+            The total time elapsed since the traps were filled, in the same 
+            units as the trap lifetime.
+
+        Returns
+        -------
+        fill : float
+            The fraction of filled traps.
         """
 
         def integrand(lifetime, time, middle, scale):
@@ -231,21 +231,24 @@ class TrapLifetimeContinuum(Trap):
             ) * np.exp(-time / lifetime)
 
         return integrate.quad(
-            integrand, 0, np.inf, args=(time, self.middle_lifetime, self.scale_lifetime)
+            integrand,
+            0,
+            np.inf,
+            args=(time, self.middle_lifetime, self.scale_lifetime),
         )[0]
 
     def time_elapsed_from_fill_fraction(self, fill):
         """ Calculate the total time elapsed from the fraction of filled traps.
     
-            Parameters
-            ----------
-            fill : float
-                The fraction of filled traps.
-    
-            Returns
-            -------
-            time : float
-                The time elapsed, in the same units as the trap lifetime.
+        Parameters
+        ----------
+        fill : float
+            The fraction of filled traps.
+
+        Returns
+        -------
+        time : float
+            The time elapsed, in the same units as the trap lifetime.
         """
         # Crudely iterate to find the time that gives the required fill fraction
         def find_time(time):
@@ -256,18 +259,18 @@ class TrapLifetimeContinuum(Trap):
     def electrons_released_from_time_elapsed_and_time(self, time_elapsed, time=1):
         """ Calculate the number of released electrons from the trap.
 
-            Parameters
-            ----------
-            time_elapsed : float
-                The time elapsed since capture.
-            time : float
-                The time spent in this pixel or phase, in the same units as the 
-                trap lifetime.
+        Parameters
+        ----------
+        time_elapsed : float
+            The time elapsed since capture.
+        time : float
+            The time spent in this pixel or phase, in the same units as the 
+            trap lifetime.
 
-            Returns
-            -------
-            electrons_released : float
-                The number of released electrons.
+        Returns
+        -------
+        electrons_released : float
+            The number of released electrons.
         """
 
         def integrand(lifetime, time_elapsed, time, middle, scale):
@@ -283,6 +286,54 @@ class TrapLifetimeContinuum(Trap):
             np.inf,
             args=(time_elapsed, time, self.middle_lifetime, self.scale_lifetime),
         )[0]
+
+
+class TrapLogNormalLifetimeContinuum(TrapLifetimeContinuum):
+    """ For a log-normal continuum distribution of release lifetimes for the 
+        traps. Must be used with TrapManagerTrackTime.
+    """
+
+    @staticmethod
+    def log_normal_distribution(x, median, scale):
+        """ Return the log-normal probability density.
+            
+        Parameters
+        ----------
+        x : float 
+            The input value.
+        median : float 
+            The median of the distribution.
+        scale : float 
+            The scale of the distribution.
+            
+        Returns
+        --------
+        """
+        return np.exp(-((np.log(x) - np.log(median)) ** 2) / (2 * scale ** 2)) / (
+            x * scale * np.sqrt(2 * np.pi)
+        )
+
+    def __init__(
+        self, density, middle_lifetime=None, scale_lifetime=None,
+    ):
+        """The parameters for a single trap species.
+
+        Parameters
+        ---------
+        density : float
+            The density of the trap species in a pixel.
+        middle_lifetime : float
+            The median release lifetime of the traps.
+        scale_lifetime : float
+            The scale of release lifetimes of the traps.
+        """
+
+        super(TrapLogNormalLifetimeContinuum, self).__init__(
+            density=density,
+            distribution_of_traps_with_lifetime=self.log_normal_distribution,
+            middle_lifetime=middle_lifetime,
+            scale_lifetime=scale_lifetime,
+        )
 
 
 class TrapManager(object):
@@ -322,7 +373,7 @@ class TrapManager(object):
             The number of traps being modelled.
 
         Returns
-        --------
+        -------
         watermarks : np.ndarray
             Array of watermark heights and fill fractions to describe the trap states. Lists each (active) watermark
             height_e fraction and the corresponding fill fractions of each traps. Inactive elements are set to 0.
@@ -370,7 +421,7 @@ class TrapManager(object):
             # Initialise the number of released electrons from this watermark level
             electrons_released_watermark = 0
 
-            # For each traps
+            # For each trap species
             for trap_index, trap in enumerate(self.traps):
                 # Number of released electrons (not yet including the trap density)
                 electrons_released_from_trap = trap.electrons_released_from_electrons_and_time(
@@ -554,7 +605,7 @@ class TrapManager(object):
             The ratio of available electrons to traps up to this height.
 
         Returns
-        --------
+        -------
         watermarks : np.ndarray
             The updated watermarks. See initial_watermarks_from_rows_and_total_traps().
         """
@@ -847,7 +898,7 @@ class TrapManagerTrackTime(TrapManager):
             The number of traps being modelled.
 
         Returns
-        --------
+        -------
         watermarks : np.ndarray
             Array of watermark heights and times to describe the trap states. 
             Lists each (active) watermark height_e fraction and the 
@@ -892,7 +943,7 @@ class TrapManagerTrackTime(TrapManager):
             # Initialise the number of released electrons from this watermark level
             electrons_released_watermark = 0
 
-            # For each traps
+            # For each trap species
             for trap_index, trap in enumerate(self.traps):
                 # Number of released electrons (not yet including the trap density)
                 electrons_released_from_trap = trap.electrons_released_from_time_elapsed_and_time(
@@ -1082,10 +1133,11 @@ class TrapManagerTrackTime(TrapManager):
             The ratio of available electrons to traps up to this height.
 
         Returns
-        --------
+        -------
         watermarks : np.ndarray
             The updated watermarks. See initial_watermarks_from_rows_and_total_traps().
         """
+
         # Find the highest active watermark
         max_watermark_index = np.argmax(watermarks[:, 0] == 0) - 1
         if max_watermark_index == -1:

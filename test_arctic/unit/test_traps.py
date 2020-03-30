@@ -1903,8 +1903,8 @@ class TestTrapLifetimeContinuum:
             well_fill_beta=0.8, well_max_height=8.47e4, well_notch_depth=1e-7
         )
 
-        density = 10
-        lifetime = 5
+        density = 1000
+        lifetime = 3
 
         # Log-normal distribution
         def trap_distribution(lifetime, median, scale):
@@ -1912,19 +1912,24 @@ class TestTrapLifetimeContinuum:
                 -((np.log(lifetime) - np.log(median)) ** 2) / (2 * scale ** 2)
             ) / (lifetime * scale * np.sqrt(2 * np.pi))
 
-        # Single trap
-        trap_single = ac.Trap(density=density, lifetime=lifetime)
-        image_single = ac.add_cti(
-            image=image_orig,
-            parallel_traps=[trap_single],
-            parallel_ccd_volume=ccd_volume,
-        )
-
         if do_plot:
             plt.figure()
 
+            # Single trap
+            trap_single = ac.Trap(density=density, lifetime=lifetime)
+            image_single = ac.add_cti(
+                image=image_orig,
+                parallel_traps=[trap_single],
+                parallel_ccd_volume=ccd_volume,
+            )
             plt.scatter(pixels, image_single[:, 0], c="k", marker=".", label="Single")
 
+            # Pure exponential for comparison
+            exp_trail = np.exp(-pixels[2:] / lifetime)
+            exp_trail *= image_single[2, 0] / exp_trail[0]
+            plt.plot(pixels[2:], exp_trail, c="k", alpha=0.3)
+
+            # Different sigma scales
             for scale in [0.1, 1, 2]:
                 trap_continuum = ac.TrapLifetimeContinuum(
                     density=density,
@@ -1945,6 +1950,5 @@ class TestTrapLifetimeContinuum:
             plt.yscale("log")
             plt.xlabel("Pixel")
             plt.ylabel("Counts")
-            plt.ylim(None, 2)
 
             plt.show()

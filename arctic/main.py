@@ -154,7 +154,7 @@ def _add_cti_to_image(image, clocker, ccd_volume, traps, express):
                 electrons_released = 0
                 for trap_manager in trap_managers:
                     electrons_released += trap_manager.electrons_released_in_pixel(
-                        time=clocker.sequence[phase],
+                        dwell_time=clocker.sequence[phase],
                         width=ccd_volume.phase_widths[phase],
                     )
                 electrons_available += electrons_released

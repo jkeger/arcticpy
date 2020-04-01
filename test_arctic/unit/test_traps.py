@@ -55,23 +55,23 @@ class TestTrapParams:
 
 
 class TestSpecies:
-    def test__electrons_released_from_electrons_and_time(self):
+    def test__electrons_released_from_electrons_and_dwell_time(self):
 
         trap = ac.Trap(lifetime=1.0)
 
-        assert trap.electrons_released_from_electrons_and_time(
+        assert trap.electrons_released_from_electrons_and_dwell_time(
             electrons=1.0
         ) == pytest.approx(0.6321, 1.0e-4)
-        assert trap.electrons_released_from_electrons_and_time(
+        assert trap.electrons_released_from_electrons_and_dwell_time(
             electrons=2.0
         ) == pytest.approx(2.0 * 0.6321, 1.0e-4)
 
         trap = ac.Trap(lifetime=2.0)
 
-        assert trap.electrons_released_from_electrons_and_time(
+        assert trap.electrons_released_from_electrons_and_dwell_time(
             electrons=1.0
         ) == pytest.approx(0.39346, 1.0e-4)
-        assert trap.electrons_released_from_electrons_and_time(
+        assert trap.electrons_released_from_electrons_and_dwell_time(
             electrons=2.0
         ) == pytest.approx(2.0 * 0.39346, 1.0e-4)
 
@@ -308,7 +308,7 @@ class TestElectronsReleasedAndUpdatedWatermarks:
             [[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]]
         )
 
-        electrons_released = trap_manager.electrons_released_in_pixel(time=0.5)
+        electrons_released = trap_manager.electrons_released_in_pixel(dwell_time=0.5)
 
         assert electrons_released == pytest.approx(2.5)
         assert trap_manager.watermarks == pytest.approx(
@@ -901,14 +901,14 @@ class TestTrapManagerTrackTime:
         fill = trap.fill_fraction_from_time_elapsed(1)
         assert fill == np.exp(-0.5)
 
-        time = trap.time_elapsed_from_fill_fraction(0.5)
-        assert time == -2 * np.log(0.5)
+        time_elapsed = trap.time_elapsed_from_fill_fraction(0.5)
+        assert time_elapsed == -2 * np.log(0.5)
 
         assert fill == trap.fill_fraction_from_time_elapsed(
             trap.time_elapsed_from_fill_fraction(fill)
         )
-        assert time == trap.time_elapsed_from_fill_fraction(
-            trap.fill_fraction_from_time_elapsed(time)
+        assert time_elapsed == trap.time_elapsed_from_fill_fraction(
+            trap.fill_fraction_from_time_elapsed(time_elapsed)
         )
 
     def test__electrons_released_in_pixel_using_time(self):
@@ -1181,16 +1181,18 @@ class TestTrapLifetimeContinuum:
             middle_lifetime=median_lifetime,
             scale_lifetime=scale_lifetime,
         )
-        time = 1
+        time_elapsed = 1
 
         assert (
             trap.time_elapsed_from_fill_fraction(
-                trap.fill_fraction_from_time_elapsed(time)
+                trap.fill_fraction_from_time_elapsed(time_elapsed)
             )
-            == time
+            == time_elapsed
         )
 
-    def test__electrons_released_from_time_elapsed_and_time_narrow_continuum(self):
+    def test__electrons_released_from_time_elapsed_and_dwell_time_narrow_continuum(
+        self,
+    ):
 
         # Check that narrow continuum gives similar results to single lifetime
         # Simple trap
@@ -1233,7 +1235,7 @@ class TestTrapLifetimeContinuum:
             electrons_released_single, rel=0.01
         )
 
-    def test__electrons_released_from_time_elapsed_and_time_continuum(self):
+    def test__electrons_released_from_time_elapsed_and_dwell_time_continuum(self):
 
         # Check that continuum gives somewhat similar results to single lifetime
         # Simple trap
@@ -1541,7 +1543,7 @@ class TestTrapLifetimeContinuum:
         max_log_lifetime = 5
         log_sample = 1000
         t_elapsed = 0
-        time = 1
+        dwell_time = 1
 
         # Log-normal distribution
         def trap_distribution(lifetime, median, scale):
@@ -1576,7 +1578,7 @@ class TestTrapLifetimeContinuum:
             [[0.5, t_elapsed], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],]
         )
         electrons_released_continuum = trap_manager_continuum.electrons_released_in_pixel(
-            time=time
+            dwell_time=dwell_time
         )
 
         # Separated continuum traps
@@ -1599,7 +1601,7 @@ class TestTrapLifetimeContinuum:
             [[0.5, t_elapsed, t_elapsed], [0] * 3, [0] * 3, [0] * 3, [0] * 3, [0] * 3,]
         )
         electrons_released_continuum_split = trap_manager_continuum_split.electrons_released_in_pixel(
-            time=time
+            dwell_time=dwell_time
         )
 
         # Equivalent distributions of single traps, linearly spaced
@@ -1624,7 +1626,7 @@ class TestTrapLifetimeContinuum:
             ]
         )
         electrons_released_linear = trap_manager_linear.electrons_released_in_pixel(
-            time=time
+            dwell_time=dwell_time
         )
 
         # Equivalent distributions of single traps, logarithmically spaced
@@ -1654,19 +1656,23 @@ class TestTrapLifetimeContinuum:
                 [0] * (log_sample + 1),
             ]
         )
-        electrons_released_log = trap_manager_log.electrons_released_in_pixel(time=time)
+        electrons_released_log = trap_manager_log.electrons_released_in_pixel(
+            dwell_time=dwell_time
+        )
 
-        time = 1.2
+        dwell_time = 1.2
         electrons_released_continuum = trap_manager_continuum.electrons_released_in_pixel(
-            time=time
+            dwell_time=dwell_time
         )
         electrons_released_continuum_split = trap_manager_continuum_split.electrons_released_in_pixel(
-            time=time
+            dwell_time=dwell_time
         )
         electrons_released_linear = trap_manager_linear.electrons_released_in_pixel(
-            time=time
+            dwell_time=dwell_time
         )
-        electrons_released_log = trap_manager_log.electrons_released_in_pixel(time=time)
+        electrons_released_log = trap_manager_log.electrons_released_in_pixel(
+            dwell_time=dwell_time
+        )
 
         assert electrons_released_continuum == pytest.approx(
             electrons_released_continuum_split
@@ -1696,7 +1702,7 @@ class TestTrapLifetimeContinuum:
         max_log_lifetime = 5
         log_sample = 1000
         t_elapsed = 1
-        time = 1
+        dwell_time = 1
         electrons_available = 1e4
 
         # Log-normal distribution

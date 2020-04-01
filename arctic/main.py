@@ -148,7 +148,6 @@ def _add_cti_to_image(image, clocker, ccd_volume, traps, express):
 
                 # Initial number of electrons available for trapping
                 electrons_initial = image[row_index, column_index]
-                electrons_available = electrons_initial
 
                 # Release and capture
                 electrons_released_total = 0
@@ -158,7 +157,7 @@ def _add_cti_to_image(image, clocker, ccd_volume, traps, express):
                         electrons_released,
                         electrons_captured,
                     ) = trap_manager.electrons_released_and_captured_in_pixel(
-                        electrons_available=electrons_available,
+                        electrons_available=electrons_initial,
                         dwell_time=clocker.sequence[phase],
                         ccd_volume=ccd_volume.extract_phase(phase),
                         width=ccd_volume.phase_widths[phase],

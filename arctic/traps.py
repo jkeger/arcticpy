@@ -752,6 +752,49 @@ class TrapManager(object):
 
         return electrons_captured
 
+    def electrons_released_and_captured_in_pixel(
+        self, electrons_available, ccd_volume, dwell_time=1, width=1
+    ):
+        """ Release and capture electrons and update the trap watermarks.
+
+        Parameters
+        ----------
+        electrons_available : float
+            The number of available electrons for trapping.
+        ccd_volume : CCDVolume
+            The object describing the CCD. Must have only a single value for 
+            each parameter, as set by CCDVolume.extract_phase().
+        dwell_time : float
+            The time spent in this pixel or phase, in the same units as the 
+            trap lifetime.
+        wdith : float
+            The width of this pixel or phase, as a fraction of the whole pixel.
+            
+        Returns
+        -------
+        electrons_released : float
+            The number of released electrons.
+        electrons_captured : float
+            The number of captured electrons.
+        
+        Updates
+        -------
+        watermarks : np.ndarray
+            The updated watermarks. See initial_watermarks_from_rows_and_total_traps().
+        """
+        # Release
+        electrons_released = self.electrons_released_in_pixel(
+            dwell_time=dwell_time, width=width
+        )
+
+        # Capture
+        electrons_available += electrons_released
+        electrons_captured = self.electrons_captured_in_pixel(
+            electrons_available, ccd_volume, width=width
+        )
+
+        return electrons_released, electrons_captured
+
 
 class TrapManagerNonUniformHeightDistribution(TrapManager):
     """ For a non-uniform distribution of traps with height within the pixel.

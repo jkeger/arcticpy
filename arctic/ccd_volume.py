@@ -103,6 +103,9 @@ class CCDVolume(object):
     def electron_fractional_height_from_electrons(self, electrons):
         """ Calculate the height the electrons reach within a CCD pixel well.
         """
+        if electrons == 0:
+            return 0
+
         electron_fractional_height = (
             (electrons - self.well_notch_depth) / self.well_range
         ) ** self.well_fill_beta

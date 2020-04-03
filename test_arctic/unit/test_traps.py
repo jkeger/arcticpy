@@ -212,6 +212,30 @@ class TestParallelDensityVary:
         ]
 
 
+class TestTrapManagerUtilities:
+    def test__number_of_trapped_electrons(self):
+        trap = ac.Trap(density=10, lifetime=1)
+        trap_manager = ac.TrapManager(traps=[trap], rows=6)
+        
+        assert trap_manager.number_of_trapped_electrons() == 0
+        
+        trap_manager.watermarks = np.array(
+            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0], [0, 0]]
+        )
+        
+        assert trap_manager.number_of_trapped_electrons() == (
+            (0.5 * 0.8 + 0.2 * 0.4 + 0.1 * 0.3) * trap.density
+        )
+        
+        trap_manager.watermarks = np.array(
+            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0], [0, 0]]
+        )
+        
+        assert trap_manager.number_of_trapped_electrons(width=0.5) == (
+            (0.5 * 0.8 + 0.2 * 0.4 + 0.1 * 0.3) * trap.density * 0.5
+        )
+
+
 class TestInitialWatermarks:
     def test__initial_watermark_array__uses_rows_and_total_traps_to_set_size(self,):
         trap_manager = ac.TrapManager(traps=[None], rows=6)

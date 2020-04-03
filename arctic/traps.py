@@ -357,14 +357,18 @@ class TrapSlowCapture(Trap):
             The release lifetime of the trap.
         capture_timescale : float
             The capture timescale of the trap.
+            
+        Attributes
+        ----------
+        capture_rate, emission_rate : float
+            The capture and emission rates (Lindegren (1998) section 3.2).
         """
         super(TrapSlowCapture, self).__init__(density=density, lifetime=lifetime)
 
         self.capture_timescale = capture_timescale
 
-        # Derived parameters for release and capture equations
-        self.r_e = 1 / self.lifetime
-        self.r_c = 1 / self.capture_timescale
+        self.capture_rate = 1 / self.capture_timescale
+        self.emission_rate = 1 / self.lifetime
 
 
 class TrapManager(object):
@@ -378,7 +382,14 @@ class TrapManager(object):
             A list of one or more trap objects.
         rows :int
             The number of rows in the image. i.e. the maximum number of
-            possible electron trap/release events.            
+            possible electron trap/release events.
+    
+        Attributes
+        ----------
+        watermarks : np.ndarray
+            The watermarks. See initial_watermarks_from_rows_and_total_traps().
+        densities : np.ndarray
+            The densities of all the trap species.
         """
         self.traps = traps
         self.rows = rows
@@ -387,6 +398,12 @@ class TrapManager(object):
         self.watermarks = self.initial_watermarks_from_rows_and_total_traps(
             rows=self.rows, total_traps=len(self.traps)
         )
+
+        # Trap densities
+        try:
+            self.densities = np.array([trap.density for trap in self.traps])
+        except AttributeError:
+            self.densities = None
 
     @property
     def delta_ellipticity(self):
@@ -414,6 +431,18 @@ class TrapManager(object):
              ...                       ]
         """
         return np.zeros((rows, 1 + total_traps), dtype=float)
+
+    def number_of_trapped_electrons(self, width=1):
+        """ Sum the total number of electrons currently held in traps.
+
+        Parameters
+        ----------
+        wdith : float
+            The width of this pixel or phase, as a fraction of the whole pixel.
+        """
+        return np.sum(
+            (self.watermarks[:, 0] * self.watermarks[:, 1:].T).T * self.densities
+        ) * width
 
     def reset_traps_for_next_express_loop(self):
         """Reset the trap watermarks for the next run of release and capture.
@@ -503,7 +532,7 @@ class TrapManager(object):
         electrons_captured = 0
 
         # The number of traps of each species
-        densities = np.array([trap.density for trap in traps]) * width
+        densities = self.densities * width
 
         # Find the highest active watermark
         max_watermark_index = np.argmax(watermarks[:, 0] == 0) - 1
@@ -1319,6 +1348,24 @@ class TrapManagerTrackTime(TrapManager):
 class TrapManagerSlowCapture(TrapManager):
     """ For non-instant capture of electrons combined with their release. """
 
+    def __init__(
+        self, traps, rows,
+    ):
+        """The manager for potentially multiple trap species that must use 
+        watermarks in the same way as each other.
+
+        Attributes
+        ----------
+        capture_rates, emission_rates, total_rates : np.ndarray
+            The capture, emission, and total rates of all the trap species 
+            (Lindegren (1998) section 3.2).
+        """
+        super(TrapManagerSlowCapture, self).__init__(traps=traps, rows=rows)
+
+        self.capture_rates = np.array([trap.capture_rate for trap in self.traps])
+        self.emission_rates = np.array([trap.emission_rate for trap in self.traps])
+        self.total_rates = self.capture_rates + self.emission_rates
+
     def electrons_released_and_captured_in_pixel(
         self, electrons_available, ccd_volume, dwell_time=1, width=1
     ):
@@ -1369,15 +1416,10 @@ class TrapManagerSlowCapture(TrapManager):
             )
 
         # The number of traps and the rates (Lindegren, 1998) for each species
-        densities = np.array([trap.density for trap in self.traps]) * width
-        r_c = np.array([trap.r_c for trap in self.traps])
-        r_e = np.array([trap.r_e for trap in self.traps])
-        r_tot = r_c + r_e
+        densities = self.densities * width
 
         # Initial number of electrons in traps
-        trapped_electrons_initial = np.sum(
-            (self.watermarks[:, 0] * self.watermarks[:, 1:].T).T * densities
-        )
+        trapped_electrons_initial = self.number_of_trapped_electrons(width=width)
 
         # Initialise cumulative watermark height
         cumulative_watermark_height = 0
@@ -1391,16 +1433,18 @@ class TrapManagerSlowCapture(TrapManager):
             cumulative_watermark_height += watermark_height
 
             # Common factor for capture and release probabilities
-            exponential_factor = (1 - np.exp(-r_tot * dwell_time)) / r_tot
+            exponential_factor = (
+                1 - np.exp(-self.total_rates * dwell_time)
+            ) / self.total_rates
 
             # New fill fraction for empty traps
-            fill_fraction_from_empty = r_c * exponential_factor
+            fill_fraction_from_empty = self.capture_rates * exponential_factor
 
             # New fill fraction for filled traps
-            fill_fraction_from_full = 1 - r_e * exponential_factor
+            fill_fraction_from_full = 1 - self.emission_rates * exponential_factor
 
             # New fill fraction from only release
-            fill_fraction_from_release = 1 - np.exp(-r_e * dwell_time)
+            fill_fraction_from_release = 1 - np.exp(-self.emission_rates * dwell_time)
 
             # Initial fill fractions
             fill_fractions_old = deepcopy(self.watermarks[watermark_index, 1:])
@@ -1477,8 +1521,6 @@ class TrapManagerSlowCapture(TrapManager):
             watermark_index += 1
 
         # Final number of electrons in traps
-        trapped_electrons_final = np.sum(
-            (self.watermarks[:, 0] * self.watermarks[:, 1:].T).T * densities
-        )
+        trapped_electrons_final = self.number_of_trapped_electrons(width=width)
 
         return trapped_electrons_initial - trapped_electrons_final

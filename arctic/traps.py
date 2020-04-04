@@ -1416,6 +1416,42 @@ class TrapManagerSlowCapture(TrapManager):
             fill_probability_from_release,
         )
 
+    def updated_watermarks_from_capture_not_enough(
+        self, watermarks, watermarks_initial, enough
+    ):
+        """ 
+        Tweak trap watermarks for capturing electrons when not enough are 
+        available to fill every trap below the cloud height (rare!).
+        
+        Parameters
+        ----------
+        watermarks : np.ndarray
+            The current watermarks after attempted capture. See 
+            initial_watermarks_from_rows_and_total_traps().
+        watermarks_initial : np.ndarray
+            The initial watermarks before capture, but with updated heights to 
+            match the current watermarks.
+        enough : float
+            The ratio of available electrons to traps up to this height.
+
+        Returns
+        -------
+        watermarks : np.ndarray
+            The updated watermarks. See initial_watermarks_from_rows_and_total_traps().
+        """
+        # Matching watermark heights
+        assert (watermarks_initial[:, 0] == watermarks[:, 0]).all()
+
+        # Select watermark fill fractions that increased
+        where_increased = np.where(watermarks_initial[:, 1:] < watermarks[:, 1:])
+
+        # Limit the increase to the `enough` fraction of the original
+        watermarks[:, 1:] = (
+            enough * watermarks[:, 1:] + (1 - enough) * watermarks_initial[:, 1:]
+        )
+
+        return watermarks
+
     def electrons_released_and_captured_in_pixel(
         self, electrons_available, ccd_volume, dwell_time=1, width=1
     ):
@@ -1447,7 +1483,8 @@ class TrapManagerSlowCapture(TrapManager):
             The updated watermarks. See initial_watermarks_from_rows_and_total_traps().
         """
 
-        # Initial number of electrons in traps
+        # Initial watermarks and number of electrons in traps
+        watermarks_initial = deepcopy(self.watermarks)
         trapped_electrons_initial = self.number_of_trapped_electrons(width=width)
 
         # The number of traps for each species
@@ -1484,7 +1521,25 @@ class TrapManagerSlowCapture(TrapManager):
             self.watermarks[0, 0] = electron_fractional_height
             self.watermarks[0, 1:] = fill_probability_from_empty
 
-            return -self.number_of_trapped_electrons(width=width)
+            # Duplicate the watermark height changes for the initial watermarks
+            watermarks_initial[0, 0] = electron_fractional_height
+
+            # Final number of electrons in traps
+            trapped_electrons_final = self.number_of_trapped_electrons(width=width)
+
+            # Not enough available electrons to capture
+            enough = electrons_available / trapped_electrons_final
+            if enough < 1:
+                # For watermark fill fractions that increased, tweak them such that
+                #   the resulting increase instead matches the available electrons
+                self.watermarks = self.updated_watermarks_from_capture_not_enough(
+                    self.watermarks, watermarks_initial, enough
+                )
+
+                # Final number of electrons in traps
+                trapped_electrons_final = self.number_of_trapped_electrons(width=width)
+
+            return -trapped_electrons_final
 
         # Cloud height below existing watermarks: create a new watermark at the
         #   cloud height then release electrons from watermarks above the cloud
@@ -1518,6 +1573,22 @@ class TrapManagerSlowCapture(TrapManager):
                 )
                 self.watermarks[watermark_index_above_cloud + 1, 0] = (
                     old_height - self.watermarks[watermark_index_above_cloud, 0]
+                )
+
+                # Duplicate the watermark height changes for the initial watermarks
+                watermarks_initial = np.roll(watermarks_initial, 1, axis=0)
+                if watermark_index_above_cloud == 0:
+                    watermarks_initial[0] = watermarks_initial[1]
+                else:
+                    watermarks_initial[
+                        : 2 * watermark_index_above_cloud
+                    ] = watermarks_initial[1 : 2 * watermark_index_above_cloud + 1]
+                watermarks_initial[watermark_index_above_cloud, 0] = (
+                    electron_fractional_height
+                    - (cumulative_watermark_height - watermark_height)
+                )
+                watermarks_initial[watermark_index_above_cloud + 1, 0] = (
+                    old_height - watermarks_initial[watermark_index_above_cloud, 0]
                 )
 
                 # Increment the index now that an extra watermark has been set
@@ -1579,6 +1650,22 @@ class TrapManagerSlowCapture(TrapManager):
                 old_height - self.watermarks[watermark_index_above_cloud, 0]
             )
 
+            # Duplicate the watermark height changes for the initial watermarks
+            watermarks_initial = np.roll(watermarks_initial, 1, axis=0)
+            if watermark_index_above_cloud == 0:
+                watermarks_initial[0] = watermarks_initial[1]
+            else:
+                watermarks_initial[
+                    : 2 * watermark_index_above_cloud
+                ] = watermarks_initial[1 : 2 * watermark_index_above_cloud + 1]
+            watermarks_initial[watermark_index_above_cloud, 0] = (
+                electron_fractional_height
+                - (cumulative_watermark_height - watermark_height)
+            )
+            watermarks_initial[watermark_index_above_cloud + 1, 0] = (
+                old_height - watermarks_initial[watermark_index_above_cloud, 0]
+            )
+
             # Increment the index now that an extra watermark has been set
             max_watermark_index += 1
 
@@ -1586,6 +1673,11 @@ class TrapManagerSlowCapture(TrapManager):
         else:
             # Update the fill fractions
             self.watermarks[watermark_index_above_cloud, 0] = (
+                electron_fractional_height - cumulative_watermark_heights[-1]
+            )
+
+            # Duplicate the watermark height changes for the initial watermarks
+            watermarks_initial[watermark_index_above_cloud, 0] = (
                 electron_fractional_height - cumulative_watermark_heights[-1]
             )
 
@@ -1598,5 +1690,19 @@ class TrapManagerSlowCapture(TrapManager):
 
         # Final number of electrons in traps
         trapped_electrons_final = self.number_of_trapped_electrons(width=width)
+
+        # Not enough available electrons to capture
+        enough = electrons_available / (
+            trapped_electrons_final - trapped_electrons_initial
+        )
+        if 0 < enough and enough < 1:
+            # For watermark fill fractions that increased, tweak them such that
+            #   the resulting increase instead matches the available electrons
+            self.watermarks = self.updated_watermarks_from_capture_not_enough(
+                self.watermarks, watermarks_initial, enough
+            )
+
+            # Final number of electrons in traps
+            trapped_electrons_final = self.number_of_trapped_electrons(width=width)
 
         return trapped_electrons_initial - trapped_electrons_final

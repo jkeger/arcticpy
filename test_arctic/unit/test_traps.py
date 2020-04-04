@@ -2145,3 +2145,45 @@ class TestElectronsReleasedAndCapturedBySlowCaptureTraps:
             watermarks[1:-1, 0]
         )
         assert (self.trap_manager_slow.watermarks[2:, 1] <= watermarks[1:-1, 1]).all()
+
+    def test__updated_watermarks_from_capture_not_enough(self):
+
+        # Initial watermarks with updated heights to match current watermarks
+        watermarks_initial = np.array(
+            [[0.5, 0.8], [0.1, 0.4], [0.1, 0.4], [0.1, 0.2], [0, 0], [0, 0]]
+        )
+        # Initial number of trapped electrons
+        self.trap_manager_slow.watermarks = watermarks_initial
+        trapped_electrons_initial = self.trap_manager_slow.number_of_trapped_electrons()
+
+        self.trap_manager_slow.watermarks = np.array(
+            [[0.5, 0.9], [0.1, 0.8], [0.1, 0.4], [0.1, 0.2], [0, 0], [0, 0]]
+        )
+        # Expected number of trapped electrons
+        trapped_electrons_attempted = (
+            self.trap_manager_slow.number_of_trapped_electrons()
+            - trapped_electrons_initial
+        )
+
+        # But only half the required number of electrons available
+        electrons_available = 0.5 * trapped_electrons_attempted
+        enough = electrons_available / trapped_electrons_attempted
+
+        watermarks_not_enough = self.trap_manager_slow.updated_watermarks_from_capture_not_enough(
+            self.trap_manager_slow.watermarks, watermarks_initial, enough
+        )
+
+        # Filled half-way to their default-capture fill fractions
+        assert watermarks_not_enough == pytest.approx(
+            np.array([[0.5, 0.85], [0.1, 0.6], [0.1, 0.4], [0.1, 0.2], [0, 0], [0, 0]])
+        )
+
+        # Resulting number of trapped electrons
+        self.trap_manager_slow.watermarks = watermarks_not_enough
+        trapped_electrons_final = (
+            self.trap_manager_slow.number_of_trapped_electrons()
+            - trapped_electrons_initial
+        )
+
+        # Only capture the available electrons
+        assert trapped_electrons_final == pytest.approx(electrons_available)

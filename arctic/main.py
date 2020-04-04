@@ -16,9 +16,11 @@ from arctic.traps import (
     TrapNonUniformHeightDistribution,
     TrapLifetimeContinuum,
     TrapLogNormalLifetimeContinuum,
+    TrapSlowCapture,
     TrapManager,
     TrapManagerNonUniformHeightDistribution,
     TrapManagerTrackTime,
+    TrapManagerSlowCapture,
 )
 
 
@@ -118,6 +120,7 @@ def _add_cti_to_image(image, clocker, ccd_volume, traps, express):
     # Set up the array of trap managers
     trap_managers = []
     for trap_group in traps:
+        # Use a non-default trap manager if required for the input trap species
         if isinstance(trap_group[0], TrapNonUniformHeightDistribution):
             trap_managers.append(
                 TrapManagerNonUniformHeightDistribution(traps=trap_group, rows=rows)
@@ -126,6 +129,8 @@ def _add_cti_to_image(image, clocker, ccd_volume, traps, express):
             trap_group[0], (TrapLifetimeContinuum, TrapLogNormalLifetimeContinuum),
         ):
             trap_managers.append(TrapManagerTrackTime(traps=trap_group, rows=rows))
+        elif isinstance(trap_group[0], TrapSlowCapture):
+            trap_managers.append(TrapManagerSlowCapture(traps=trap_group, rows=rows))
         else:
             trap_managers.append(TrapManager(traps=trap_group, rows=rows))
 
@@ -148,30 +153,25 @@ def _add_cti_to_image(image, clocker, ccd_volume, traps, express):
 
                 # Initial number of electrons available for trapping
                 electrons_initial = image[row_index, column_index]
-                electrons_available = electrons_initial
 
-                # Release
-                electrons_released = 0
+                # Release and capture
+                total_electrons_released_and_captured = 0
                 for trap_manager in trap_managers:
-                    electrons_released += trap_manager.electrons_released_in_pixel(
+                    net_electrons_released_and_captured = trap_manager.electrons_released_and_captured_in_pixel(
+                        electrons_available=electrons_initial,
                         dwell_time=clocker.sequence[phase],
-                        width=ccd_volume.phase_widths[phase],
-                    )
-                electrons_available += electrons_released
-
-                # Capture
-                electrons_captured = 0
-                for trap_manager in trap_managers:
-                    electrons_captured += trap_manager.electrons_captured_in_pixel(
-                        electrons_available=electrons_available,
                         ccd_volume=ccd_volume.extract_phase(phase),
                         width=ccd_volume.phase_widths[phase],
                     )
 
+                    total_electrons_released_and_captured += (
+                        net_electrons_released_and_captured
+                    )
+
                 # Total change to electrons in pixel
                 electrons_initial += (
-                    electrons_released - electrons_captured
-                ) * express_multiplier
+                    total_electrons_released_and_captured * express_multiplier
+                )
 
                 image[row_index, column_index] = electrons_initial
 

@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 from scipy import integrate
 import matplotlib.pyplot as plt
+from copy import deepcopy
 
 import arctic as ac
 
@@ -211,6 +212,35 @@ class TestParallelDensityVary:
         ]
 
 
+class TestTrapManagerUtilities:
+    def test__number_of_trapped_electrons_from_watermarks(self):
+        trap = ac.Trap(density=10, lifetime=1)
+        trap_manager = ac.TrapManager(traps=[trap], rows=6)
+
+        assert (
+            trap_manager.number_of_trapped_electrons_from_watermarks(
+                watermarks=trap_manager.watermarks
+            )
+            == 0
+        )
+
+        watermarks = np.array(
+            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0], [0, 0]]
+        )
+
+        assert trap_manager.number_of_trapped_electrons_from_watermarks(
+            watermarks=watermarks
+        ) == ((0.5 * 0.8 + 0.2 * 0.4 + 0.1 * 0.3) * trap.density)
+
+        watermarks = np.array(
+            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0], [0, 0]]
+        )
+
+        assert trap_manager.number_of_trapped_electrons_from_watermarks(
+            watermarks=watermarks, width=0.5
+        ) == ((0.5 * 0.8 + 0.2 * 0.4 + 0.1 * 0.3) * trap.density * 0.5)
+
+
 class TestInitialWatermarks:
     def test__initial_watermark_array__uses_rows_and_total_traps_to_set_size(self,):
         trap_manager = ac.TrapManager(traps=[None], rows=6)
@@ -367,7 +397,7 @@ class TestElectronsCapturedByTraps:
 
         assert electrons_captured == pytest.approx((0.1 + 0.12 + 0.07 + 0.1) * 10)
 
-    def test__middle_new_watermarks(self):
+    def test__new_middle_watermark(self):
 
         traps = [ac.Trap(density=10, lifetime=-1 / np.log(0.5))]
         trap_manager = ac.TrapManager(traps=traps, rows=6)
@@ -1958,3 +1988,213 @@ class TestTrapLifetimeContinuum:
             plt.ylabel("Counts")
 
             plt.show()
+
+
+class TestElectronsReleasedAndCapturedBySlowCaptureTraps:
+
+    ccd_volume = ac.CCDVolume(
+        well_fill_beta=0.8, well_max_height=8.47e4, well_notch_depth=1e-7
+    )
+
+    # Default traps
+    traps_def = [ac.Trap(density=10, lifetime=1)]
+    trap_manager_def = ac.TrapManager(traps=traps_def, rows=6)
+
+    # Slow capture but actually fast
+    traps_fast = [ac.TrapSlowCapture(density=10, lifetime=1, capture_timescale=1e-99)]
+    trap_manager_fast = ac.TrapManagerSlowCapture(traps=traps_fast, rows=3)
+
+    # Slow capture
+    traps_slow = [ac.TrapSlowCapture(density=10, lifetime=1, capture_timescale=0.1)]
+    trap_manager_slow = ac.TrapManagerSlowCapture(traps=traps_slow, rows=3)
+
+    def test__first_slow_capture(self):
+
+        electrons_available = 5e4  # electron_fractional_height ~= 0.656
+
+        net_electrons_def = self.trap_manager_def.electrons_released_and_captured_in_pixel(
+            electrons_available=electrons_available,
+            ccd_volume=self.ccd_volume,
+            dwell_time=1,
+            width=1,
+        )
+        net_electrons_fast = self.trap_manager_fast.electrons_released_and_captured_in_pixel(
+            electrons_available=electrons_available,
+            ccd_volume=self.ccd_volume,
+            dwell_time=1,
+            width=1,
+        )
+        net_electrons_slow = self.trap_manager_slow.electrons_released_and_captured_in_pixel(
+            electrons_available=electrons_available,
+            ccd_volume=self.ccd_volume,
+            dwell_time=1,
+            width=1,
+        )
+
+        # Fast traps reproduce default behaviour
+        assert self.trap_manager_fast.watermarks == pytest.approx(
+            self.trap_manager_def.watermarks
+        )
+        assert net_electrons_fast == net_electrons_def
+
+        # Slow traps capture fewer electrons but same watermark heights
+        assert self.trap_manager_slow.watermarks[:, 0] == pytest.approx(
+            self.trap_manager_def.watermarks[:, 0]
+        )
+        assert net_electrons_def < net_electrons_slow
+
+    def test__new_lowest_watermark_slow_capture(self):
+
+        watermarks = np.array(
+            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]]
+        )
+        self.trap_manager_slow.watermarks = deepcopy(watermarks)
+        electrons_available = 5e3  # electron_fractional_height ~= 0.104
+
+        net_electrons = self.trap_manager_slow.electrons_released_and_captured_in_pixel(
+            electrons_available=electrons_available,
+            ccd_volume=self.ccd_volume,
+            dwell_time=1,
+            width=1,
+        )
+
+        # Lowest watermark heights add up to previous height, fill fractions
+        #   increased below the cloud, decreased above it
+        assert self.trap_manager_slow.watermarks[:3, 0].sum() == watermarks[0, 0]
+        assert (self.trap_manager_slow.watermarks[:1, 1] > watermarks[0, 1]).all()
+        assert self.trap_manager_slow.watermarks[2, 1] < watermarks[0, 1]
+
+        # Upper watermark heights unchanged, fill fractions decreased
+        assert self.trap_manager_slow.watermarks[3:, 0] == pytest.approx(
+            watermarks[1:-2, 0]
+        )
+        assert (self.trap_manager_slow.watermarks[3:, 1] <= watermarks[1:-2, 1]).all()
+
+    def test__new_middle_watermark_slow_capture(self):
+
+        watermarks = np.array(
+            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]]
+        )
+        self.trap_manager_slow.watermarks = deepcopy(watermarks)
+        electrons_available = 5e4  # electron_fractional_height ~= 0.656
+
+        net_electrons = self.trap_manager_slow.electrons_released_and_captured_in_pixel(
+            electrons_available=electrons_available,
+            ccd_volume=self.ccd_volume,
+            dwell_time=1,
+            width=1,
+        )
+
+        # Lowest watermark height unchanged, fill fractions increased
+        assert self.trap_manager_slow.watermarks[0, 0] == watermarks[0, 0]
+        assert self.trap_manager_slow.watermarks[0, 1] > watermarks[0, 1]
+
+        # Middle watermark heights add up to previous height, fill fractions
+        #   increased below the cloud, decreased above it
+        assert self.trap_manager_slow.watermarks[1:4, 0].sum() == watermarks[1, 0]
+        assert (self.trap_manager_slow.watermarks[1:3, 1] > watermarks[1, 1]).all()
+        assert self.trap_manager_slow.watermarks[3, 1] < watermarks[1, 1]
+
+        # Upper watermark heights unchanged, fill fractions decreased
+        assert self.trap_manager_slow.watermarks[4:, 0] == pytest.approx(
+            watermarks[2:-2, 0]
+        )
+        assert (self.trap_manager_slow.watermarks[4:, 1] <= watermarks[2:-2, 1]).all()
+
+    def test__new_highest_watermark_slow_capture(self):
+
+        watermarks = np.array(
+            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]]
+        )
+        self.trap_manager_slow.watermarks = deepcopy(watermarks)
+        electrons_available = 7e4  # electron_fractional_height ~= 0.859
+
+        net_electrons = self.trap_manager_slow.electrons_released_and_captured_in_pixel(
+            electrons_available=electrons_available,
+            ccd_volume=self.ccd_volume,
+            dwell_time=1,
+            width=1,
+        )
+
+        # Lower watermark heights unchanged, fill fractions increased
+        assert (self.trap_manager_slow.watermarks[:3, 0] == watermarks[:3, 0]).all()
+        assert (self.trap_manager_slow.watermarks[:3, 1] > watermarks[:3, 1]).all()
+
+        # New upper watermark height added, fill fraction increased
+        assert self.trap_manager_slow.watermarks[3, 0] > watermarks[3, 0]
+        assert self.trap_manager_slow.watermarks[3, 1] > watermarks[3, 1]
+
+    def test__no_available_electrons_slow_capture(self):
+
+        watermarks = np.array(
+            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]]
+        )
+        self.trap_manager_slow.watermarks = deepcopy(watermarks)
+        electrons_available = 0
+
+        net_electrons_slow = self.trap_manager_slow.electrons_released_and_captured_in_pixel(
+            electrons_available=electrons_available,
+            ccd_volume=self.ccd_volume,
+            dwell_time=1,
+            width=1,
+        )
+
+        # Lowest watermark heights add up to previous height, fill fractions
+        #   increased in the new lowest level, decreased above it
+        assert self.trap_manager_slow.watermarks[:2, 0].sum() == watermarks[0, 0]
+        assert self.trap_manager_slow.watermarks[0, 1] > watermarks[0, 1]
+        assert self.trap_manager_slow.watermarks[1, 1] < watermarks[0, 1]
+
+        # Upper watermark heights unchanged, fill fractions decreased
+        assert self.trap_manager_slow.watermarks[2:, 0] == pytest.approx(
+            watermarks[1:-1, 0]
+        )
+        assert (self.trap_manager_slow.watermarks[2:, 1] <= watermarks[1:-1, 1]).all()
+
+    def test__updated_watermarks_from_capture_not_enough(self):
+
+        # Initial watermarks with updated heights to match current watermarks
+        watermarks_initial = np.array(
+            [[0.5, 0.8], [0.1, 0.4], [0.1, 0.4], [0.1, 0.2], [0, 0], [0, 0]]
+        )
+        # Initial number of trapped electrons
+        trapped_electrons_initial = self.trap_manager_slow.number_of_trapped_electrons_from_watermarks(
+            watermarks=watermarks_initial
+        )
+
+        watermarks = np.array(
+            [[0.5, 0.9], [0.1, 0.8], [0.1, 0.4], [0.1, 0.2], [0, 0], [0, 0]]
+        )
+        self.trap_manager_slow.watermarks = watermarks
+        # Expected number of trapped electrons
+        trapped_electrons_attempted = (
+            self.trap_manager_slow.number_of_trapped_electrons_from_watermarks(
+                watermarks=watermarks
+            )
+            - trapped_electrons_initial
+        )
+
+        # But only half the required number of electrons available
+        electrons_available = 0.5 * trapped_electrons_attempted
+        enough = electrons_available / trapped_electrons_attempted
+
+        watermarks_not_enough = self.trap_manager_slow.updated_watermarks_from_capture_not_enough(
+            self.trap_manager_slow.watermarks, watermarks_initial, enough
+        )
+
+        # Filled half-way to their default-capture fill fractions
+        assert watermarks_not_enough == pytest.approx(
+            np.array([[0.5, 0.85], [0.1, 0.6], [0.1, 0.4], [0.1, 0.2], [0, 0], [0, 0]])
+        )
+
+        # Resulting number of trapped electrons
+        self.trap_manager_slow.watermarks = watermarks_not_enough
+        trapped_electrons_final = (
+            self.trap_manager_slow.number_of_trapped_electrons_from_watermarks(
+                watermarks=watermarks_not_enough
+            )
+            - trapped_electrons_initial
+        )
+
+        # Only capture the available electrons
+        assert trapped_electrons_final == pytest.approx(electrons_available)

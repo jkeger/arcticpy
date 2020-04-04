@@ -6,8 +6,10 @@ from arctic.traps import (
     TrapNonUniformHeightDistribution,
     TrapLifetimeContinuum,
     TrapLogNormalLifetimeContinuum,
+    TrapSlowCapture,
     TrapManager,
     TrapManagerNonUniformHeightDistribution,
     TrapManagerTrackTime,
+    TrapManagerSlowCapture,
 )
 from arctic import util

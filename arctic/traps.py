@@ -432,19 +432,18 @@ class TrapManager(object):
         """
         return np.zeros((rows, 1 + total_traps), dtype=float)
 
-    def number_of_trapped_electrons(self, width=1):
+    def number_of_trapped_electrons_from_watermarks(self, watermarks, width=1):
         """ Sum the total number of electrons currently held in traps.
 
         Parameters
         ----------
+        watermarks : np.ndarray
+            The watermarks. See initial_watermarks_from_rows_and_total_traps().
         wdith : float
             The width of this pixel or phase, as a fraction of the whole pixel.
         """
         return (
-            np.sum(
-                (self.watermarks[:, 0] * self.watermarks[:, 1:].T).T * self.densities
-            )
-            * width
+            np.sum((watermarks[:, 0] * watermarks[:, 1:].T).T * self.densities) * width
         )
 
     def reset_traps_for_next_express_loop(self):
@@ -1376,7 +1375,7 @@ class TrapManagerSlowCapture(TrapManager):
             TrapManagerSlowCapture, self
         ).initial_watermarks_from_rows_and_total_traps(rows * 2, total_traps)
 
-    def fill_probabilities(self, dwell_time):
+    def fill_probabilities_from_dwell_time(self, dwell_time):
         """ The probabilities of being full after release and/or capture.
         
         See Lindegren (1998) section 3.2.
@@ -1415,6 +1414,81 @@ class TrapManagerSlowCapture(TrapManager):
             fill_probability_from_full,
             fill_probability_from_release,
         )
+
+    def watermark_index_above_cloud_from_electron_fractional_height(
+        self, electron_fractional_height, watermarks, max_watermark_index
+    ):
+        """ Return the index of the first watermark above the cloud.
+            
+        Parameters
+        ----------
+        electron_fractional_height : float
+            The fractional height of the electron cloud in the pixel.
+        watermarks : np.ndarray
+            The initial watermarks. See initial_watermarks_from_rows_and_total_traps().
+        max_watermark_index : int
+            The index of the highest existing watermark.
+            
+        Returns
+        -------
+        watermark_index_above_cloud : int
+            The index of the first watermark above the cloud.
+        """
+        if np.sum(watermarks[:, 0]) < electron_fractional_height:
+            return max_watermark_index + 1
+
+        elif electron_fractional_height == 0:
+            return -1
+
+        else:
+            return np.argmax(electron_fractional_height < np.cumsum(watermarks[:, 0]))
+
+    def update_watermark_heights_for_cloud_below_highest(
+        self, watermarks, electron_fractional_height, watermark_index_above_cloud
+    ):
+        """ Update the trap watermarks for a cloud below the highest watermark.
+            
+        Parameters
+        ----------
+        watermarks : np.ndarray
+            The initial watermarks. See initial_watermarks_from_rows_and_total_traps().
+        electron_fractional_height : float
+            The fractional height of the electron cloud in the pixel.
+        watermark_index_above_cloud : int
+            The index of the first watermark above the cloud.
+            
+        Returns
+        -------
+        watermarks : np.ndarray
+            The updated watermarks. See initial_watermarks_from_rows_and_total_traps().
+        """
+        # The height and cumulative height of the watermark around the cloud height
+        watermark_height = self.watermarks[watermark_index_above_cloud, 0]
+        cumulative_watermark_height = np.sum(
+            watermarks[: watermark_index_above_cloud + 1, 0]
+        )
+
+        # Move one new empty watermark to the start of the list
+        watermarks = np.roll(watermarks, 1, axis=0)
+
+        # Re-set the relevant watermarks near the start of the list
+        if watermark_index_above_cloud == 0:
+            watermarks[0] = watermarks[1]
+        else:
+            watermarks[: 2 * watermark_index_above_cloud] = watermarks[
+                1 : 2 * watermark_index_above_cloud + 1
+            ]
+
+        # Update the new split watermarks' heights
+        old_height = watermarks[watermark_index_above_cloud, 0]
+        watermarks[watermark_index_above_cloud, 0] = electron_fractional_height - (
+            cumulative_watermark_height - watermark_height
+        )
+        watermarks[watermark_index_above_cloud + 1, 0] = (
+            old_height - watermarks[watermark_index_above_cloud, 0]
+        )
+
+        return watermarks
 
     def updated_watermarks_from_capture_not_enough(
         self, watermarks, watermarks_initial, enough
@@ -1485,7 +1559,9 @@ class TrapManagerSlowCapture(TrapManager):
 
         # Initial watermarks and number of electrons in traps
         watermarks_initial = deepcopy(self.watermarks)
-        trapped_electrons_initial = self.number_of_trapped_electrons(width=width)
+        trapped_electrons_initial = self.number_of_trapped_electrons_from_watermarks(
+            watermarks=self.watermarks, width=width
+        )
 
         # The number of traps for each species
         densities = self.densities * width
@@ -1495,11 +1571,10 @@ class TrapManagerSlowCapture(TrapManager):
             fill_probability_from_empty,
             fill_probability_from_full,
             fill_probability_from_release,
-        ) = self.fill_probabilities(dwell_time=dwell_time)
+        ) = self.fill_probabilities_from_dwell_time(dwell_time=dwell_time)
 
         # Find the highest active watermark
         max_watermark_index = np.argmax(self.watermarks[:, 0] == 0) - 1
-        cumulative_watermark_heights = np.cumsum(self.watermarks[:, 0])
 
         # The fractional height the electron cloud reaches in the pixel well
         electron_fractional_height = ccd_volume.electron_fractional_height_from_electrons(
@@ -1507,25 +1582,25 @@ class TrapManagerSlowCapture(TrapManager):
         )
 
         # Find the first watermark above the cloud
-        if np.sum(self.watermarks[:, 0]) < electron_fractional_height:
-            watermark_index_above_cloud = max_watermark_index + 1
-        elif electron_fractional_height == 0:
-            watermark_index_above_cloud = -1
-        else:
-            watermark_index_above_cloud = np.argmax(
-                electron_fractional_height < cumulative_watermark_heights
-            )
+        watermark_index_above_cloud = self.watermark_index_above_cloud_from_electron_fractional_height(
+            electron_fractional_height=electron_fractional_height,
+            watermarks=self.watermarks,
+            max_watermark_index=max_watermark_index,
+        )
 
         # First capture: make the new watermark then can return immediately
         if max_watermark_index == -1:
+            # Update the watermark height, duplicated for the initial watermarks
             self.watermarks[0, 0] = electron_fractional_height
+            watermarks_initial[0, 0] = self.watermarks[0, 0]
+
+            # Update the fill fractions
             self.watermarks[0, 1:] = fill_probability_from_empty
 
-            # Duplicate the watermark height changes for the initial watermarks
-            watermarks_initial[0, 0] = electron_fractional_height
-
             # Final number of electrons in traps
-            trapped_electrons_final = self.number_of_trapped_electrons(width=width)
+            trapped_electrons_final = self.number_of_trapped_electrons_from_watermarks(
+                watermarks=self.watermarks, width=width
+            )
 
             # Not enough available electrons to capture
             enough = electrons_available / trapped_electrons_final
@@ -1537,7 +1612,9 @@ class TrapManagerSlowCapture(TrapManager):
                 )
 
                 # Final number of electrons in traps
-                trapped_electrons_final = self.number_of_trapped_electrons(width=width)
+                trapped_electrons_final = self.number_of_trapped_electrons_from_watermarks(
+                    watermarks=self.watermarks, width=width
+                )
 
             return -trapped_electrons_final
 
@@ -1547,48 +1624,20 @@ class TrapManagerSlowCapture(TrapManager):
             watermark_index_above_cloud <= max_watermark_index
             or max_watermark_index == -1
         ):
-            watermark_height = self.watermarks[watermark_index_above_cloud, 0]
-            cumulative_watermark_height = cumulative_watermark_heights[
-                watermark_index_above_cloud
-            ]
 
             # Create the new watermark at the cloud height
             if electron_fractional_height > 0:
-                # Move one new empty watermark to the start of the list
-                self.watermarks = np.roll(self.watermarks, 1, axis=0)
 
-                # Re-set the relevant watermarks near the start of the list
-                if watermark_index_above_cloud == 0:
-                    self.watermarks[0] = self.watermarks[1]
-                else:
-                    self.watermarks[
-                        : 2 * watermark_index_above_cloud
-                    ] = self.watermarks[1 : 2 * watermark_index_above_cloud + 1]
-
-                # Update the new split watermarks' heights
-                old_height = self.watermarks[watermark_index_above_cloud, 0]
-                self.watermarks[watermark_index_above_cloud, 0] = (
-                    electron_fractional_height
-                    - (cumulative_watermark_height - watermark_height)
+                # Update the watermark heights, duplicated for the initial watermarks
+                self.watermarks = self.update_watermark_heights_for_cloud_below_highest(
+                    watermarks=self.watermarks,
+                    electron_fractional_height=electron_fractional_height,
+                    watermark_index_above_cloud=watermark_index_above_cloud,
                 )
-                self.watermarks[watermark_index_above_cloud + 1, 0] = (
-                    old_height - self.watermarks[watermark_index_above_cloud, 0]
-                )
-
-                # Duplicate the watermark height changes for the initial watermarks
-                watermarks_initial = np.roll(watermarks_initial, 1, axis=0)
-                if watermark_index_above_cloud == 0:
-                    watermarks_initial[0] = watermarks_initial[1]
-                else:
-                    watermarks_initial[
-                        : 2 * watermark_index_above_cloud
-                    ] = watermarks_initial[1 : 2 * watermark_index_above_cloud + 1]
-                watermarks_initial[watermark_index_above_cloud, 0] = (
-                    electron_fractional_height
-                    - (cumulative_watermark_height - watermark_height)
-                )
-                watermarks_initial[watermark_index_above_cloud + 1, 0] = (
-                    old_height - watermarks_initial[watermark_index_above_cloud, 0]
+                watermarks_initial = self.update_watermark_heights_for_cloud_below_highest(
+                    watermarks=watermarks_initial,
+                    electron_fractional_height=electron_fractional_height,
+                    watermark_index_above_cloud=watermark_index_above_cloud,
                 )
 
                 # Increment the index now that an extra watermark has been set
@@ -1601,69 +1650,32 @@ class TrapManagerSlowCapture(TrapManager):
                 * fill_probability_from_release
             )
 
-            # Current number of electrons temporarily in traps
-            trapped_electrons_tmp = self.number_of_trapped_electrons(width=width)
+            # Current numbers of electrons temporarily in traps and now available
+            trapped_electrons_tmp = self.number_of_trapped_electrons_from_watermarks(
+                watermarks=self.watermarks, width=width
+            )
+            electrons_available += trapped_electrons_initial - trapped_electrons_tmp
 
             # Re-calculate the height of the electron cloud
-            electrons_available += trapped_electrons_initial - trapped_electrons_tmp
             electron_fractional_height = ccd_volume.electron_fractional_height_from_electrons(
                 electrons=electrons_available
             )
-
-            # Recalculate the watermark heights
-            cumulative_watermark_heights = np.cumsum(self.watermarks[:, 0])
-
-            # Re-find the first watermark above the cloud
-            if np.sum(self.watermarks[:, 0]) < electron_fractional_height:
-                watermark_index_above_cloud = max_watermark_index + 1
-            elif electron_fractional_height == 0:
-                watermark_index_above_cloud = -1
-            else:
-                watermark_index_above_cloud = np.argmax(
-                    electron_fractional_height < np.cumsum(self.watermarks[:, 0])
-                )
-
-            # Create a new watermark at the cloud height
-            watermark_height = self.watermarks[watermark_index_above_cloud, 0]
-            cumulative_watermark_height = cumulative_watermark_heights[
-                watermark_index_above_cloud
-            ]
-
-            # Move one new empty watermark to the start of the list
-            self.watermarks = np.roll(self.watermarks, 1, axis=0)
-
-            # Re-set the relevant watermarks near the start of the list
-            if watermark_index_above_cloud == 0:
-                self.watermarks[0] = self.watermarks[1]
-            else:
-                self.watermarks[: 2 * watermark_index_above_cloud] = self.watermarks[
-                    1 : 2 * watermark_index_above_cloud + 1
-                ]
-
-            # Update the new split watermarks' heights
-            old_height = self.watermarks[watermark_index_above_cloud, 0]
-            self.watermarks[watermark_index_above_cloud, 0] = (
-                electron_fractional_height
-                - (cumulative_watermark_height - watermark_height)
-            )
-            self.watermarks[watermark_index_above_cloud + 1, 0] = (
-                old_height - self.watermarks[watermark_index_above_cloud, 0]
+            watermark_index_above_cloud = self.watermark_index_above_cloud_from_electron_fractional_height(
+                electron_fractional_height=electron_fractional_height,
+                watermarks=self.watermarks,
+                max_watermark_index=max_watermark_index,
             )
 
-            # Duplicate the watermark height changes for the initial watermarks
-            watermarks_initial = np.roll(watermarks_initial, 1, axis=0)
-            if watermark_index_above_cloud == 0:
-                watermarks_initial[0] = watermarks_initial[1]
-            else:
-                watermarks_initial[
-                    : 2 * watermark_index_above_cloud
-                ] = watermarks_initial[1 : 2 * watermark_index_above_cloud + 1]
-            watermarks_initial[watermark_index_above_cloud, 0] = (
-                electron_fractional_height
-                - (cumulative_watermark_height - watermark_height)
+            # Update the watermark heights, duplicated for the initial watermarks
+            self.watermarks = self.update_watermark_heights_for_cloud_below_highest(
+                watermarks=self.watermarks,
+                electron_fractional_height=electron_fractional_height,
+                watermark_index_above_cloud=watermark_index_above_cloud,
             )
-            watermarks_initial[watermark_index_above_cloud + 1, 0] = (
-                old_height - watermarks_initial[watermark_index_above_cloud, 0]
+            watermarks_initial = self.update_watermark_heights_for_cloud_below_highest(
+                watermarks=watermarks_initial,
+                electron_fractional_height=electron_fractional_height,
+                watermark_index_above_cloud=watermark_index_above_cloud,
             )
 
             # Increment the index now that an extra watermark has been set
@@ -1671,15 +1683,13 @@ class TrapManagerSlowCapture(TrapManager):
 
         # Cloud height above existing watermarks: initialise the new watermark
         else:
-            # Update the fill fractions
-            self.watermarks[watermark_index_above_cloud, 0] = (
-                electron_fractional_height - cumulative_watermark_heights[-1]
-            )
-
-            # Duplicate the watermark height changes for the initial watermarks
-            watermarks_initial[watermark_index_above_cloud, 0] = (
-                electron_fractional_height - cumulative_watermark_heights[-1]
-            )
+            # Update the watermark height, duplicated for the initial watermarks
+            self.watermarks[
+                watermark_index_above_cloud, 0
+            ] = electron_fractional_height - np.sum(self.watermarks[:, 0])
+            watermarks_initial[watermark_index_above_cloud, 0] = self.watermarks[
+                watermark_index_above_cloud, 0
+            ]
 
         # Release and capture electrons all the way to watermarks below the cloud
         fill_fractions_old = self.watermarks[: watermark_index_above_cloud + 1, 1:]
@@ -1689,7 +1699,9 @@ class TrapManagerSlowCapture(TrapManager):
         )
 
         # Final number of electrons in traps
-        trapped_electrons_final = self.number_of_trapped_electrons(width=width)
+        trapped_electrons_final = self.number_of_trapped_electrons_from_watermarks(
+            watermarks=self.watermarks, width=width
+        )
 
         # Not enough available electrons to capture
         enough = electrons_available / (
@@ -1703,6 +1715,8 @@ class TrapManagerSlowCapture(TrapManager):
             )
 
             # Final number of electrons in traps
-            trapped_electrons_final = self.number_of_trapped_electrons(width=width)
+            trapped_electrons_final = self.number_of_trapped_electrons_from_watermarks(
+                watermarks=self.watermarks, width=width
+            )
 
         return trapped_electrons_initial - trapped_electrons_final

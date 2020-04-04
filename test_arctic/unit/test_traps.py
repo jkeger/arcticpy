@@ -213,27 +213,32 @@ class TestParallelDensityVary:
 
 
 class TestTrapManagerUtilities:
-    def test__number_of_trapped_electrons(self):
+    def test__number_of_trapped_electrons_from_watermarks(self):
         trap = ac.Trap(density=10, lifetime=1)
         trap_manager = ac.TrapManager(traps=[trap], rows=6)
 
-        assert trap_manager.number_of_trapped_electrons() == 0
+        assert (
+            trap_manager.number_of_trapped_electrons_from_watermarks(
+                watermarks=trap_manager.watermarks
+            )
+            == 0
+        )
 
-        trap_manager.watermarks = np.array(
+        watermarks = np.array(
             [[0.5, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0], [0, 0]]
         )
 
-        assert trap_manager.number_of_trapped_electrons() == (
-            (0.5 * 0.8 + 0.2 * 0.4 + 0.1 * 0.3) * trap.density
-        )
+        assert trap_manager.number_of_trapped_electrons_from_watermarks(
+            watermarks=watermarks
+        ) == ((0.5 * 0.8 + 0.2 * 0.4 + 0.1 * 0.3) * trap.density)
 
-        trap_manager.watermarks = np.array(
+        watermarks = np.array(
             [[0.5, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0], [0, 0]]
         )
 
-        assert trap_manager.number_of_trapped_electrons(width=0.5) == (
-            (0.5 * 0.8 + 0.2 * 0.4 + 0.1 * 0.3) * trap.density * 0.5
-        )
+        assert trap_manager.number_of_trapped_electrons_from_watermarks(
+            watermarks=watermarks, width=0.5
+        ) == ((0.5 * 0.8 + 0.2 * 0.4 + 0.1 * 0.3) * trap.density * 0.5)
 
 
 class TestInitialWatermarks:
@@ -2153,15 +2158,19 @@ class TestElectronsReleasedAndCapturedBySlowCaptureTraps:
             [[0.5, 0.8], [0.1, 0.4], [0.1, 0.4], [0.1, 0.2], [0, 0], [0, 0]]
         )
         # Initial number of trapped electrons
-        self.trap_manager_slow.watermarks = watermarks_initial
-        trapped_electrons_initial = self.trap_manager_slow.number_of_trapped_electrons()
+        trapped_electrons_initial = self.trap_manager_slow.number_of_trapped_electrons_from_watermarks(
+            watermarks=watermarks_initial
+        )
 
-        self.trap_manager_slow.watermarks = np.array(
+        watermarks = np.array(
             [[0.5, 0.9], [0.1, 0.8], [0.1, 0.4], [0.1, 0.2], [0, 0], [0, 0]]
         )
+        self.trap_manager_slow.watermarks = watermarks
         # Expected number of trapped electrons
         trapped_electrons_attempted = (
-            self.trap_manager_slow.number_of_trapped_electrons()
+            self.trap_manager_slow.number_of_trapped_electrons_from_watermarks(
+                watermarks=watermarks
+            )
             - trapped_electrons_initial
         )
 
@@ -2181,7 +2190,9 @@ class TestElectronsReleasedAndCapturedBySlowCaptureTraps:
         # Resulting number of trapped electrons
         self.trap_manager_slow.watermarks = watermarks_not_enough
         trapped_electrons_final = (
-            self.trap_manager_slow.number_of_trapped_electrons()
+            self.trap_manager_slow.number_of_trapped_electrons_from_watermarks(
+                watermarks=watermarks_not_enough
+            )
             - trapped_electrons_initial
         )
 

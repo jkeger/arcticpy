@@ -1370,9 +1370,9 @@ class TrapManagerSlowCapture(TrapManager):
 
         # Release and capture electrons all the way to watermarks below the cloud
         fill_fractions_old = self.watermarks[: watermark_index_above_cloud + 1, 1:]
-        # print("fill_fractions_old",fill_fractions_old)
-        # print("fill_probability_from_full",fill_probability_from_full)
-        # print("fill_probability_from_empty",fill_probability_from_empty)
+        print("fill_fractions_old",fill_fractions_old)
+        print("fill_probability_from_full",fill_probability_from_full)
+        print("fill_probability_from_empty",fill_probability_from_empty)
         self.watermarks[: watermark_index_above_cloud + 1, 1:] = (
             fill_fractions_old * fill_probability_from_full
             + (1 - fill_fractions_old) * fill_probability_from_empty

@@ -55,13 +55,14 @@ def express_matrix_from_rows_and_express(
     express = rows if express == 0 else min(express, rows)
 
     # Initialise an array large enough to contain the supposed image, including offset
-    # express_multiplier = np.empty((express, rows + offset), dtype=int)
+    express_multiplier = np.empty((express, rows + offset), dtype=int)
     # There is no reason why the express multiplier need be an integer!
-    express_multiplier = np.empty((express, rows + offset))
+    #express_multiplier = np.empty((express, rows + offset))
 
     # Calculate the maximum number of transfers that one actualised transfer can represent
-    # express_max = math.ceil((rows + offset) / express)  # if it's going to be an integer, ceil() rather than int() is required in case the number of rows is not an integer multiple of express
-    express_max = (rows + offset) / express
+    express_max = math.ceil((rows + offset) / express)  # if it's going to be an integer, ceil() rather than int() is required in case the number of rows is not an integer multiple of express
+    express_max = int((rows + offset) / express)  # if it's going to be an integer, ceil() rather than int() is required in case the number of rows is not an integer multiple of express
+    #express_max = (rows + offset) / express
 
     if charge_injection:
         express_multiplier[:] = express_max

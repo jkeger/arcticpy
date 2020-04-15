@@ -7,17 +7,9 @@
 import numpy as np
 from copy import deepcopy
 
-from arctic.traps import (
-    TrapNonUniformHeightDistribution,
-    TrapManager,
-    TrapManagerNonUniformHeightDistribution,
-)
-
 
 class Clocker(object):
-    def __init__(
-        self, sequence=[1],
-    ):
+    def __init__(self, sequence=[1], charge_injection=False):
         """
         The parameters for the clocking of electrons with read-out electronics.
 
@@ -35,3 +27,4 @@ class Clocker(object):
             sequence = [sequence]
 
         self.sequence = sequence
+        self.charge_injection = charge_injection

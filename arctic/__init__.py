@@ -7,6 +7,8 @@ from arctic.traps import (
     TrapLifetimeContinuum,
     TrapLogNormalLifetimeContinuum,
     TrapSlowCapture,
+)
+from arctic.trap_managers import (
     TrapManager,
     TrapManagerNonUniformHeightDistribution,
     TrapManagerTrackTime,

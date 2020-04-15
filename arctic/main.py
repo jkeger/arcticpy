@@ -9,6 +9,7 @@
     WIP...
 """
 import numpy as np
+import math
 from copy import deepcopy
 
 from arctic.clock import Clocker
@@ -17,6 +18,8 @@ from arctic.traps import (
     TrapLifetimeContinuum,
     TrapLogNormalLifetimeContinuum,
     TrapSlowCapture,
+)
+from arctic.trap_managers import (
     TrapManager,
     TrapManagerNonUniformHeightDistribution,
     TrapManagerTrackTime,
@@ -24,7 +27,9 @@ from arctic.traps import (
 )
 
 
-def express_matrix_from_rows_and_express(rows, express):
+def express_matrix_from_rows_and_express(
+    rows, express=0, offset=0, roi=None, charge_injection=False
+):
     """ 
     Calculate the values by which the effects of clocking each pixel must be 
     multiplied when using the express algorithm. See Massey et al. (2014), 
@@ -34,10 +39,11 @@ def express_matrix_from_rows_and_express(rows, express):
     ----------
     express : int
         The express parameter = (maximum number of transfers) / (number of computed tranfers), i.e. the number of 
-        computed transfers per pixel. So express = 1 --> maxmimum speed; express = (maximum number of transfers) 
-        --> maximum accuracy (Must be a factor of rows).
+        computed transfers per pixel. 
+        So express = 1 --> maxmimum speed; 
+           express = maximum number of transfers (or equivalently zero) --> maximum accuracy
     rows : int
-        The number of rows in the CCD and hence the maximum number of transfers.
+        The number of rows in the image and hence the maximum number of transfers.
 
     Returns
     -------
@@ -45,26 +51,62 @@ def express_matrix_from_rows_and_express(rows, express):
         The express multiplier values for each pixel.
     """
 
-    express = rows if express == 0 else express
+    # Default to very slow but accurate behaviour
+    express = rows if express == 0 else min(express, rows)
 
-    # Initialise the array
-    express_multiplier = np.empty((express, rows), dtype=int)
-    express_multiplier[:] = np.arange(1, rows + 1)
+    # Initialise an array large enough to contain the supposed image, including offset
+    # express_multiplier = np.empty((express, rows + offset), dtype=int)
+    # There is no reason why the express multiplier need be an integer!
+    express_multiplier = np.empty((express, rows + offset))
 
-    express_max = int(rows / express)
+    # Calculate the maximum number of transfers that one actualised transfer can represent
+    # express_max = math.ceil((rows + offset) / express)  # if it's going to be an integer, ceil() rather than int() is required in case the number of rows is not an integer multiple of express
+    express_max = (rows + offset) / express
 
-    # Offset each row to account for the pixels that have already been read out
-    for express_index in range(express):
-        express_multiplier[express_index] -= express_index * express_max
+    if charge_injection:
+        express_multiplier[:] = express_max
+    else:
+        express_multiplier[:] = np.arange(1, rows + offset + 1)
+        # Offset each row to account for the pixels that have already been read out
+        for express_index in range(express):
+            express_multiplier[express_index] -= express_index * express_max
+        # Set all values to between 0 and express_max
+        express_multiplier[express_multiplier < 0] = 0
+        express_multiplier[express_max < express_multiplier] = express_max
+        #
+        # RJM: could make a nice unit test that the following should always be [1,2,3,4,5]
+        #
+        # assert np.sum(express_multiplier,axis=0)
 
-    # Set all values to between 0 and express_max
-    express_multiplier[express_multiplier < 0] = 0
-    express_multiplier[express_max < express_multiplier] = express_max
+    # Extract the section of the array corresponding to the image (without the offset)
+    express_multiplier = express_multiplier[:, offset + np.arange(rows)]
+    express, rows = express_multiplier.shape
 
-    return express_multiplier
+    # Set to zero every pixel outside the region of interest
+    if roi is not None:
+        inside_roi = np.zeros((express, rows), dtype=int)
+        inside_roi[:, max(roi[0], 0) : min(roi[1] + 1, rows)] = 1
+        express_multiplier *= inside_roi
+
+    # Omit all rows containing only zeros, for speed later
+    express_multiplier = express_multiplier[np.sum(express_multiplier, axis=1) > 0, :]
+    n_express = (express_multiplier.shape)[0]
+
+    # Remember appropriate moments to store trap occupancy levels, so next EXPRESS iteration
+    # can continue from an (approximately) suitable configuration
+    when_to_store_traps = np.zeros((n_express, rows), dtype=bool)
+    for express_index in range(n_express - 1):
+        for row_index in range(rows):
+            if express_multiplier[express_index + 1, row_index] > 0:
+                break
+        when_to_store_traps[express_index, row_index] = True
+
+    return express_multiplier, when_to_store_traps
 
 
-def _add_cti_to_image(image, clocker, ccd_volume, traps, express):
+def _add_cti_to_image(
+    image, clocker, ccd_volume, traps, express, offset, roi_rows, roi_columns
+):
     """
     Add CTI trails to an image by trapping, releasing, and moving electrons 
     along their independent columns.
@@ -104,9 +146,18 @@ def _add_cti_to_image(image, clocker, ccd_volume, traps, express):
     assert np.amax(ccd_volume.phase_widths) <= 1
 
     # Default to no express and calculate every step
-    express = rows if express == 0 else express
+    # express = rows if express == 0 else min(express,rows)
+    # print("help",rows,columns,express)
 
-    express_matrix = express_matrix_from_rows_and_express(rows=rows, express=express)
+    express_matrix, when_to_store_traps = express_matrix_from_rows_and_express(
+        rows=rows,
+        express=express,
+        offset=offset,
+        roi=roi_rows,
+        charge_injection=clocker.charge_injection,
+    )
+    n_express = (express_matrix.shape)[0]
+    # print(express_matrix)
 
     # Prepare the image and express for multi-phase clocking
     if phases > 1:
@@ -138,23 +189,34 @@ def _add_cti_to_image(image, clocker, ccd_volume, traps, express):
     for column_index in range(columns):
 
         # Each calculation of the effects of traps on the pixels
-        for express_index in range(express):
+        for express_index in range(n_express):
+
+            # print(express_matrix[express_index, :])
 
             # Reset the trap states
-            for trap_manager in trap_managers:
-                trap_manager.reset_traps_for_next_express_loop()
+            if express_index == 0:
+                for trap_manager in trap_managers:
+                    trap_manager.reset_traps_for_next_express_loop()
+            else:
+                trap_managers = stored_trap_managers
+                print("restoring trap occupancy")
 
             # Each pixel
             for row_index in range(rows):
-                phase = row_index % phases
+                #    print(express_index, row_index)
                 express_multiplier = express_matrix[express_index, row_index]
                 if express_multiplier == 0:
                     continue
+
+                # Save trap occupancy
+                if when_to_store_traps[express_index, row_index]:
+                    stored_trap_managers = trap_managers
 
                 # Initial number of electrons available for trapping
                 electrons_initial = image[row_index, column_index]
 
                 # Release and capture
+                phase = row_index % phases
                 total_electrons_released_and_captured = 0
                 for trap_manager in trap_managers:
                     net_electrons_released_and_captured = trap_manager.electrons_released_and_captured_in_pixel(
@@ -167,11 +229,17 @@ def _add_cti_to_image(image, clocker, ccd_volume, traps, express):
                     total_electrons_released_and_captured += (
                         net_electrons_released_and_captured
                     )
+                    # print("hello")
+                    # print(trap_manager.watermarks[:,0])
+                    # print(trap_manager.watermarks[:,1])
+                    # input("Press Enter to continue...")
 
                 # Total change to electrons in pixel
                 electrons_initial += (
                     total_electrons_released_and_captured * express_multiplier
                 )
+
+                # if row_index < 12: print(row_index,express_multiplier,total_electrons_released_and_captured)
 
                 image[row_index, column_index] = electrons_initial
 
@@ -189,10 +257,15 @@ def add_cti(
     parallel_clocker=None,
     parallel_ccd_volume=None,
     parallel_traps=None,
+    parallel_offset=0,
+    parallel_roi=None,
     serial_express=0,
     serial_clocker=None,
     serial_ccd_volume=None,
     serial_traps=None,
+    serial_offset=0,
+    serial_roi=None,
+    prefill_traps=True,
 ):
     """
     Add CTI trails to an image by trapping, releasing, and moving electrons 
@@ -221,9 +294,13 @@ def add_cti(
         different types of traps that will require different watermark 
         levels, pass a 2D list of lists, i.e. a list containing lists of 
         one or more traps for each type.
+    parallel_offset : int
+        The supplied image array is a postage stamp offset this number of 
+        pixels from the readout register
     serial_* : *
         The same as the parallel_* objects described above but for serial 
         clocking instead.
+    region_of_interest : (
 
     Returns
     -------
@@ -248,6 +325,9 @@ def add_cti(
             traps=parallel_traps,
             ccd_volume=parallel_ccd_volume,
             express=parallel_express,
+            offset=parallel_offset,
+            roi_rows=parallel_roi,
+            roi_columns=serial_roi,
         )
 
     if serial_traps is not None:
@@ -260,6 +340,9 @@ def add_cti(
             traps=serial_traps,
             ccd_volume=serial_ccd_volume,
             express=serial_express,
+            offset=serial_offset,
+            roi_rows=serial_roi,
+            roi_columns=parallel_roi,
         )
 
         image = image.T
@@ -271,14 +354,18 @@ def remove_cti(
     image,
     iterations,
     parallel_express=0,
-    parallel_charge_injection_mode=False,
     parallel_clocker=None,
     parallel_ccd_volume=None,
     parallel_traps=None,
+    parallel_offset=0,
+    parallel_roi=None,
     serial_express=0,
     serial_clocker=None,
     serial_ccd_volume=None,
     serial_traps=None,
+    serial_offset=0,
+    serial_roi=None,
+    prefill_traps=True,
 ):
     """
     Add CTI trails to an image by trapping, releasing, and moving electrons 
@@ -333,10 +420,15 @@ def remove_cti(
             parallel_clocker=parallel_clocker,
             parallel_ccd_volume=parallel_ccd_volume,
             parallel_traps=parallel_traps,
+            parallel_offset=parallel_offset,
+            parallel_roi=parallel_roi,
             serial_express=serial_express,
             serial_clocker=serial_clocker,
             serial_ccd_volume=serial_ccd_volume,
             serial_traps=serial_traps,
+            serial_offset=serial_offset,
+            serial_roi=serial_roi,
+            prefill_traps=prefill_traps,
         )
 
         # Improved estimate of removed CTI

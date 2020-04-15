@@ -706,8 +706,8 @@ class TrapManager(object):
             watermarks = np.roll(watermarks, 1, axis=0)
 
             # Reorder the relevant watermarks near the start of the list
-            watermarks[: 2 * watermark_index_above_cloud] = watermarks[
-                1 : 2 * watermark_index_above_cloud + 1
+            watermarks[: watermark_index_above_cloud + 1] = watermarks[
+                1 : watermark_index_above_cloud + 2
             ]
 
             # Edit the new watermarks' fill fractions to the original fill plus (1 -
@@ -1279,8 +1279,8 @@ class TrapManagerTrackTime(TrapManager):
             watermarks = np.roll(watermarks, 1, axis=0)
 
             # Reorder the relevant watermarks near the start of the list
-            watermarks[: 2 * watermark_index_above_cloud] = watermarks[
-                1 : 2 * watermark_index_above_cloud + 1
+            watermarks[: watermark_index_above_cloud + 1] = watermarks[
+                1 : watermark_index_above_cloud + 2
             ]
 
             # Edit the new watermarks' times to correspond to the original fill
@@ -1475,8 +1475,8 @@ class TrapManagerSlowCapture(TrapManager):
         if watermark_index_above_cloud == 0:
             watermarks[0] = watermarks[1]
         else:
-            watermarks[: 2 * watermark_index_above_cloud] = watermarks[
-                1 : 2 * watermark_index_above_cloud + 1
+            watermarks[: watermark_index_above_cloud + 1] = watermarks[
+                1 : watermark_index_above_cloud + 2
             ]
 
         # Update the new split watermarks' heights

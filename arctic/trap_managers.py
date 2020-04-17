@@ -78,12 +78,12 @@ class TrapManager(object):
             np.sum((watermarks[:, 0] * watermarks[:, 1:].T).T * self.densities) * width
         )
 
-    def reset_traps_for_next_express_loop(self):
+    def empty_all_traps(self):
         """Reset the trap watermarks for the next run of release and capture.
         """
         self.watermarks.fill(0)
 
-    def electrons_released_in_pixel(self, dwell_time=1, width=1):
+    def electrons_released_in_pixel(self, dwell_time=1, width=1, express_multiplier=1):
         """ Release electrons from traps and update the trap watermarks.
 
         Parameters
@@ -91,7 +91,7 @@ class TrapManager(object):
         dwell_time : float
             The time spent in this pixel or phase, in the same units as the 
             trap lifetime.
-        wdith : float
+        width : float
             The width of this pixel or phase, as a fraction of the whole pixel.
             
         Returns
@@ -111,10 +111,10 @@ class TrapManager(object):
         #
         # RJM: This is probably unnecessarily slow. Just store the max_watermark_index as a separate variable?
         #      It also has potential problems by comparing a float to zero. After resetting, some heights are only zero within floating point precision
-        #      NB: If the code structure is changed, this counter will also need resetting in routines like reset_traps_for_next_express_loop()
+        #      NB: If the code structure is changed, this counter will also need resetting in routines like empty_all_traps()
         #
         max_watermark_index = np.argmax(self.watermarks[:, 0] == 0) - 1
-        print("max_watermark_index", max_watermark_index)
+        #print("max_watermark_index", max_watermark_index)
 
         # For each watermark
         ## Could do these all at once!
@@ -228,7 +228,7 @@ class TrapManager(object):
             The updated watermarks. See initial_watermarks_from_rows_and_total_traps().
         """
 
-        print("updated_watermarks_from_capture")
+        #print("updated_watermarks_from_capture")
 
         # Find the highest active watermark
         max_watermark_index = np.argmax(watermarks[:, 0] == 0) - 1
@@ -243,15 +243,13 @@ class TrapManager(object):
         # If all watermarks will be overwritten
         if (
             cumulative_watermark_height[-1] < electron_fractional_height
-        ):  # RJM can this be <= ?
+        ):  # RJM can this be <= ? Indeed, should it be, to prevent creating new watermarks in an image with constant flux level?
 
-            print("A", electron_fractional_height)
+            #print("A", electron_fractional_height)
 
             # Overwrite the first watermark
             watermarks[0, 0] = electron_fractional_height
-            watermarks[
-                0, 1:
-            ] = 1  # RJM: This implies fill fraction has units of a fraction
+            watermarks[0, 1:] = 1
 
             # Remove all higher watermarks
             watermarks[1:, :] = 0
@@ -266,7 +264,7 @@ class TrapManager(object):
         # If some will be overwritten
         if 0 < watermark_index_above_cloud:
 
-            print("B", electron_fractional_height)
+            #print("B", electron_fractional_height)
 
             # Edit the partially overwritten watermark
             watermarks[watermark_index_above_cloud, 0] -= (
@@ -287,8 +285,8 @@ class TrapManager(object):
         # If none will be overwritten
         else:
 
-            print("C", electron_fractional_height)
-            print(watermarks)
+            #print("C", electron_fractional_height)
+            #print(watermarks)
 
             # Move an empty watermark to the start of the list
             watermarks = np.roll(watermarks, 1, axis=0)
@@ -399,7 +397,114 @@ class TrapManager(object):
 
         return watermarks
 
-    def electrons_captured_in_pixel(self, electrons_available, ccd_volume, width=1):
+    def fractional_area_of_charge_cloud(self, electrons_available, ccd_volume):
+        """
+        
+        """
+        return ccd_volume.electron_fractional_height_from_electrons(electrons=electrons_available)
+
+    def electrons_captured_in_pixel(
+        self, electrons_available, ccd_volume, 
+        width=1, express_multiplier=1
+    ):
+        """
+        Considering all of the charge traps in a pixel, 
+          (a) determine how many electrons will be captured
+          (b) update the trap watermarks and occupancy levels to reflect that 
+              number of captured electrons.
+        Both of these steps involve a loop over all the traps in a pixel.
+        Unfortunatley, the two loops cannot be combined in case insufficient
+        electrons are available to fill all the exposed traps (this happens
+        particularly in bias images or with low values of express that amplify
+        the effect of each capture event). In that case, the number of captured
+        electrons is reduced, and the watermarks are adjusted so that each trap
+        captures an (identical) fraction of the electrons that it could have.
+
+        Parameters
+        ----------
+        electrons_available : float
+            The number of available electrons for trapping.
+        ccd_volume : CCDVolume
+            The object describing the CCD. Must have only a single value for 
+            each parameter, as set by CCDVolume.extract_phase().
+        width : float
+            The width of this pixel or phase, as a fraction of the whole pixel.
+
+        Returns
+        -------
+        n_electrons_captured : float
+            The number of captured electrons.
+        
+        Updates
+        -------
+        watermarks : np.ndarray
+            The updated watermarks. See initial_watermarks_from_rows_and_total_traps().
+        """
+        
+        
+        # Zero capture if there are no free electrons in the pixel
+        if electrons_available <= 0:
+            return 0
+
+        # The fractional height the electron cloud reaches in the pixel well
+        fraction_of_exposed_traps = self.fractional_area_of_charge_cloud(
+            electrons_available, ccd_volume
+        )
+        #fraction_of_exposed_traps = ccd_volume.electron_fractional_height_from_electrons(
+        #    electrons=electrons_available
+        #)
+        
+        # Zero capture if no electrons are high enough to be trapped
+        if fraction_of_exposed_traps <= 0:
+            return 0
+            
+        #
+        # RJM: the next check should NOT be needed! But unit test fail if it is omitted...
+        #
+        # Zero capture if no electrons are high enough to be trapped
+        if electrons_available < ccd_volume.well_notch_depth:
+            return 0
+
+        # Find the number of electrons that should be captured
+        n_electrons_captured = self.electrons_captured_by_traps(
+            electron_fractional_height=fraction_of_exposed_traps,
+            watermarks=self.watermarks,
+            traps=self.traps,
+            width=width,
+        )
+
+        # Update the watermarks to reflect new occupancy levels
+        n_electrons_required = n_electrons_captured * express_multiplier
+        if n_electrons_required <= 0:
+            # If no electrons are captured, don't need to do anything
+            return 0
+        elif n_electrons_required <= electrons_available:
+            # Update watermarks as expected
+            self.watermarks = self.updated_watermarks_from_capture(
+                electron_fractional_height=fraction_of_exposed_traps,
+                watermarks=self.watermarks,
+            )
+            return n_electrons_captured 
+        else:
+            # Update watermarks so that each trap captures a fraction of the 
+            # electrons it would have been able to.
+            # NB: in the C++ version of arCTIc, this was implemented by 
+            # filling traps completely but returning an adjusted value of
+            # express_multiplier. The python model is arguably more realistic
+            # to the underlying physics, and it is algorithmically easier
+            # to ensure that the right number of captured electrons are 
+            # available for release in subsequent pixel-to-pixel transfers.
+            fraction_of_required_electrons_available = electrons_available / n_electrons_required # Have checked in first if condition that the denominator is nonzero
+            print("Enough",fraction_of_required_electrons_available)
+            self.watermarks = self.updated_watermarks_from_capture_not_enough(
+                electron_fractional_height=fraction_of_exposed_traps,
+                watermarks=self.watermarks,
+                enough=fraction_of_required_electrons_available
+            )
+            return n_electrons_captured * fraction_of_required_electrons_available
+
+    def electrons_captured_in_pixel_jk(self, electrons_available, ccd_volume, 
+        width=1, express_multiplier=1):
         """
         Capture electrons in traps and update the trap watermarks.
 
@@ -423,6 +528,10 @@ class TrapManager(object):
         watermarks : np.ndarray
             The updated watermarks. See initial_watermarks_from_rows_and_total_traps().
         """
+        
+        # Zero capture if there are no free electrons in the pixel
+        if electrons_available <= 0:
+            return 0
 
         # Zero capture if no electrons are high enough to be trapped
         if electrons_available < ccd_volume.well_notch_depth:
@@ -432,6 +541,10 @@ class TrapManager(object):
         electron_fractional_height = ccd_volume.electron_fractional_height_from_electrons(
             electrons=electrons_available
         )
+        
+        # Zero capture if no electrons are high enough to be trapped
+        if electron_fractional_height <= 0:
+            return 0
 
         # Find the number of electrons that should be captured
         electrons_captured = self.electrons_captured_by_traps(
@@ -440,6 +553,29 @@ class TrapManager(object):
             traps=self.traps,
             width=width,
         )
+        
+
+        # The fractional height the electron cloud reaches in the pixel well
+        #fraction_of_exposed_traps = self.fractional_area_of_charge_cloud(
+        #    electrons_available, ccd_volume
+        #)
+       # fraction_of_exposed_traps = ccd_volume.electron_fractional_height_from_electrons(
+       #     electrons=electrons_available
+       # )
+        
+       # # Zero capture if no electrons are high enough to be trapped
+       # if fraction_of_exposed_traps <= 0:
+       #     return 0
+
+       # # Find the number of electrons that should be captured
+       # n_electrons_captured = self.electrons_captured_by_traps(
+       #     electron_fractional_height=fraction_of_exposed_traps,
+       #     watermarks=self.watermarks,
+       #     traps=self.traps,
+       #     width=width,
+       # )
+        
+        print(electrons_captured)
 
         # Stop if no capture
         if electrons_captured == 0:
@@ -466,8 +602,10 @@ class TrapManager(object):
 
         return electrons_captured
 
+
     def electrons_released_and_captured_in_pixel(
-        self, electrons_available, ccd_volume, dwell_time=1, width=1
+        self, electrons_available, ccd_volume, 
+        dwell_time=1, width=1, express_multiplier=1
     ):
         """ Release and capture electrons and update the trap watermarks.
 
@@ -481,7 +619,7 @@ class TrapManager(object):
         dwell_time : float
             The time spent in this pixel or phase, in the same units as the 
             trap lifetime.
-        wdith : float
+        width : float
             The width of this pixel or phase, as a fraction of the whole pixel.
             
         Returns
@@ -495,37 +633,40 @@ class TrapManager(object):
             The updated watermarks. See initial_watermarks_from_rows_and_total_traps().
         """
 
-        print("Processing instantaneous charge capture")
+        #print("Processing instantaneous charge capture")
 
         # Release
-        print(
-            "Total number of electrons in traps",
-            np.sum(self.watermarks[:, 0].T * self.watermarks[:, 1]),
-        )
-        print("Release")
+        #print(
+        #    "Total number of electrons in traps",
+        #    np.sum(self.watermarks[:, 0].T * self.watermarks[:, 1]),
+        #)
+        #print("Release")
         electrons_released = self.electrons_released_in_pixel(
-            dwell_time=dwell_time, width=width
+            dwell_time=dwell_time, width=width, express_multiplier=express_multiplier
         )
-        print(self.watermarks[:, 1])
-        print(
-            "Total number of electrons in traps",
-            np.sum(self.watermarks[:, 0].T * self.watermarks[:, 1]),
-        )
-        print("Capture")
+        electrons_available += electrons_released
+
+        #print(self.watermarks[:, 1])
+        #print(
+        #    "Total number of electrons in traps",
+        #    np.sum(self.watermarks[:, 0].T * self.watermarks[:, 1]),
+        #)
+        #print("Capture")
 
         # Capture
-        electrons_available += electrons_released
         electrons_captured = self.electrons_captured_in_pixel(
-            electrons_available, ccd_volume, width=width
+            electrons_available, ccd_volume, width=width, 
+            express_multiplier=express_multiplier
         )
-        print(self.watermarks[:, 1])
-        print(
-            "Total number of electrons in traps",
-            np.sum(self.watermarks[:, 0].T * self.watermarks[:, 1]),
-        )
-        print("Done")
+        #print(self.watermarks[:, 1])
+        #print(
+        #    "Total number of electrons in traps",
+        #    np.sum(self.watermarks[:, 0].T * self.watermarks[:, 1]),
+        #)
+        #print("Done")
 
         return electrons_released - electrons_captured
+
 
 
 class TrapManagerNonUniformHeightDistribution(TrapManager):
@@ -554,6 +695,9 @@ class TrapManagerNonUniformHeightDistribution(TrapManager):
             traps=traps, rows=rows
         )
 
+        #
+        # RJM: why [0] in the next two lines?
+        #
         self.electron_fractional_height_min = traps[0].electron_fractional_height_min
         self.electron_fractional_height_max = traps[0].electron_fractional_height_max
 
@@ -587,7 +731,7 @@ class TrapManagerNonUniformHeightDistribution(TrapManager):
                 - self.electron_fractional_height_min
             )
 
-    def electrons_captured_in_pixel(self, electrons_available, ccd_volume, width=1):
+    def electrons_captured_in_pixel(self, electrons_available, ccd_volume, width=1, express_multiplier=1):
         """
         Capture electrons in traps and update the trap watermarks.
 
@@ -622,6 +766,11 @@ class TrapManagerNonUniformHeightDistribution(TrapManager):
         )
 
         # Modify the effective height for non-uniform trap distributions
+        #
+        # RJM: this is the only thing different in this entire class! Can duplicate code be excised
+        #      by creating a method self.electron_fractional_height_from_electrons in Trap, which
+        #      just calls ccd_volume.electron_fractional_height_from_electrons, but modifying it here?
+        #
         electron_fractional_height = self.effective_non_uniform_electron_fractional_height(
             electron_fractional_height
         )
@@ -659,6 +808,8 @@ class TrapManagerNonUniformHeightDistribution(TrapManager):
         return electrons_captured
 
 
+
+
 class TrapManagerTrackTime(TrapManager):
     """ Track the time elapsed since capture instead of the fill fraction. 
         Should give the same result for normal traps.
@@ -689,7 +840,7 @@ class TrapManagerTrackTime(TrapManager):
         """
         return np.zeros((rows, 1 + total_traps), dtype=float)
 
-    def electrons_released_in_pixel(self, dwell_time=1, width=1):
+    def electrons_released_in_pixel(self, dwell_time=1, width=1, express_multiplier=1):
         """ Release electrons from traps and update the trap watermarks.
 
         Parameters
@@ -1023,6 +1174,9 @@ class TrapManagerTrackTime(TrapManager):
         return watermarks
 
 
+
+
+
 class TrapManagerSlowCapture(TrapManager):
     """ For non-instant capture of electrons combined with their release. """
 
@@ -1202,7 +1356,7 @@ class TrapManagerSlowCapture(TrapManager):
         return watermarks
 
     def electrons_released_and_captured_in_pixel(
-        self, electrons_available, ccd_volume, dwell_time=1, width=1
+        self, electrons_available, ccd_volume, dwell_time=1, width=1, express_multiplier=1
     ):
         """ Release and capture electrons and update the trap watermarks.
         
@@ -1232,7 +1386,7 @@ class TrapManagerSlowCapture(TrapManager):
             The updated watermarks. See initial_watermarks_from_rows_and_total_traps().
         """
 
-        print("Processing slow capture")
+        #print("Processing slow capture")
 
         # Initial watermarks and number of electrons in traps
         watermarks_initial = deepcopy(self.watermarks)
@@ -1280,6 +1434,9 @@ class TrapManagerSlowCapture(TrapManager):
             )
 
             # Not enough available electrons to capture
+            #
+            # RJM The following can cause division by zero errors
+            #
             enough = electrons_available / trapped_electrons_final
             if enough < 1:
                 # For watermark fill fractions that increased, tweak them such that
@@ -1370,9 +1527,9 @@ class TrapManagerSlowCapture(TrapManager):
 
         # Release and capture electrons all the way to watermarks below the cloud
         fill_fractions_old = self.watermarks[: watermark_index_above_cloud + 1, 1:]
-        print("fill_fractions_old",fill_fractions_old)
-        print("fill_probability_from_full",fill_probability_from_full)
-        print("fill_probability_from_empty",fill_probability_from_empty)
+        #print("fill_fractions_old",fill_fractions_old)
+        #print("fill_probability_from_full",fill_probability_from_full)
+        #print("fill_probability_from_empty",fill_probability_from_empty)
         self.watermarks[: watermark_index_above_cloud + 1, 1:] = (
             fill_fractions_old * fill_probability_from_full
             + (1 - fill_fractions_old) * fill_probability_from_empty
@@ -1384,6 +1541,9 @@ class TrapManagerSlowCapture(TrapManager):
         )
 
         # Not enough available electrons to capture
+        #
+        # RJM The following can cause division by zero errors
+        #
         enough = electrons_available / (
             trapped_electrons_final - trapped_electrons_initial
         )

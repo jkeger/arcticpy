@@ -30,6 +30,20 @@ class TestGeneral:
 
         assert express_multiplier == pytest.approx(np.triu(np.ones((12, 12))))
 
+        for rows in [5, 11, 199, 360]:
+            for express in [0, 1, 2, 3, 7, 199]:
+                for offset in [0, 1, 13]:
+                    for integer_express_multiplier in [True, False]:
+                        express_multiplier = ac.express_matrix_from_rows_and_express(
+                            rows=rows,
+                            express=express,
+                            offset=offset,
+                            integer_express_multiplier=integer_express_multiplier,
+                        )
+                        assert np.sum(express_multiplier, axis=0) == pytest.approx(
+                            np.arange(1, rows + 1) + offset
+                        )
+
     def test__add_cti__parallel_only__single_pixel__compare_to_cpluspus_version(self,):
         image = np.zeros((6, 2))
         image[2, 1] = 1000

@@ -172,7 +172,7 @@ class TrapNonUniformHeightDistribution(Trap):
         super(TrapNonUniformHeightDistribution, self).__init__(
             density=density, lifetime=lifetime
         )
-        
+
         print("nonuniformheight")
 
         self.electron_fractional_height_min = electron_fractional_height_min

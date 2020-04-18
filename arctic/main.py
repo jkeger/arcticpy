@@ -30,7 +30,7 @@ from arctic.trap_managers import (
 
 def express_matrix_from_rows_and_express(
     rows, express=0, 
-    offset=0, charge_injection=False, n_rows=0, integer_express_multiplier=True
+    offset=0, charge_injection=False, n_rows=0, integer_express_multiplier=False
 ):
     """ 
     To reduce runtime, instead of calculating the effects of every 
@@ -131,7 +131,7 @@ def express_matrix_from_rows_and_express(
 def _add_cti_to_image(
     image, clocker, ccd_volume, traps, express, 
     offset, roi_readout, roi_across, 
-    store_trap_occupancy=False
+    store_trap_occupancy=True
 ):
     """
     Add CTI trails to an image by trapping, releasing, and moving electrons 
@@ -178,6 +178,15 @@ def _add_cti_to_image(
         charge_injection=clocker.charge_injection
     )
     n_express = (express_matrix.shape)[0]
+    
+    #
+    # Work in progress: Beginnings of prefilling traps/accounting for first transfer differently
+    #
+    #if express == 0: store_trap_occupancy=False
+    if np.max(express_matrix) == 1:
+        store_trap_occupancy=False
+        # Reverse order of express
+    print("express_matrix.shape",express_matrix.shape,np.max(express_matrix))
     #os.system('read -sn 1 -p "Press any key to continue..."')
     
     # Prepare the image and express for multi-phase clocking
@@ -207,6 +216,8 @@ def _add_cti_to_image(
             trap_managers.append(TrapManagerSlowCapture(traps=trap_group, rows=rows))
         else:
             trap_managers.append(TrapManager(traps=trap_group, rows=rows))
+    #for trap_manager in trap_managers:
+    #    trap_manager.empty_all_traps() # Reset watermarks, effectively setting trap occupancy to zero
 
     # Decide appropriate moments to store trap occupancy levels, so the next EXPRESS iteration
     # can continue from an (approximately) suitable configuration
@@ -230,7 +241,7 @@ def _add_cti_to_image(
             for trap_manager in trap_managers:
                 trap_manager.empty_all_traps() # Reset watermarks, effectively setting trap occupancy to zero
             if store_trap_occupancy == True:
-                trap_managers = deepcopy(stored_trap_managers) # does this need a copy?
+                trap_managers = stored_trap_managers
                 #print("restoring trap occupancy")
 
             # Each pixel
@@ -310,7 +321,7 @@ def add_cti(
     Parameters
     ----------
     image : np.ndarray
-        The input array of pixel values.
+        The input array of pixel values, assumed to be in units of electrons.
     parallel_express : int
         The factor by which pixel-to-pixel transfers are combined for 
         efficiency for parallel clocking.

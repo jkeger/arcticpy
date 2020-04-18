@@ -723,7 +723,7 @@ class TestArcticAddCTIParallelAndSerial:
 
         assert (
             image_difference[3, 4] > image_difference[4, 4]
-        )  # Check serial trails of paralle trails decreasing.
+        )  # Check serial trails of parallel trails decreasing.
 
     def test__vertical_charge_line__loses_charge_trails_form_in_serial_directions(
         self,

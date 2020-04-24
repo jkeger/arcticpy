@@ -7,11 +7,15 @@ import arctic as ac
 class TestGeneral:
     def test__express_matrix_from_rows(self):
 
-        express_multiplier = ac.express_matrix_from_rows_and_express(rows=12, express=1)
+        express_multiplier = ac.express_matrix_from_rows_and_express(
+            rows=12, express=1, first_pixel_different=False, dtype=int
+        )
 
         assert express_multiplier == pytest.approx(np.array([np.arange(1, 13)]))
 
-        express_multiplier = ac.express_matrix_from_rows_and_express(rows=12, express=4)
+        express_multiplier = ac.express_matrix_from_rows_and_express(
+            rows=12, express=4, first_pixel_different=False, dtype=int
+        )
 
         assert express_multiplier == pytest.approx(
             np.array(
@@ -25,24 +29,32 @@ class TestGeneral:
         )
 
         express_multiplier = ac.express_matrix_from_rows_and_express(
-            rows=12, express=12
+            rows=12, express=12, first_pixel_different=False
         )
 
         assert express_multiplier == pytest.approx(np.triu(np.ones((12, 12))))
 
-        for rows in [5, 11, 199, 360]:
-            for express in [0, 1, 2, 3, 7, 199]:
+        express_multiplier = ac.express_matrix_from_rows_and_express(
+            rows=12, express=12, first_pixel_different=True
+        )
+
+        # assert express_multiplier == pytest.approx(np.flipup(np.triu(np.ones((12, 12)))))
+
+        for rows in [5, 7, 17]:
+            for express in [0, 1, 2, 7]:
                 for offset in [0, 1, 13]:
-                    for integer_express_multiplier in [True, False]:
-                        express_multiplier = ac.express_matrix_from_rows_and_express(
-                            rows=rows,
-                            express=express,
-                            offset=offset,
-                            integer_express_multiplier=integer_express_multiplier,
-                        )
-                        assert np.sum(express_multiplier, axis=0) == pytest.approx(
-                            np.arange(1, rows + 1) + offset
-                        )
+                    for dtype in [int, float]:
+                        for first_pixel_different in [True, False]:
+                            express_multiplier = ac.express_matrix_from_rows_and_express(
+                                rows=rows,
+                                express=express,
+                                offset=offset,
+                                dtype=dtype,
+                                first_pixel_different=first_pixel_different,
+                            )
+                            assert np.sum(express_multiplier, axis=0) == pytest.approx(
+                                np.arange(1, rows + 1) + offset
+                            )
 
     def test__add_cti__parallel_only__single_pixel__compare_to_cpluspus_version(self,):
         image = np.zeros((6, 2))
@@ -90,9 +102,9 @@ class TestGeneral:
         iterations_tolerance_dict = {
             1: 1e-2,
             2: 1e-5,
-            3: 1e-7,
-            4: 1e-10,
-            5: 1e-12,
+            3: 2e-7,
+            4: 2e-9,
+            5: 3e-12,
         }
 
         for iterations, tolerance in iterations_tolerance_dict.items():

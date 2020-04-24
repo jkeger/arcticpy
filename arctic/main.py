@@ -28,15 +28,17 @@ from arctic.trap_managers import (
     TrapManagerTrackTime,
     TrapManagerSlowCapture,
 )
+from arctic import util
 
 
 def express_matrix_from_rows_and_express(
     rows,
     express=0,
+    dtype=float,
     offset=0,
     charge_injection=False,
-    n_rows=0,
-    integer_express_multiplier=False,
+    n_active_pixels=0,
+    first_pixel_different=True,
 ):
     """ 
     To reduce runtime, instead of calculating the effects of every 
@@ -48,6 +50,9 @@ def express_matrix_from_rows_and_express(
 
     Parameters
     ----------
+    rows : int or list or range
+        int:         The number of rows in an image.
+        list/range:  A subset of rows in the image to be processed, for speed.
     express : int
         Parameter determining balance between accuracy (high values or zero)  
         and speed (low values).
@@ -57,16 +62,18 @@ def express_matrix_from_rows_and_express(
                       happen many times. After a few transfers (and e.g. eroded 
                       leading edges), the incremental effect of subsequent 
                       transfers can change.
-    rows : int or list or range
-        int:         The number of rows in an image.
-        list/range:  A subset of rows in the image to be processed, for speed.
     
     Optional parameters
     -------------------
+    dtype : "int" or "float"
+        Old versions of this algorithm assumed (unnecessarily) that all express 
+        multipliers must be integers. It is slightly more efficient if this
+        requirement is dropped, but the option to force it is included for
+        backwards compatability.
     offset : int >=0
         Consider all pixels to be offset by this number of pixels from the 
         readout register. Useful if working out the matrix for a postage stamp 
-        image. 
+        image, or to account for prescan pixels whose data is not stored.
     charge_injection : bool
         False: usual imaging operation of CCD, where (photo)electrons are 
                created in pixels then clocked through however many pixels lie 
@@ -75,84 +82,113 @@ def express_matrix_from_rows_and_express(
                structure at the end of a CCD, then clocked through ALL of the 
                pixels to the readout register. By default, it is assumed that 
                this number is the number of rows in the image (but see n_rows).
-    n_rows : int
-        The number of pixels between the charge injection structure and the 
-        readout register. It is useful to specify this separately if either the
-        image is a postage stamp  whose final pixel (plus offset) is not the end
-        of the image, or the  image includes pre-/over-scan pixels.
-    integer_express_multiplier : bool
-        Old versions of this algorithm assumed (unnecessarily) that all express 
-        multipliers must be integers. It is slightly more efficient if this
-        requirement is dropped, but the option to force it is included for
-        backwards compatability.
-    
+    n_active_pixels : int
+        Used only in charge injection mode, this specifies the number of pixels
+        from the readout register to the farthest pixel. It is useful as a
+        keyword if the image supplied is not the entire area, either because it
+        is a postage stamp (whose final pixel is not the end of the image), or
+        excludes pre-/over-scan pixels.
+    first_pixel_different : bool
+        Only used outside charge injection mode. Allows for the first
+        pixel-to-pixel transfer differently to the rest. Physically, this may be
+        because the first pixel that a charge cloud finds itself in is
+        guaranteed to start with empty traps; whereas every other pixel's traps
+        may  have been filled by other charge.
+
+If set to  In most situations, this is a factor ~(E+3)/(E+1) slower to run. 
+
     Returns
     -------
-    express_multiplier : [[float]]
+    express_matrix : [[float]]
         The express multiplier values for each pixel-to-pixel transfer.
     """
 
     # Parse inputs
+    # Assumed number of rows in the (entire) image (even if given a postage stamp).
+    #  with enough rows to contain the supposed image, including offset
     roi = range(rows) if isinstance(rows, int) else rows
-    if charge_injection is True or charge_injection is False:
-        n_rows = (
-            max(roi) + 1 + offset
-        )  # Assumed number of rows in the (entire) image (even if given a postage stamp).
-    else:
-        n_rows = charge_injection
-    n_express = (
-        max(roi) + 1 if express == 0 else min(express, max(roi) + 1)
-    )  # Default to very slow but accurate behaviour
+    n_rows = max(roi) + 1 + offset
+    # Default to very slow but accurate behaviour
+    if express == 0:
+        express = n_rows - offset
+    print(express)
+    if charge_injection:
+        assert (
+            first_pixel_different == True
+        ), "Traps must be assumed initially empty in CIL mode (what else would they be filled with?)"
+        n_rows = max(n_rows, n_active_pixels)
+    elif first_pixel_different:
+        n_rows -= 1
 
-    # Initialise an array with enough rows to contain the supposed image,
-    # including offset
-    if integer_express_multiplier:
-        express_multiplier = np.empty((n_express, n_rows), dtype=int)
-        # express_max = int((rows + offset) / express)
-        express_max = math.ceil(
-            n_rows / n_express
-        )  # if it's going to be an integer, ceil() rather than int() is required in case the number of rows is not an integer multiple of express
-    else:
-        express_multiplier = np.empty((n_express, n_rows), dtype=float)
-        express_max = n_rows / n_express
+    # Initialise an array
+    express_matrix = np.zeros((express, n_rows), dtype=dtype)
 
     # Compute the multiplier factors
+    max_multiplier = n_rows / express
+    # if it's going to be an integer, ceil() rather than int() is required in case the number of rows is not an integer multiple of express
+    if dtype == int:
+        max_multiplier = math.ceil(max_multiplier)
     if charge_injection:
-        express_multiplier[:] = express_max
+        if dtype == int:
+            for i in reversed(range(express)):
+                express_matrix[i, :] = util.set_min_max(
+                    max_multiplier, 0, n_rows - sum(express_matrix[:, 0])
+                )
+        else:
+            express_matrix[:] = max_multiplier
+        # if dtype == int:
+        #    express_matrix[0,:] -= sum(express_matrix[:,0]) - n_rows
     else:
-        express_multiplier[:] = np.arange(1, n_rows + 1)
+        # This populates every row in the matrix with a range from 1 to n_rows
+        express_matrix[:] = np.arange(1, n_rows + 1)
         # Offset each row to account for the pixels that have already been read out
-        for express_index in range(n_express):
-            express_multiplier[express_index] -= express_index * express_max
-        # Set all values to between 0 and express_max
-        express_multiplier[express_multiplier < 0] = 0
-        express_multiplier[express_multiplier > express_max] = express_max
-        #
-        # RJM: could make a nice unit test that the following should always be [1,2,3,4,5]
-        #
-        # print(np.sum(express_multiplier,axis=0),np.arange(1, n_rows + 1))
-        assert (np.sum(express_multiplier, axis=0) == np.arange(1, n_rows + 1)).all
+        for express_index in range(express):
+            express_matrix[express_index] -= express_index * max_multiplier
+        # Set all values to between 0 and max_multiplier
+        express_matrix[express_matrix < 0] = 0
+        express_matrix[express_matrix > max_multiplier] = max_multiplier
+
+        # Separate out the first transfer of every pixel, so that it can be different from subsequent transfers (it sees only empty traps)
+        if first_pixel_different:
+            # What we calculated before contained (intentionally) one transfer too few. Store it...
+            express_matrix_small = express_matrix
+            # ..then create a new matrix with one extra transfer for each pixel
+            n_rows += 1
+            express_matrix = np.flipud(np.identity(n_rows))
+            # Combine the two sets of transfers appropriately
+            for i in range(express):
+                n_nonzero = sum(express_matrix_small[i, :] > 0)
+                express_matrix[n_nonzero, 1:] += express_matrix_small[i, :]
 
     # Extract the section of the array corresponding to the image (without the offset)
-    express_multiplier = express_multiplier[:, offset:]  # remove the offset
-    express_multiplier = express_multiplier[:, roi]  # keep only the region of interest
-    express_multiplier = express_multiplier[  # remove all rows containing only zeros, for speed later
-        np.sum(express_multiplier, axis=1) > 0, :
+    n_rows -= offset
+    express_matrix = express_matrix[:, offset:]  # remove the offset
+    express_matrix = express_matrix[:, roi]  # keep only the region of interest
+    express_matrix = express_matrix[  # remove all rows containing only zeros, for speed later
+        np.sum(express_matrix, axis=1) > 0, :
     ]
 
-    return express_multiplier
+    print(express_matrix.shape)
+    # Adjust so that each computed transfer has equal effect (most useful if offset <> 0). Could have got here directly.
+    if dtype is not int:
+        for i in range((express_matrix.shape)[1]):
+            first_one = (np.where(express_matrix[:, i] == 1))[0]
+            express_matrix[first_one, i] = 0
+            nonzero = express_matrix[:, i] > 0
+            if sum(nonzero) > 0:
+                express_matrix[nonzero, i] = sum(express_matrix[nonzero, i]) / sum(
+                    nonzero
+                )
+            express_matrix[first_one, i] = 1
+
+    print(express_matrix.shape)
+
+    # Can't yet compute the when_to_store matrix, in case we are dealing with multi-phase readout
+    return express_matrix
 
 
 def _add_cti_to_image(
-    image,
-    clocker,
-    ccd_volume,
-    traps,
-    express,
-    offset,
-    roi_readout,
-    roi_across,
-    store_trap_occupancy=True,
+    image, clocker, ccd_volume, traps, express, offset, roi_readout, roi_across,
 ):
     """
     Add CTI trails to an image by trapping, releasing, and moving electrons 
@@ -200,22 +236,14 @@ def _add_cti_to_image(
 
     # Calculate the number of times that the effect of each pixel-to-pixel transfer can be replicated
     express_matrix = express_matrix_from_rows_and_express(
+        # dtype=int,
         rows=roi_readout,
         express=express,
         offset=offset,
         charge_injection=clocker.charge_injection,
+        first_pixel_different=clocker.empty_traps_at_start,
     )
-    n_express = (express_matrix.shape)[0]
-
-    #
-    # Work in progress: Beginnings of prefilling traps/accounting for first transfer differently
-    #
-    # if express == 0: store_trap_occupancy=False
-    if np.max(express_matrix) == 1:
-        store_trap_occupancy = False
-        # Reverse order of express
-    print("express_matrix.shape", express_matrix.shape, np.max(express_matrix))
-    # os.system('read -sn 1 -p "Press any key to continue..."')
+    (n_express, n_rows) = express_matrix.shape
 
     # Prepare the image and express for multi-phase clocking
     if phases > 1:
@@ -231,6 +259,7 @@ def _add_cti_to_image(
         express_matrix = np.repeat(express_matrix, phases, axis=1)
 
     # Set up an array of trap managers able to monitor the occupancy of all (types of) traps in a pixel/phase
+    # NB: these are automatically created with all traps empty
     trap_managers = []
     for trap_group in traps:
         # Use a non-default trap manager if required for the input trap species
@@ -246,33 +275,39 @@ def _add_cti_to_image(
             trap_managers.append(TrapManagerSlowCapture(traps=trap_group, rows=rows))
         else:
             trap_managers.append(TrapManager(traps=trap_group, rows=rows))
-    # for trap_manager in trap_managers:
-    #    trap_manager.empty_all_traps() # Reset watermarks, effectively setting trap occupancy to zero
 
+    # Accounting for first transfer differently
+    # store_trap_occupancy = True
     # Decide appropriate moments to store trap occupancy levels, so the next EXPRESS iteration
     # can continue from an (approximately) suitable configuration
-    when_to_store_traps = np.zeros((n_express, rows), dtype=bool)
-    if store_trap_occupancy:
-        stored_trap_managers = deepcopy(trap_managers)
+    when_to_store_traps = np.zeros(express_matrix.shape, dtype=bool)
+    # print(express_matrix[-10:,:])
+    if clocker.empty_traps_at_start is False and clocker.charge_injection is False:
         for express_index in range(n_express - 1):
-            for row_index in range(len(roi_readout)):
+            for row_index in range(n_rows - 1):
                 if express_matrix[express_index + 1, row_index] > 0:
                     break
             when_to_store_traps[express_index, row_index] = True
+    # print(when_to_store_traps[:,0:9] - 0)
+
+    rowwise_stored_trap_managers = trap_managers
+    columnwise_stored_trap_managers = deepcopy(trap_managers)
 
     # Read out one column of pixels through one (column of) traps
     # for column_index in roi_columns:
     for column_index in range(len(roi_across)):
+        for trap_manager in trap_managers:
+            trap_manager.empty_all_traps()  # Reset watermarks, effectively setting trap occupancy to zero
 
         # Monitor the traps in every pixel, or just one (express=1) or a few (express=a few) then replicate their effect
         for express_index in range(n_express):
 
             # Reset trap occupancy levels for next express loop
-            for trap_manager in trap_managers:
-                trap_manager.empty_all_traps()  # Reset watermarks, effectively setting trap occupancy to zero
-            if store_trap_occupancy == True:
-                trap_managers = stored_trap_managers
-                # print("restoring trap occupancy")
+            # This must use deepcopy or it doesn't work
+            trap_managers = deepcopy(rowwise_stored_trap_managers)
+            # for trap_manager in trap_managers:
+            #    trap_manager.empty_all_traps()  # Reset watermarks, effectively setting trap occupancy to zero
+            # print(express_index,"restoring trap occupancy")
 
             # Each pixel
             # for row_index in roi_rows:
@@ -282,48 +317,57 @@ def _add_cti_to_image(
                 express_multiplier = express_matrix[express_index, row_index]
                 if express_multiplier == 0:
                     continue
+                phase = row_index % phases
 
                 # Save trap occupancy
                 if when_to_store_traps[express_index, row_index]:
-                    stored_trap_managers = deepcopy(trap_managers)
+                    print(
+                        "column",
+                        column_index,
+                        "express",
+                        express_index,
+                        "storing traps in row",
+                        row_index,
+                    )
+                    rowwise_stored_trap_managers = trap_managers
+
+                #
+                # if express_index == 0:
+                #    if empty_traps_at_start:
+                #        # print(express_index,"emptying traps in row",row_index)
+                #        trap_manager.empty_all_traps()
 
                 # Initial number of electrons available for trapping
-                electrons_initial = image[
+                n_free_electrons = image[
                     roi_readout[row_index], roi_across[column_index]
                 ]
 
                 # Release and capture
-                phase = row_index % phases
-                total_electrons_released_and_captured = 0
+                n_electrons_released_and_captured = 0
                 for trap_manager in trap_managers:
-                    net_electrons_released_and_captured = trap_manager.electrons_released_and_captured_in_pixel(
-                        electrons_available=electrons_initial,
+                    n_electrons_released_and_captured += trap_manager.electrons_released_and_captured_in_pixel(
+                        electrons_available=n_free_electrons,
                         dwell_time=clocker.sequence[phase],
                         ccd_volume=ccd_volume.extract_phase(phase),
                         width=ccd_volume.phase_widths[phase],
                         express_multiplier=express_multiplier,
                     )
 
-                    total_electrons_released_and_captured += (
-                        net_electrons_released_and_captured
-                    )
-                    # print("hello")
-                    # print(trap_manager.watermarks[:,0])
-                    # print(trap_manager.watermarks[:,1])
-                    # input("Press Enter to continue...")
-
                 # Total change to electrons in pixel
-                electrons_initial += (
-                    total_electrons_released_and_captured * express_multiplier
+                n_free_electrons += (
+                    n_electrons_released_and_captured * express_multiplier
                 )
 
                 # if row_index < 12: print(row_index,express_multiplier,total_electrons_released_and_captured)
                 #
                 # Need to check that this is positive and <=FWD
                 #
+
+                # n_free_electrons = abs(max(n_free_electrons,0))
+                # assert n_free_electrons >= 0, "Finding a negative number of electrons in the charge cloud!"
                 image[
                     roi_readout[row_index], roi_across[column_index]
-                ] = electrons_initial
+                ] = n_free_electrons
 
     # Recombine the image for multi-phase clocking
     if phases > 1:

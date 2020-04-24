@@ -447,12 +447,20 @@ class TrapManager(object):
             return 0
 
         # The fractional height the electron cloud reaches in the pixel well
+        # print(electrons_available)
         fraction_of_exposed_traps = self.fractional_area_of_charge_cloud(
             electrons_available, ccd_volume
         )
+        # print("hello",fraction_of_exposed_traps,fraction_of_exposed_traps)
         # fraction_of_exposed_traps = ccd_volume.electron_fractional_height_from_electrons(
         #    electrons=electrons_available
         # )
+        # print("hello1",self.densities)
+        # for trap in self.traps:
+        #    fraction_of_exposed_traps = trap.cumulative_n_traps_from_n_electrons(
+        #       electrons_available) / trap.density
+        #    print("hello2",fraction_of_exposed_traps)
+        # print("hello3",fraction_of_exposed_traps)
 
         # Zero capture if no electrons are high enough to be trapped
         if fraction_of_exposed_traps <= 0:
@@ -540,6 +548,7 @@ class TrapManager(object):
         """
 
         # print("Processing instantaneous charge capture")
+        # print("Initial:",type(electrons_available))
 
         # Release
         # print(
@@ -551,6 +560,7 @@ class TrapManager(object):
             dwell_time=dwell_time, width=width, express_multiplier=express_multiplier
         )
         electrons_available += electrons_released
+        # print("Released:",type(electrons_released))
 
         # print(self.watermarks[:, 1])
         # print(
@@ -566,6 +576,7 @@ class TrapManager(object):
             width=width,
             express_multiplier=express_multiplier,
         )
+        # print("Captured:",type(electrons_captured))
         # print(self.watermarks[:, 1])
         # print(
         #    "Total number of electrons in traps",

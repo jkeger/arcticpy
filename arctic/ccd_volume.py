@@ -12,6 +12,7 @@ class CCDVolume(object):
         well_fill_beta=0.58,
         phase_widths=[1],
         integration_phase=0,
+        blooming_level=None,
     ):
         """The parameters for how electrons fill the CCD volume.
 
@@ -34,6 +35,10 @@ class CCDVolume(object):
             start when the input image is divided into the separate phases.
         """
 
+        # Parse defaults
+        if blooming_level is None:
+            fractional_blooming_level = 0.95
+
         # Make sure the arrays are arrays
         if not isinstance(phase_widths, list):
             phase_widths = [phase_widths]
@@ -47,6 +52,12 @@ class CCDVolume(object):
                 well_notch_depth = [well_notch_depth]
             if not isinstance(well_fill_beta, list):
                 well_fill_beta = [well_fill_beta]
+            if blooming_level is None:
+                blooming_level = [
+                    i * fractional_blooming_level for i in well_max_height
+                ]
+            if not isinstance(blooming_level, list):
+                blooming_level = [blooming_level]
 
             if len(well_max_height) == 1:
                 well_max_height *= self.phases
@@ -54,10 +65,16 @@ class CCDVolume(object):
                 well_notch_depth *= self.phases
             if len(well_fill_beta) == 1:
                 well_fill_beta *= self.phases
+            if len(blooming_level) == 1:
+                blooming_level *= self.phases
 
             assert len(well_max_height) == self.phases
             assert len(well_notch_depth) == self.phases
             assert len(well_fill_beta) == self.phases
+            assert len(blooming_level) == self.phases
+        else:
+            if blooming_level is None:
+                blooming_level = fractional_blooming_level * well_max_height
 
         self.well_max_height = well_max_height
         self.well_notch_depth = well_notch_depth
@@ -69,6 +86,7 @@ class CCDVolume(object):
         else:
             self.well_range = well_max_height - well_notch_depth
         self.well_fill_beta = well_fill_beta
+        self.blooming_level = blooming_level
         self.phase_widths = phase_widths
         self.integration_phase = integration_phase
 
@@ -107,10 +125,12 @@ class CCDVolume(object):
             return 0
 
         electron_fractional_height = (
-            (electrons - self.well_notch_depth) / self.well_range
+            util.set_min_max(
+                (electrons - self.well_notch_depth) / self.well_range, 0, 1
+            )
         ) ** self.well_fill_beta
 
-        return util.set_min_max(electron_fractional_height, 0, 1)
+        return electron_fractional_height
 
 
 class CCDVolumeComplex(CCDVolume):

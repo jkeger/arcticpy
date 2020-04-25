@@ -13,43 +13,36 @@ np.set_printoptions(threshold=160, linewidth=160)
 # do_plot = False
 do_plot = True
 
-ccd_volume = ac.CCDVolume(well_fill_beta=0.6, well_max_height=2e5, well_notch_depth=1)
-parallel_clocker = ac.Clocker(charge_injection=True, empty_traps_at_start=True)
+ccd_volume = ac.CCDVolume(
+    well_fill_beta=0.6, well_max_height=4e5, well_notch_depth=0, blooming_level=2e5
+)
+parallel_clocker = ac.Clocker(charge_injection=False, empty_traps_at_start=True)
 
-density = 10
+surface_trap_density = 1e5
+density = 100
 lifetime = 3
 parallel_express = 0
-parallel_offset = 1000
-size = 50
-background = 0
+parallel_offset = 100
+size = 500
+background = 1
 roi = range(4, 29)
 roi = None
-cil = 1e5
+cil = 5e5
 pixels = np.arange(size)
 image_orig = np.zeros((size, 1)) + background
-image_orig[3:6, 0] = 2 * ccd_volume.well_max_height
+image_orig[3:16, 0] = cil  # 2 * ccd_volume.well_max_height
 # image_orig[10:16, 0] = cil
 # image_orig[20:26, 0] = cil
 # image_orig[40:46, 0] = cil
-image_orig[40:46, 0] = cil
+image_orig[400:460, 0] = cil
 
 plt.figure()
 
 # Single trap
 trap = ac.Trap(density=density, lifetime=lifetime)
-surface_trap_density = 1
-blooming_level = ccd_volume.well_max_height * 0.99
-blooming_height = ccd_volume.electron_fractional_height_from_electrons(blooming_level)
-print(blooming_level, blooming_height)
-# surface_trap = ac.TrapNonUniformHeightDistribution(
-#    density=surface_trap_density,
-#    lifetime=0.01,
-#    electron_fractional_height_min=blooming_height,
-#    electron_fractional_height_max=blooming_height,
-# )
-# trap = ac.TrapSlowCapture(density=density, lifetime=lifetime, capture_timescale=2.0)
-# traps = [[trap], [surface_trap]]
-traps = [trap]
+surface_trap = ac.Trap(density=surface_trap_density, lifetime=4, surface=True)
+
+traps = [[trap], [surface_trap]]
 image_cti = ac.add_cti(
     image=image_orig,
     parallel_express=0,
@@ -63,6 +56,7 @@ plt.scatter(
     pixels, (image_cti - background)[:, 0], c="k", marker=".", label="Express$=0$"
 )
 
+# traps = [trap]
 
 print("total of image ", np.sum(image_cti - background))
 
@@ -75,10 +69,8 @@ plt.show(block=False)
 
 if do_plot:
     # Different express options
-    for express in [1, 2, 3, 5, 10]:  # , 28, 29, 50]:
+    for express in [0, 1, 2]:  # , 5, 10]:  # , 28, 29, 50]:
         # for express in [2]:
-        print()
-        # for tf in [False, True]:
         # parallel_clocker.empty_traps_at_start = tf
         image_cti = ac.add_cti(
             image=image_orig,

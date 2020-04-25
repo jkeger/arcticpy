@@ -57,6 +57,10 @@ class Trap(object):
             The number of traps of this species available.
         """
 
+        #
+        # RJM: this is not currently used. But it could be....
+        #
+
         well_depth = self.ccd_volume.well_max_height
         if self.surface:
             alpha = self.ccd_volume.blooming_level

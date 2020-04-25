@@ -281,14 +281,14 @@ def _add_cti_to_image(
     # Decide appropriate moments to store trap occupancy levels, so the next EXPRESS iteration
     # can continue from an (approximately) suitable configuration
     when_to_store_traps = np.zeros(express_matrix.shape, dtype=bool)
-    # print(express_matrix[-10:,:])
+    print(express_matrix[-10:, :])
     if clocker.empty_traps_at_start is False and clocker.charge_injection is False:
         for express_index in range(n_express - 1):
             for row_index in range(n_rows - 1):
                 if express_matrix[express_index + 1, row_index] > 0:
                     break
             when_to_store_traps[express_index, row_index] = True
-    # print(when_to_store_traps[:,0:9] - 0)
+    print(when_to_store_traps[:, 0:9] - 0)
 
     rowwise_stored_trap_managers = trap_managers
     columnwise_stored_trap_managers = deepcopy(trap_managers)
@@ -305,8 +305,8 @@ def _add_cti_to_image(
             # Reset trap occupancy levels for next express loop
             # This must use deepcopy or it doesn't work
             trap_managers = deepcopy(rowwise_stored_trap_managers)
-            # for trap_manager in trap_managers:
-            #    trap_manager.empty_all_traps()  # Reset watermarks, effectively setting trap occupancy to zero
+            for trap_manager in trap_managers:
+                trap_manager.empty_all_traps()  # Reset watermarks, effectively setting trap occupancy to zero
             # print(express_index,"restoring trap occupancy")
 
             # Each pixel
@@ -321,14 +321,14 @@ def _add_cti_to_image(
 
                 # Save trap occupancy
                 if when_to_store_traps[express_index, row_index]:
-                    print(
-                        "column",
-                        column_index,
-                        "express",
-                        express_index,
-                        "storing traps in row",
-                        row_index,
-                    )
+                    #    print(
+                    #        "column",
+                    #        column_index,
+                    #        "express",
+                    #        express_index,
+                    #        "storing traps in row",
+                    #        row_index,
+                    #    )
                     rowwise_stored_trap_managers = trap_managers
 
                 #

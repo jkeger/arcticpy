@@ -397,16 +397,50 @@ class TrapManager(object):
 
         return watermarks
 
-    def fractional_area_of_charge_cloud(self, electrons_available, ccd_volume):
-        """
+    def fraction_of_exposed_traps(self, n_free_electrons, ccd_volume):
+        """ 
+        Calculate the total number of charge traps exposed to a charge cloud
+        containing n_electrons. This assumes that charge traps are uniformly
+        distributed through the volume, but that assumption can be relaxed
+        by adjusting this function to reflect the net number of traps seen
+        as a function of charge cloud size. An example of that is provided,
+        for surface traps that are responsible for blooming (which is
+        asymmetric and happens during readout, unlike bleeding). 
+        
+        This function embodies the core assumption of a volume-driven CTI
+        model like arCTIc: that traps are either exposed (and have a
+        constant capture timescale, which may be zero for instant capture),
+        or unexposed and therefore unavailable. This behaviour differs from
+        a density-driven CTI model, in which traps may capture an electron
+        anywhere in a pixel, but at varying capture probability. There is 
+        considerable evidence that CCDs in the Hubble Space Telescope are 
+        primarily density-driven; a software algorithm to mimic such 
+        behaviour also runs much faster.
+        
         
         """
-        return ccd_volume.electron_fractional_height_from_electrons(
-            electrons=electrons_available
-        )
+        if self.traps[0].surface:
+            n_exposed_traps = max(n_free_electrons - ccd_volume.blooming_level, 0)
+            # RJM: what density to use if more than one trap species?
+            fraction_of_exposed_traps = min(n_exposed_traps / self.densities, 1)
+            if 0 < n_exposed_traps < 1:
+                print(
+                    "hello",
+                    n_free_electrons,
+                    ccd_volume.blooming_level,
+                    fraction_of_exposed_traps,
+                )
+            # fraction_of_exposed_traps = n_exposed_traps / self.densities
+
+        else:
+            fraction_of_exposed_traps = ccd_volume.electron_fractional_height_from_electrons(
+                electrons=n_free_electrons
+            )
+
+        return fraction_of_exposed_traps
 
     def electrons_captured_in_pixel(
-        self, electrons_available, ccd_volume, width=1, express_multiplier=1
+        self, n_free_electrons, ccd_volume, width=1, express_multiplier=1
     ):
         """
         Considering all of the charge traps in a pixel, 
@@ -414,7 +448,7 @@ class TrapManager(object):
           (b) update the trap watermarks and occupancy levels to reflect that 
               number of captured electrons.
         Both of these steps involve a loop over all the traps in a pixel.
-        Unfortunatley, the two loops cannot be combined in case insufficient
+        Unfortunately, the two loops cannot be combined in case insufficient
         electrons are available to fill all the exposed traps (this happens
         particularly in bias images or with low values of express that amplify
         the effect of each capture event). In that case, the number of captured
@@ -423,7 +457,7 @@ class TrapManager(object):
 
         Parameters
         ----------
-        electrons_available : float
+        n_free_electrons : float
             The number of available electrons for trapping.
         ccd_volume : CCDVolume
             The object describing the CCD. Must have only a single value for 
@@ -443,14 +477,32 @@ class TrapManager(object):
         """
 
         # Zero capture if there are no free electrons in the pixel
-        if electrons_available <= 0:
+        if n_free_electrons <= 0:
             return 0
 
         # The fractional height the electron cloud reaches in the pixel well
         # print(electrons_available)
-        fraction_of_exposed_traps = self.fractional_area_of_charge_cloud(
-            electrons_available, ccd_volume
+        # fraction_of_exposed_traps_old = self.fractional_area_of_charge_cloud(
+        #    electrons_available, ccd_volume
+        # )
+        # fraction_of_exposed_traps_old = ccd_volume.electron_fractional_height_from_electrons(
+        #   electrons=electrons_available
+        # )
+
+        fraction_of_exposed_traps = self.fraction_of_exposed_traps(
+            n_free_electrons, ccd_volume
         )
+        # assert fraction_of_exposed_traps == fraction_of_exposed_traps_old
+
+        # Modify the effective height for non-uniform trap distributions
+        #
+        # RJM: this is the only thing different in this entire class! Can duplicate code be excised
+        #      by creating a method self.electron_fractional_height_from_electrons in Trap, which
+        #      just calls ccd_volume.electron_fractional_height_from_electrons, but modifying it here?
+        #
+        # electron_fractional_height = self.effective_non_uniform_electron_fractional_height(
+        #    electron_fractional_height
+        # )
         # print("hello",fraction_of_exposed_traps,fraction_of_exposed_traps)
         # fraction_of_exposed_traps = ccd_volume.electron_fractional_height_from_electrons(
         #    electrons=electrons_available
@@ -470,7 +522,7 @@ class TrapManager(object):
         # RJM: the next check should NOT be needed! But unit tests fail if it is omitted. I don't understand...
         #
         # Zero capture if no electrons are high enough to be trapped
-        if electrons_available < ccd_volume.well_notch_depth:
+        if n_free_electrons < ccd_volume.well_notch_depth:
             return 0
 
         # Find the number of electrons that should be captured
@@ -486,7 +538,7 @@ class TrapManager(object):
         if n_electrons_required <= 0:
             # If no electrons are captured, don't need to do anything
             return 0
-        elif n_electrons_required <= electrons_available:
+        elif n_electrons_required <= n_free_electrons:
             # Update watermarks as expected
             self.watermarks = self.updated_watermarks_from_capture(
                 electron_fractional_height=fraction_of_exposed_traps,
@@ -503,9 +555,9 @@ class TrapManager(object):
             # to ensure that the right number of captured electrons are
             # available for release in subsequent pixel-to-pixel transfers.
             fraction_of_required_electrons_available = (
-                electrons_available / n_electrons_required
+                n_free_electrons / n_electrons_required
             )  # Have checked in first if condition that the denominator is nonzero
-            print("Enough", fraction_of_required_electrons_available)
+            # print("Enough", fraction_of_required_electrons_available)
             self.watermarks = self.updated_watermarks_from_capture_not_enough(
                 electron_fractional_height=fraction_of_exposed_traps,
                 watermarks=self.watermarks,

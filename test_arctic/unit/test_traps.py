@@ -717,7 +717,7 @@ class TestUpdateWatermarksNotEnough:
 class TestElectronsCapturedInPixel:
     def test__first_capture(self):
 
-        electrons_available = 2500  # --> electron_fractional_height = 0.5
+        n_free_electrons = 2500  # --> electron_fractional_height = 0.5
 
         traps = [ac.Trap(density=10, lifetime=-1 / np.log(0.5))]
         trap_manager = ac.TrapManager(traps=traps, rows=6)
@@ -727,7 +727,7 @@ class TestElectronsCapturedInPixel:
         )
 
         electrons_captured = trap_manager.electrons_captured_in_pixel(
-            electrons_available=electrons_available, ccd_volume=ccd_volume
+            n_free_electrons=n_free_electrons, ccd_volume=ccd_volume
         )
 
         assert electrons_captured == pytest.approx(5)
@@ -737,7 +737,7 @@ class TestElectronsCapturedInPixel:
 
     def test__multiple_traps(self):
 
-        electrons_available = 3600  # --> electron_fractional_height = 0.6
+        n_free_electrons = 3600  # --> electron_fractional_height = 0.6
 
         traps = [
             ac.Trap(density=10, lifetime=-1 / np.log(0.5)),
@@ -761,7 +761,7 @@ class TestElectronsCapturedInPixel:
         )
 
         electrons_captured = trap_manager.electrons_captured_in_pixel(
-            electrons_available=electrons_available, ccd_volume=ccd_volume
+            n_free_electrons=n_free_electrons, ccd_volume=ccd_volume
         )
 
         assert electrons_captured == pytest.approx(
@@ -782,7 +782,7 @@ class TestElectronsCapturedInPixel:
 
     def test__not_enough__first_capture(self):
 
-        electrons_available = 2.5e-3  # --> electron_fractional_height = 4.9999e-4, enough=enough = 0.50001
+        n_free_electrons = 2.5e-3  # --> electron_fractional_height = 4.9999e-4, enough=enough = 0.50001
 
         traps = [ac.Trap(density=10, lifetime=-1 / np.log(0.5))]
         trap_manager = ac.TrapManager(traps=traps, rows=6)
@@ -792,7 +792,7 @@ class TestElectronsCapturedInPixel:
         )
 
         electrons_captured = trap_manager.electrons_captured_in_pixel(
-            electrons_available=electrons_available, ccd_volume=ccd_volume
+            n_free_electrons=n_free_electrons, ccd_volume=ccd_volume
         )
 
         assert electrons_captured == pytest.approx(0.0025)
@@ -802,7 +802,7 @@ class TestElectronsCapturedInPixel:
 
     def test__not_enough__multiple_traps(self):
 
-        electrons_available = 4.839e-4  # --> electron_fractional_height = 2.199545e-4, enough=enough = 0.5
+        n_free_electrons = 4.839e-4  # --> electron_fractional_height = 2.199545e-4, enough=enough = 0.5
 
         traps = [
             ac.Trap(density=10, lifetime=-1 / np.log(0.5)),
@@ -826,7 +826,7 @@ class TestElectronsCapturedInPixel:
         )
 
         electrons_captured = trap_manager.electrons_captured_in_pixel(
-            electrons_available=electrons_available, ccd_volume=ccd_volume
+            n_free_electrons=n_free_electrons, ccd_volume=ccd_volume
         )
 
         assert electrons_captured == pytest.approx(2.199545e-4 * (0.1 * 10 + 0.15 * 8))
@@ -1733,7 +1733,7 @@ class TestTrapLifetimeContinuum:
         log_sample = 1000
         t_elapsed = 1
         dwell_time = 1
-        electrons_available = 1e4
+        n_free_electrons = 1e4
 
         # Log-normal distribution
         def trap_distribution(lifetime, median, scale):
@@ -1768,7 +1768,7 @@ class TestTrapLifetimeContinuum:
             [[0.5, t_elapsed], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],]
         )
         electrons_captured_continuum = trap_manager_continuum.electrons_captured_in_pixel(
-            electrons_available=electrons_available, ccd_volume=ccd_volume
+            n_free_electrons=n_free_electrons, ccd_volume=ccd_volume
         )
 
         # Separated continuum traps
@@ -1791,7 +1791,7 @@ class TestTrapLifetimeContinuum:
             [[0.5, t_elapsed, t_elapsed], [0] * 3, [0] * 3, [0] * 3, [0] * 3, [0] * 3,]
         )
         electrons_captured_continuum_split = trap_manager_continuum_split.electrons_captured_in_pixel(
-            electrons_available=electrons_available, ccd_volume=ccd_volume
+            n_free_electrons=n_free_electrons, ccd_volume=ccd_volume
         )
 
         # Equivalent distributions of single traps, linearly spaced
@@ -1816,7 +1816,7 @@ class TestTrapLifetimeContinuum:
             ]
         )
         electrons_captured_linear = trap_manager_linear.electrons_captured_in_pixel(
-            electrons_available=electrons_available, ccd_volume=ccd_volume
+            n_free_electrons=n_free_electrons, ccd_volume=ccd_volume
         )
 
         # Equivalent distributions of single traps, logarithmically spaced
@@ -1847,10 +1847,10 @@ class TestTrapLifetimeContinuum:
             ]
         )
         electrons_captured_log = trap_manager_log.electrons_captured_in_pixel(
-            electrons_available=electrons_available, ccd_volume=ccd_volume
+            n_free_electrons=n_free_electrons, ccd_volume=ccd_volume
         )
         electrons_captured_log_2 = trap_manager_log.electrons_captured_in_pixel(
-            electrons_available=electrons_available, ccd_volume=ccd_volume
+            n_free_electrons=n_free_electrons, ccd_volume=ccd_volume
         )
 
         assert electrons_captured_continuum == pytest.approx(

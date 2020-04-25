@@ -118,11 +118,18 @@ class CCDVolume(object):
 
             return copy
 
-    def electron_fractional_height_from_electrons(self, electrons):
+    def electron_fractional_height_from_electrons(self, electrons, surface=False):
         """ Calculate the height the electrons reach within a CCD pixel well.
         """
         if electrons == 0:
             return 0
+
+        if surface:
+            alpha = self.blooming_level
+            beta = 1
+        else:
+            alpha = self.well_notch_depth
+            beta = self.well_fill_beta
 
         electron_fractional_height = (
             util.set_min_max(
@@ -140,7 +147,7 @@ class CCDVolumeComplex(CCDVolume):
     def __init__(
         self,
         well_max_height=1000.0,
-        well_notch_depth=1e-9,
+        well_notch_depth=0,
         well_fill_alpha=1.0,
         well_fill_beta=0.58,
     ):
@@ -211,7 +218,9 @@ class CCDVolumeComplex(CCDVolume):
             self.well_fill_alpha
             * (
                 (electrons - self.well_notch_depth)
-                / (self.well_range - self.well_notch_depth)
+                / (
+                    self.well_range - self.well_notch_depth
+                )  # RJM I think that is a bug because nothch depth has been subtracted twice
             )
         ) ** self.well_fill_beta
 

@@ -105,6 +105,8 @@ class TrapManager(object):
 
         # New fill fraction for empty traps (Eqn. 20)
         fill_probability_from_empty = self.capture_rates * exponential_factor
+        # Fix for instant capture
+        fill_probability_from_empty[np.isnan(fill_probability_from_empty)] = 1
 
         # New fill fraction for filled traps (Eqn. 21)
         fill_probability_from_full = 1 - self.emission_rates * exponential_factor
@@ -290,6 +292,42 @@ class TrapManager(object):
 
         return watermarks
 
+    def collapse_redundant_watermarks(self, watermarks):
+        """ 
+        Collapse any redundant watermarks that are completely full.
+        
+        Parameters
+        ----------
+        watermarks : np.ndarray
+            The current watermarks. See initial_watermarks_from_rows_and_total_traps().
+
+        Returns
+        -------
+        watermarks : np.ndarray
+            The updated watermarks. See initial_watermarks_from_rows_and_total_traps().
+        """
+        # Find the first watermark that is not completely filled
+        watermark_index_not_filled = np.argmax(watermarks[:, 1] < 1)
+
+        # Skip if none are completely filled
+        if watermark_index_not_filled <= 1:
+            return watermarks
+
+        # Total height of filled watermarks
+        height_filled = np.sum(watermarks[:watermark_index_not_filled, 0])
+
+        # Remove the no-longer-needed overwritten watermarks
+        watermarks[:watermark_index_not_filled, :] = 0
+
+        # Move the no-longer-needed watermarks to the end of the list
+        watermarks = np.roll(watermarks, 1 - watermark_index_not_filled, axis=0)
+
+        # Edit the new first watermark
+        watermarks[0, 0] = height_filled
+        watermarks[0, 1:] = 1
+
+        return watermarks
+
     def electrons_released_and_captured_in_pixel(
         self,
         electrons_available,
@@ -469,12 +507,15 @@ class TrapManager(object):
             + (1 - fill_fractions_old) * fill_probability_from_empty
         )
 
+        # Collapse any redundant watermarks that are completely full
+        self.watermarks = self.collapse_redundant_watermarks(watermarks=self.watermarks)
+
         # Final number of electrons in traps
         trapped_electrons_final = self.number_of_trapped_electrons_from_watermarks(
             watermarks=self.watermarks, width=width
         )
 
-        # RJM added to prevent division by zero errors
+        # Prevent division by zero errors
         if trapped_electrons_final == trapped_electrons_initial:
             return 0
 
@@ -482,17 +523,22 @@ class TrapManager(object):
         enough = electrons_available / (
             trapped_electrons_final - trapped_electrons_initial
         )
-        if 0 < enough and enough < 1:
+        if 0 < enough < 1:
             # For watermark fill fractions that increased, tweak them such that
             #   the resulting increase instead matches the available electrons
             self.watermarks = self.updated_watermarks_from_capture_not_enough(
-                self.watermarks, watermarks_initial, enough
+                watermarks=self.watermarks,
+                watermarks_initial=watermarks_initial,
+                enough=enough,
             )
 
             # Final number of electrons in traps
             trapped_electrons_final = self.number_of_trapped_electrons_from_watermarks(
                 watermarks=self.watermarks, width=width
             )
+
+        # Collapse any redundant watermarks that are completely full
+        self.watermarks = self.collapse_redundant_watermarks(watermarks=self.watermarks)
 
         return trapped_electrons_initial - trapped_electrons_final
 
@@ -678,9 +724,7 @@ class TrapManagerOld(TrapManager):
         )
 
         # If all watermarks will be overwritten
-        if (
-            cumulative_watermark_height[-1] < electron_fractional_height
-        ):  # RJM can this be <= ? Indeed, should it be, to prevent creating new watermarks in an image with constant flux level?
+        if cumulative_watermark_height[-1] <= electron_fractional_height:
 
             # Overwrite the first watermark
             watermarks[0, 0] = electron_fractional_height

@@ -10,11 +10,11 @@ import arctic as ac
 class TestTrapParams:
     def test__parallel_x1__serial_x1_trap___sets_value_correctly(self):
 
-        parallel_trap_0 = ac.TrapOld(density=0.1, lifetime=1.0)
-        parallel_trap_1 = ac.TrapOld(density=0.2, lifetime=2.0)
+        parallel_trap_0 = ac.Trap(density=0.1, lifetime=1.0)
+        parallel_trap_1 = ac.Trap(density=0.2, lifetime=2.0)
 
-        serial_trap_0 = ac.TrapOld(density=0.3, lifetime=3.0)
-        serial_trap_1 = ac.TrapOld(density=0.4, lifetime=4.0)
+        serial_trap_0 = ac.Trap(density=0.3, lifetime=3.0)
+        serial_trap_1 = ac.Trap(density=0.4, lifetime=4.0)
 
         assert parallel_trap_0.density == 0.1
         assert parallel_trap_0.lifetime == 1.0
@@ -58,7 +58,7 @@ class TestTrapParams:
 class TestSpecies:
     def test__electrons_released_from_electrons_and_dwell_time(self):
 
-        trap = ac.TrapOld(lifetime=1.0)
+        trap = ac.Trap(lifetime=1.0)
 
         assert trap.electrons_released_from_electrons_and_dwell_time(
             electrons=1.0
@@ -67,7 +67,7 @@ class TestSpecies:
             electrons=2.0
         ) == pytest.approx(2.0 * 0.6321, 1.0e-4)
 
-        trap = ac.TrapOld(lifetime=2.0)
+        trap = ac.Trap(lifetime=2.0)
 
         assert trap.electrons_released_from_electrons_and_dwell_time(
             electrons=1.0
@@ -78,38 +78,36 @@ class TestSpecies:
 
     def test__delta_ellipticity_of_trap(self):
 
-        trap = ac.TrapOld(density=0.5, lifetime=2.0)
+        trap = ac.Trap(density=0.5, lifetime=2.0)
 
         assert trap.delta_ellipticity == pytest.approx(0.047378295117617694, 1.0e-5)
 
     def test__delta_ellipticity_of_arctic_params(self):
 
-        parallel_1_trap = ac.TrapOld(density=0.1, lifetime=4.0)
-        parallel_2_trap = ac.TrapOld(density=0.1, lifetime=4.0)
-        serial_1_trap = ac.TrapOld(density=0.2, lifetime=2.0)
-        serial_2_trap = ac.TrapOld(density=0.7, lifetime=7.0)
+        parallel_1_trap = ac.Trap(density=0.1, lifetime=4.0)
+        parallel_2_trap = ac.Trap(density=0.1, lifetime=4.0)
+        serial_1_trap = ac.Trap(density=0.2, lifetime=2.0)
+        serial_2_trap = ac.Trap(density=0.7, lifetime=7.0)
 
-        trap_manager = ac.TrapManagerOld(traps=[parallel_1_trap], rows=1)
+        trap_manager = ac.TrapManager(traps=[parallel_1_trap], rows=1)
         assert trap_manager.delta_ellipticity == parallel_1_trap.delta_ellipticity
 
-        trap_manager = ac.TrapManagerOld(
-            traps=[parallel_1_trap, parallel_2_trap], rows=1
-        )
+        trap_manager = ac.TrapManager(traps=[parallel_1_trap, parallel_2_trap], rows=1)
         assert (
             trap_manager.delta_ellipticity
             == parallel_1_trap.delta_ellipticity + parallel_2_trap.delta_ellipticity
         )
 
-        trap_manager = ac.TrapManagerOld(traps=[serial_1_trap], rows=1)
+        trap_manager = ac.TrapManager(traps=[serial_1_trap], rows=1)
         assert trap_manager.delta_ellipticity == serial_1_trap.delta_ellipticity
 
-        trap_manager = ac.TrapManagerOld(traps=[serial_1_trap, serial_2_trap], rows=1)
+        trap_manager = ac.TrapManager(traps=[serial_1_trap, serial_2_trap], rows=1)
         assert (
             trap_manager.delta_ellipticity
             == serial_1_trap.delta_ellipticity + serial_2_trap.delta_ellipticity
         )
 
-        trap_manager = ac.TrapManagerOld(
+        trap_manager = ac.TrapManager(
             traps=[parallel_1_trap, parallel_2_trap, serial_1_trap, serial_2_trap],
             rows=1,
         )
@@ -130,7 +128,7 @@ class TestParallelDensityVary:
 
         parallel_vary = ac.TrapOld.poisson_trap(
             trap=list(
-                map(lambda density: ac.TrapOld(density=density, lifetime=1.0), (0.1,),)
+                map(lambda density: ac.Trap(density=density, lifetime=1.0), (0.1,),)
             ),
             shape=(1000, 1),
             seed=1,
@@ -143,7 +141,7 @@ class TestParallelDensityVary:
     ):
         parallel_vary = ac.TrapOld.poisson_trap(
             trap=list(
-                map(lambda density: ac.TrapOld(density=density, lifetime=1.0), (1.0,),)
+                map(lambda density: ac.Trap(density=density, lifetime=1.0), (1.0,),)
             ),
             shape=(1000, 1),
             seed=1,
@@ -154,7 +152,7 @@ class TestParallelDensityVary:
     def test__1_trap__density_1___2_row_pixels__poisson_value_is_near_1(self):
         parallel_vary = ac.TrapOld.poisson_trap(
             trap=list(
-                map(lambda density: ac.TrapOld(density=density, lifetime=1.0), (1.0,),)
+                map(lambda density: ac.Trap(density=density, lifetime=1.0), (1.0,),)
             ),
             shape=(1000, 2),
             seed=1,
@@ -165,10 +163,7 @@ class TestParallelDensityVary:
     def test__2_trap__1_row_pixel__poisson_for_each_trap_drawn(self):
         parallel_vary = ac.TrapOld.poisson_trap(
             trap=list(
-                map(
-                    lambda density: ac.TrapOld(density=density, lifetime=1.0),
-                    (1.0, 2.0),
-                )
+                map(lambda density: ac.Trap(density=density, lifetime=1.0), (1.0, 2.0),)
             ),
             shape=(1000, 1),
             seed=1,
@@ -179,10 +174,7 @@ class TestParallelDensityVary:
     def test__2_trap__2_row_pixel__poisson_for_each_trap_drawn(self):
         parallel_vary = ac.TrapOld.poisson_trap(
             trap=list(
-                map(
-                    lambda density: ac.TrapOld(density=density, lifetime=1.0),
-                    (1.0, 2.0),
-                )
+                map(lambda density: ac.Trap(density=density, lifetime=1.0), (1.0, 2.0),)
             ),
             shape=(1000, 2),
             seed=1,
@@ -199,7 +191,7 @@ class TestParallelDensityVary:
         parallel_vary = ac.TrapOld.poisson_trap(
             trap=list(
                 map(
-                    lambda density: ac.TrapOld(density=density, lifetime=1.0),
+                    lambda density: ac.Trap(density=density, lifetime=1.0),
                     (1.0, 2.0, 0.1),
                 )
             ),
@@ -222,8 +214,8 @@ class TestParallelDensityVary:
 
 class TestTrapManagerUtilities:
     def test__number_of_trapped_electrons_from_watermarks(self):
-        trap = ac.TrapOld(density=10, lifetime=1)
-        trap_manager = ac.TrapManagerOld(traps=[trap], rows=6)
+        trap = ac.Trap(density=10, lifetime=1)
+        trap_manager = ac.TrapManager(traps=[trap], rows=6)
 
         assert (
             trap_manager.number_of_trapped_electrons_from_watermarks(
@@ -251,28 +243,28 @@ class TestTrapManagerUtilities:
 
 class TestInitialWatermarks:
     def test__initial_watermark_array__uses_rows_and_total_traps_to_set_size(self,):
-        trap_manager = ac.TrapManagerOld(traps=[None], rows=6)
+        trap_manager = ac.TrapManager(traps=[None], rows=6)
 
         watermarks = trap_manager.initial_watermarks_from_rows_and_total_traps(
             rows=3, total_traps=1
         )
 
-        assert (watermarks == np.zeros(shape=(3, 2))).all()
+        assert (watermarks == np.zeros(shape=(6, 2))).all()
 
         watermarks = trap_manager.initial_watermarks_from_rows_and_total_traps(
             rows=3, total_traps=5
         )
 
-        assert (watermarks == np.zeros(shape=(3, 6))).all()
+        assert (watermarks == np.zeros(shape=(6, 6))).all()
 
         watermarks = trap_manager.initial_watermarks_from_rows_and_total_traps(
             rows=5, total_traps=2
         )
 
-        assert (watermarks == np.zeros(shape=(5, 3))).all()
+        assert (watermarks == np.zeros(shape=(10, 3))).all()
 
 
-class TestElectronsReleasedAndUpdatedWatermarks:
+class TestElectronsReleasedAndUpdatedWatermarksOld:
     def test__empty_release(self):
 
         traps = [ac.TrapOld(density=10, lifetime=-1 / np.log(0.5))]
@@ -371,7 +363,7 @@ class TestElectronsReleasedAndUpdatedWatermarks:
         )
 
 
-class TestElectronsCapturedByTraps:
+class TestElectronsCapturedByTrapsOld:
     def test__first_capture(self):
 
         traps = [ac.TrapOld(density=10, lifetime=-1 / np.log(0.5))]
@@ -486,7 +478,7 @@ class TestElectronsCapturedByTraps:
         )
 
 
-class TestUpdateWatermarks:
+class TestUpdateWatermarksOld:
     def test__first_capture(self):
 
         trap_manager = ac.TrapManagerOld(traps=[None], rows=6)
@@ -608,7 +600,7 @@ class TestUpdateWatermarks:
         )
 
 
-class TestUpdateWatermarksNotEnough:
+class TestUpdateWatermarksNotEnoughOld:
     def test__first_capture(self):
 
         trap_manager = ac.TrapManagerOld(traps=[None], rows=6)
@@ -722,7 +714,7 @@ class TestUpdateWatermarksNotEnough:
         )
 
 
-class TestElectronsCapturedInPixel:
+class TestElectronsCapturedInPixelOld:
     def test__first_capture(self):
 
         n_free_electrons = 2500  # --> electron_fractional_height = 0.5
@@ -1919,7 +1911,7 @@ class TestTrapLifetimeContinuum:
             plt.show()
 
 
-class TestElectronsReleasedAndCapturedBySlowCaptureTraps:
+class TestElectronsReleasedAndCapturedIncludingSlowTraps:
 
     ccd_volume = ac.CCDVolume(
         well_fill_beta=0.8, well_max_height=8.47e4, well_notch_depth=1e-7
@@ -1932,13 +1924,47 @@ class TestElectronsReleasedAndCapturedBySlowCaptureTraps:
     traps_old = [ac.TrapOld(density=density, lifetime=lifetime)]
     trap_manager_old = ac.TrapManagerOld(traps=traps_old, rows=6)
 
-    # Slow capture but actually fast
-    traps_fast = [ac.Trap(density=density, lifetime=lifetime, capture_timescale=1e-99)]
+    # Fast capture
+    traps_fast = [ac.Trap(density=density, lifetime=lifetime, capture_timescale=0)]
     trap_manager_fast = ac.TrapManager(traps=traps_fast, rows=3)
 
     # Slow capture
     traps_slow = [ac.Trap(density=density, lifetime=lifetime, capture_timescale=0.1)]
     trap_manager_slow = ac.TrapManager(traps=traps_slow, rows=3)
+
+    def test__collapse_redundant_watermarks(self):
+
+        # None full
+        watermarks = self.trap_manager_fast.collapse_redundant_watermarks(
+            np.array([[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]])
+        )
+        assert watermarks == pytest.approx(
+            np.array([[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]])
+        )
+
+        # None overwritten
+        watermarks = self.trap_manager_fast.collapse_redundant_watermarks(
+            np.array([[0.5, 1], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]])
+        )
+        assert watermarks == pytest.approx(
+            np.array([[0.5, 1], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]])
+        )
+
+        # Some overwritten
+        watermarks = self.trap_manager_fast.collapse_redundant_watermarks(
+            np.array([[0.5, 1], [0.2, 1], [0.1, 0.2], [0, 0], [0, 0], [0, 0]])
+        )
+        assert watermarks == pytest.approx(
+            np.array([[0.7, 1], [0.1, 0.2], [0, 0], [0, 0], [0, 0], [0, 0]])
+        )
+
+        # All overwritten
+        watermarks = self.trap_manager_fast.collapse_redundant_watermarks(
+            np.array([[0.5, 1], [0.2, 1], [0.1, 1], [0, 0], [0, 0], [0, 0]])
+        )
+        assert watermarks == pytest.approx(
+            np.array([[0.8, 1], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]])
+        )
 
     def test__first_slow_capture(self):
 
@@ -1983,12 +2009,29 @@ class TestElectronsReleasedAndCapturedBySlowCaptureTraps:
         self.trap_manager_slow.watermarks = deepcopy(watermarks)
         electrons_available = 5e3  # electron_fractional_height ~= 0.104
 
-        net_electrons = self.trap_manager_slow.electrons_released_and_captured_in_pixel(
+        net_electrons_old = self.trap_manager_old.electrons_released_and_captured_in_pixel(
             electrons_available=electrons_available,
             ccd_volume=self.ccd_volume,
             dwell_time=1,
             width=1,
         )
+        net_electrons_fast = self.trap_manager_fast.electrons_released_and_captured_in_pixel(
+            electrons_available=electrons_available,
+            ccd_volume=self.ccd_volume,
+            dwell_time=1,
+            width=1,
+        )
+        net_electrons_slow = self.trap_manager_slow.electrons_released_and_captured_in_pixel(
+            electrons_available=electrons_available,
+            ccd_volume=self.ccd_volume,
+            dwell_time=1,
+            width=1,
+        )
+        # Fast traps reproduce old-style behaviour
+        assert self.trap_manager_fast.watermarks == pytest.approx(
+            self.trap_manager_old.watermarks, rel=1e-3
+        )
+        assert net_electrons_fast == pytest.approx(net_electrons_old, rel=1e-4)
 
         # Lowest watermark heights add up to previous height, fill fractions
         #   increased below the cloud, decreased above it

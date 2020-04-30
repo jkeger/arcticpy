@@ -1996,16 +1996,23 @@ class TestElectronsReleasedAndCapturedBySlowCaptureTraps:
         well_fill_beta=0.8, well_max_height=8.47e4, well_notch_depth=1e-7
     )
 
+    density = 10
+    lifetime = 1
+
     # Default traps
-    traps_def = [ac.Trap(density=10, lifetime=1)]
+    traps_def = [ac.Trap(density=density, lifetime=lifetime)]
     trap_manager_def = ac.TrapManager(traps=traps_def, rows=6)
 
     # Slow capture but actually fast
-    traps_fast = [ac.TrapSlowCapture(density=10, lifetime=1, capture_timescale=1e-99)]
+    traps_fast = [
+        ac.TrapSlowCapture(density=density, lifetime=lifetime, capture_timescale=1e-99)
+    ]
     trap_manager_fast = ac.TrapManagerSlowCapture(traps=traps_fast, rows=3)
 
     # Slow capture
-    traps_slow = [ac.TrapSlowCapture(density=10, lifetime=1, capture_timescale=0.1)]
+    traps_slow = [
+        ac.TrapSlowCapture(density=density, lifetime=lifetime, capture_timescale=0.1)
+    ]
     trap_manager_slow = ac.TrapManagerSlowCapture(traps=traps_slow, rows=3)
 
     def test__first_slow_capture(self):
@@ -2126,12 +2133,27 @@ class TestElectronsReleasedAndCapturedBySlowCaptureTraps:
 
     def test__no_available_electrons_slow_capture(self):
 
+        electrons_available = 0
+
         watermarks = np.array(
             [[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]]
         )
+        self.trap_manager_def.watermarks = deepcopy(watermarks)
+        self.trap_manager_fast.watermarks = deepcopy(watermarks)
         self.trap_manager_slow.watermarks = deepcopy(watermarks)
-        electrons_available = 0
 
+        net_electrons_def = self.trap_manager_def.electrons_released_and_captured_in_pixel(
+            electrons_available=electrons_available,
+            ccd_volume=self.ccd_volume,
+            dwell_time=1,
+            width=1,
+        )
+        net_electrons_fast = self.trap_manager_fast.electrons_released_and_captured_in_pixel(
+            electrons_available=electrons_available,
+            ccd_volume=self.ccd_volume,
+            dwell_time=1,
+            width=1,
+        )
         net_electrons_slow = self.trap_manager_slow.electrons_released_and_captured_in_pixel(
             electrons_available=electrons_available,
             ccd_volume=self.ccd_volume,
@@ -2150,6 +2172,11 @@ class TestElectronsReleasedAndCapturedBySlowCaptureTraps:
             watermarks[1:-1, 0]
         )
         assert (self.trap_manager_slow.watermarks[2:, 1] <= watermarks[1:-1, 1]).all()
+
+        # Fast traps reproduce default behaviour
+        assert net_electrons_fast == pytest.approx(net_electrons_def)
+        # Slow traps re-capture less so net release slightly more
+        assert net_electrons_fast < net_electrons_slow
 
     def test__updated_watermarks_from_capture_not_enough(self):
 

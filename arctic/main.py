@@ -111,7 +111,6 @@ If set to  In most situations, this is a factor ~(E+3)/(E+1) slower to run.
     # Default to very slow but accurate behaviour
     if express == 0:
         express = n_rows - offset
-    print(express)
     if charge_injection:
         assert (
             first_pixel_different == True
@@ -168,7 +167,6 @@ If set to  In most situations, this is a factor ~(E+3)/(E+1) slower to run.
         np.sum(express_matrix, axis=1) > 0, :
     ]
 
-    print(express_matrix.shape)
     # Adjust so that each computed transfer has equal effect (most useful if offset <> 0). Could have got here directly.
     if dtype is not int:
         for i in range((express_matrix.shape)[1]):
@@ -180,8 +178,6 @@ If set to  In most situations, this is a factor ~(E+3)/(E+1) slower to run.
                     nonzero
                 )
             express_matrix[first_one, i] = 1
-
-    print(express_matrix.shape)
 
     # Can't yet compute the when_to_store matrix, in case we are dealing with multi-phase readout
     return express_matrix
@@ -281,14 +277,12 @@ def _add_cti_to_image(
     # Decide appropriate moments to store trap occupancy levels, so the next EXPRESS iteration
     # can continue from an (approximately) suitable configuration
     when_to_store_traps = np.zeros(express_matrix.shape, dtype=bool)
-    print(express_matrix[-10:, :])
     if clocker.empty_traps_at_start is False and clocker.charge_injection is False:
         for express_index in range(n_express - 1):
             for row_index in range(n_rows - 1):
                 if express_matrix[express_index + 1, row_index] > 0:
                     break
             when_to_store_traps[express_index, row_index] = True
-    print(when_to_store_traps[:, 0:9] - 0)
 
     rowwise_stored_trap_managers = trap_managers
     columnwise_stored_trap_managers = deepcopy(trap_managers)
@@ -307,13 +301,10 @@ def _add_cti_to_image(
             trap_managers = deepcopy(rowwise_stored_trap_managers)
             for trap_manager in trap_managers:
                 trap_manager.empty_all_traps()  # Reset watermarks, effectively setting trap occupancy to zero
-            # print(express_index,"restoring trap occupancy")
 
             # Each pixel
             # for row_index in roi_rows:
             for row_index in range(len(roi_readout)):
-
-                # print(express_matrix.shape,express_index, row_index,roi_across,roi_readout)
                 express_multiplier = express_matrix[express_index, row_index]
                 if express_multiplier == 0:
                     continue
@@ -321,21 +312,7 @@ def _add_cti_to_image(
 
                 # Save trap occupancy
                 if when_to_store_traps[express_index, row_index]:
-                    #    print(
-                    #        "column",
-                    #        column_index,
-                    #        "express",
-                    #        express_index,
-                    #        "storing traps in row",
-                    #        row_index,
-                    #    )
                     rowwise_stored_trap_managers = trap_managers
-
-                #
-                # if express_index == 0:
-                #    if empty_traps_at_start:
-                #        # print(express_index,"emptying traps in row",row_index)
-                #        trap_manager.empty_all_traps()
 
                 # Initial number of electrons available for trapping
                 n_free_electrons = image[
@@ -358,13 +335,6 @@ def _add_cti_to_image(
                     n_electrons_released_and_captured * express_multiplier
                 )
 
-                # if row_index < 12: print(row_index,express_multiplier,total_electrons_released_and_captured)
-                #
-                # Need to check that this is positive and <=FWD
-                #
-
-                # n_free_electrons = abs(max(n_free_electrons,0))
-                # assert n_free_electrons >= 0, "Finding a negative number of electrons in the charge cloud!"
                 image[
                     roi_readout[row_index], roi_across[column_index]
                 ] = n_free_electrons

@@ -246,8 +246,6 @@ class TrapNonUniformHeightDistribution(Trap):
             density=density, lifetime=lifetime
         )
 
-        print("nonuniformheight")
-
         self.electron_fractional_height_min = electron_fractional_height_min
         self.electron_fractional_height_max = electron_fractional_height_max
 

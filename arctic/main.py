@@ -19,12 +19,12 @@ from arctic.clock import Clocker
 from arctic.traps import (
     TrapLifetimeContinuum,
     TrapLogNormalLifetimeContinuum,
-    TrapSlowCapture,
+    TrapOld,
 )
 from arctic.trap_managers import (
     TrapManager,
     TrapManagerTrackTime,
-    TrapManagerSlowCapture,
+    TrapManagerOld,
 )
 from arctic import util
 
@@ -261,8 +261,8 @@ def _add_cti_to_image(
             trap_group[0], (TrapLifetimeContinuum, TrapLogNormalLifetimeContinuum),
         ):
             trap_managers.append(TrapManagerTrackTime(traps=trap_group, rows=rows))
-        elif isinstance(trap_group[0], TrapSlowCapture):
-            trap_managers.append(TrapManagerSlowCapture(traps=trap_group, rows=rows))
+        elif isinstance(trap_group[0], TrapOld):
+            trap_managers.append(TrapManagerOld(traps=trap_group, rows=rows))
         else:
             trap_managers.append(TrapManager(traps=trap_group, rows=rows))
 

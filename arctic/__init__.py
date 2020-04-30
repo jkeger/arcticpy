@@ -5,11 +5,11 @@ from arctic.traps import (
     Trap,
     TrapLifetimeContinuum,
     TrapLogNormalLifetimeContinuum,
-    TrapSlowCapture,
+    TrapOld,
 )
 from arctic.trap_managers import (
     TrapManager,
     TrapManagerTrackTime,
-    TrapManagerSlowCapture,
+    TrapManagerOld,
 )
 from arctic import util

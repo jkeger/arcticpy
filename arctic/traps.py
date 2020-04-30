@@ -6,7 +6,14 @@ from arctic import util
 
 
 class Trap(object):
-    def __init__(self, density=0.13, lifetime=0.25, ccd_volume=None, surface=False):
+    def __init__(
+        self,
+        density=0.13,
+        lifetime=0.25,
+        capture_timescale=0,
+        ccd_volume=None,
+        surface=False,
+    ):
         """The parameters for a single trap species.
 
         Parameters
@@ -16,6 +23,13 @@ class Trap(object):
         lifetime : float
             The release lifetime of the trap, in the same units as the time 
             spent in each pixel or phase (Clocker sequence).
+        capture_timescale : float
+            The capture timescale of the trap. Default 0 for instant capture.
+            
+        Attributes
+        ----------
+        capture_rate, emission_rate : float
+            The capture and emission rates (Lindegren (1998) section 3.2).
         """
 
         if ccd_volume is None:
@@ -23,8 +37,16 @@ class Trap(object):
 
         self.density = density
         self.lifetime = lifetime
+        self.capture_timescale = capture_timescale
         self.ccd_volume = ccd_volume
         self.surface = surface
+
+        # Rates
+        if self.capture_timescale == 0:
+            self.capture_rate = np.inf
+        else:
+            self.capture_rate = 1 / self.capture_timescale
+        self.emission_rate = 1 / self.lifetime
 
     def cumulative_n_traps_from_n_electrons(self, n_electrons):
         """ Calculate the total number of charge traps exposed to a charge cloud
@@ -218,7 +240,31 @@ class Trap(object):
         return poisson_trap
 
 
-class TrapLifetimeContinuum(Trap):
+class TrapOld(Trap):
+    """ For the old C++ style release-then-instant-capture algorithm. """
+
+    def __init__(self, density=0.13, lifetime=0.25, ccd_volume=None, surface=False):
+        """The parameters for a single trap species.
+
+        Parameters
+        ----------
+        density : float
+            The density of the trap species in a pixel.
+        lifetime : float
+            The release lifetime of the trap, in the same units as the time 
+            spent in each pixel or phase (Clocker sequence).
+        """
+
+        if ccd_volume is None:
+            ccd_volume = CCDVolume()
+
+        self.density = density
+        self.lifetime = lifetime
+        self.ccd_volume = ccd_volume
+        self.surface = surface
+
+
+class TrapLifetimeContinuum(TrapOld):
     """ For a continuum distribution of release lifetimes for the traps.
         Must be used with TrapManagerTrackTime.
     """
@@ -380,33 +426,3 @@ class TrapLogNormalLifetimeContinuum(TrapLifetimeContinuum):
             middle_lifetime=middle_lifetime,
             scale_lifetime=scale_lifetime,
         )
-
-
-class TrapSlowCapture(Trap):
-    """ For non-instant capture of electrons combined with their release. """
-
-    def __init__(
-        self, density, lifetime, capture_timescale,
-    ):
-        """The parameters for a single trap species. 
-
-        Parameters
-        ----------
-        density : float
-            The density of the trap species in a pixel.
-        lifetime : float
-            The release lifetime of the trap.
-        capture_timescale : float
-            The capture timescale of the trap.
-            
-        Attributes
-        ----------
-        capture_rate, emission_rate : float
-            The capture and emission rates (Lindegren (1998) section 3.2).
-        """
-        super(TrapSlowCapture, self).__init__(density=density, lifetime=lifetime)
-
-        self.capture_timescale = capture_timescale
-
-        self.capture_rate = 1 / self.capture_timescale
-        self.emission_rate = 1 / self.lifetime

@@ -218,38 +218,6 @@ class Trap(object):
         return poisson_trap
 
 
-class TrapNonUniformHeightDistribution(Trap):
-    """ For a non-uniform distribution of traps with height within the pixel.
-    """
-
-    def __init__(
-        self,
-        density,
-        lifetime,
-        electron_fractional_height_min,
-        electron_fractional_height_max,
-    ):
-        """The parameters for a single trap species. 
-
-        Parameters
-        ----------
-        density : float
-            The density of the trap species in a pixel.
-        lifetime : float
-            The release lifetime of the trap.
-        electron_fractional_height_min, electron_fractional_height_max : float
-            The minimum (maximum) fractional height of the electron cloud in 
-            the pixel below (above) which corresponds to an effective fractional 
-            height of 0 (1), with a linear relation in between.
-        """
-        super(TrapNonUniformHeightDistribution, self).__init__(
-            density=density, lifetime=lifetime
-        )
-
-        self.electron_fractional_height_min = electron_fractional_height_min
-        self.electron_fractional_height_max = electron_fractional_height_max
-
-
 class TrapLifetimeContinuum(Trap):
     """ For a continuum distribution of release lifetimes for the traps.
         Must be used with TrapManagerTrackTime.

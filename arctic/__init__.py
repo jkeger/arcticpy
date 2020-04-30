@@ -3,14 +3,12 @@ from arctic.clock import Clocker
 from arctic.ccd_volume import CCDVolume, CCDVolumeComplex
 from arctic.traps import (
     Trap,
-    TrapNonUniformHeightDistribution,
     TrapLifetimeContinuum,
     TrapLogNormalLifetimeContinuum,
     TrapSlowCapture,
 )
 from arctic.trap_managers import (
     TrapManager,
-    TrapManagerNonUniformHeightDistribution,
     TrapManagerTrackTime,
     TrapManagerSlowCapture,
 )

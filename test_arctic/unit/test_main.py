@@ -147,43 +147,6 @@ class TestGeneral:
 
         assert (image_single == image_multi).all
 
-    def test__different_trap_managers(self):
-        image = np.zeros((6, 2))
-        image[2, 1] = 1000
-
-        # Standard trap manager
-        traps = [
-            ac.Trap(density=10, lifetime=-1 / np.log(0.5)),
-            ac.Trap(density=5, lifetime=-1 / np.log(0.5)),
-        ]
-
-        ccd_volume = ac.CCDVolume(
-            well_fill_beta=0.8, well_max_height=8.47e4, well_notch_depth=1e-7
-        )
-
-        image_std = ac.add_cti(
-            image=image, parallel_traps=traps, parallel_ccd_volume=ccd_volume
-        )
-
-        # Multiple trap managers, non-uniform distribution behaving like normal
-        traps = [
-            [ac.Trap(density=10, lifetime=-1 / np.log(0.5))],
-            [
-                ac.TrapNonUniformHeightDistribution(
-                    density=5,
-                    lifetime=-1 / np.log(0.5),
-                    electron_fractional_height_min=0,
-                    electron_fractional_height_max=1,
-                )
-            ],
-        ]
-
-        image_multi = ac.add_cti(
-            image=image, parallel_traps=traps, parallel_ccd_volume=ccd_volume
-        )
-
-        assert (image_std == image_multi).all
-
 
 class TestAddCTIParallelOnly:
     def test__square__horizontal_line__line_loses_charge_trails_appear(self):

@@ -17,14 +17,12 @@ from copy import deepcopy
 
 from arctic.clock import Clocker
 from arctic.traps import (
-    TrapNonUniformHeightDistribution,
     TrapLifetimeContinuum,
     TrapLogNormalLifetimeContinuum,
     TrapSlowCapture,
 )
 from arctic.trap_managers import (
     TrapManager,
-    TrapManagerNonUniformHeightDistribution,
     TrapManagerTrackTime,
     TrapManagerSlowCapture,
 )
@@ -259,11 +257,7 @@ def _add_cti_to_image(
     trap_managers = []
     for trap_group in traps:
         # Use a non-default trap manager if required for the input trap species
-        if isinstance(trap_group[0], TrapNonUniformHeightDistribution):
-            trap_managers.append(
-                TrapManagerNonUniformHeightDistribution(traps=trap_group, rows=rows)
-            )
-        elif isinstance(
+        if isinstance(
             trap_group[0], (TrapLifetimeContinuum, TrapLogNormalLifetimeContinuum),
         ):
             trap_managers.append(TrapManagerTrackTime(traps=trap_group, rows=rows))

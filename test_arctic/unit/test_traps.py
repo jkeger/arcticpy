@@ -2003,11 +2003,14 @@ class TestElectronsReleasedAndCapturedIncludingSlowTraps:
 
     def test__new_lowest_watermark_slow_capture(self):
 
+        electrons_available = 5e3  # electron_fractional_height ~= 0.104
+
         watermarks = np.array(
             [[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]]
         )
+        self.trap_manager_old.watermarks = deepcopy(watermarks)
+        self.trap_manager_fast.watermarks = deepcopy(watermarks)
         self.trap_manager_slow.watermarks = deepcopy(watermarks)
-        electrons_available = 5e3  # electron_fractional_height ~= 0.104
 
         net_electrons_old = self.trap_manager_old.electrons_released_and_captured_in_pixel(
             electrons_available=electrons_available,
@@ -2027,11 +2030,15 @@ class TestElectronsReleasedAndCapturedIncludingSlowTraps:
             dwell_time=1,
             width=1,
         )
+
         # Fast traps reproduce old-style behaviour
         assert self.trap_manager_fast.watermarks == pytest.approx(
             self.trap_manager_old.watermarks, rel=1e-3
         )
-        assert net_electrons_fast == pytest.approx(net_electrons_old, rel=1e-4)
+        assert net_electrons_fast == pytest.approx(net_electrons_old, rel=1e-3)
+
+        # Slow traps capture less than fast
+        assert net_electrons_fast < net_electrons_slow
 
         # Lowest watermark heights add up to previous height, fill fractions
         #   increased below the cloud, decreased above it
@@ -2047,18 +2054,41 @@ class TestElectronsReleasedAndCapturedIncludingSlowTraps:
 
     def test__new_middle_watermark_slow_capture(self):
 
+        electrons_available = 5e4  # electron_fractional_height ~= 0.656
+
         watermarks = np.array(
             [[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]]
         )
+        self.trap_manager_old.watermarks = deepcopy(watermarks)
+        self.trap_manager_fast.watermarks = deepcopy(watermarks)
         self.trap_manager_slow.watermarks = deepcopy(watermarks)
-        electrons_available = 5e4  # electron_fractional_height ~= 0.656
 
-        net_electrons = self.trap_manager_slow.electrons_released_and_captured_in_pixel(
+        net_electrons_old = self.trap_manager_old.electrons_released_and_captured_in_pixel(
             electrons_available=electrons_available,
             ccd_volume=self.ccd_volume,
             dwell_time=1,
             width=1,
         )
+        net_electrons_fast = self.trap_manager_fast.electrons_released_and_captured_in_pixel(
+            electrons_available=electrons_available,
+            ccd_volume=self.ccd_volume,
+            dwell_time=1,
+            width=1,
+        )
+        net_electrons_slow = self.trap_manager_slow.electrons_released_and_captured_in_pixel(
+            electrons_available=electrons_available,
+            ccd_volume=self.ccd_volume,
+            dwell_time=1,
+            width=1,
+        )
+
+        assert self.trap_manager_fast.watermarks == pytest.approx(
+            self.trap_manager_old.watermarks, rel=1e-3
+        )
+        assert net_electrons_fast == pytest.approx(net_electrons_old, rel=1e-3)
+
+        # Slow traps capture less than fast
+        assert net_electrons_fast < net_electrons_slow
 
         # Lowest watermark height unchanged, fill fractions increased
         assert self.trap_manager_slow.watermarks[0, 0] == watermarks[0, 0]
@@ -2078,18 +2108,42 @@ class TestElectronsReleasedAndCapturedIncludingSlowTraps:
 
     def test__new_highest_watermark_slow_capture(self):
 
+        electrons_available = 7e4  # electron_fractional_height ~= 0.859
+
         watermarks = np.array(
             [[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]]
         )
+        self.trap_manager_old.watermarks = deepcopy(watermarks)
+        self.trap_manager_fast.watermarks = deepcopy(watermarks)
         self.trap_manager_slow.watermarks = deepcopy(watermarks)
-        electrons_available = 7e4  # electron_fractional_height ~= 0.859
 
-        net_electrons = self.trap_manager_slow.electrons_released_and_captured_in_pixel(
+        net_electrons_old = self.trap_manager_old.electrons_released_and_captured_in_pixel(
             electrons_available=electrons_available,
             ccd_volume=self.ccd_volume,
             dwell_time=1,
             width=1,
         )
+        net_electrons_fast = self.trap_manager_fast.electrons_released_and_captured_in_pixel(
+            electrons_available=electrons_available,
+            ccd_volume=self.ccd_volume,
+            dwell_time=1,
+            width=1,
+        )
+        net_electrons_slow = self.trap_manager_slow.electrons_released_and_captured_in_pixel(
+            electrons_available=electrons_available,
+            ccd_volume=self.ccd_volume,
+            dwell_time=1,
+            width=1,
+        )
+
+        # Fast traps reproduce old-style behaviour
+        assert self.trap_manager_fast.watermarks == pytest.approx(
+            self.trap_manager_old.watermarks, rel=1e-3
+        )
+        assert net_electrons_fast == pytest.approx(net_electrons_old, rel=1e-3)
+
+        # Slow traps capture less than fast
+        assert net_electrons_fast < net_electrons_slow
 
         # Lower watermark heights unchanged, fill fractions increased
         assert (self.trap_manager_slow.watermarks[:3, 0] == watermarks[:3, 0]).all()
@@ -2128,6 +2182,15 @@ class TestElectronsReleasedAndCapturedIncludingSlowTraps:
             dwell_time=1,
             width=1,
         )
+
+        # Fast traps reproduce old-style behaviour
+        assert self.trap_manager_fast.watermarks == pytest.approx(
+            self.trap_manager_old.watermarks, rel=1e-3
+        )
+        assert net_electrons_fast == pytest.approx(net_electrons_old, rel=1e-3)
+
+        # Slow traps capture less than fast
+        assert net_electrons_fast < net_electrons_slow
 
         # Lowest watermark heights add up to previous height, fill fractions
         #   increased in the new lowest level, decreased above it

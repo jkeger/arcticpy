@@ -56,11 +56,11 @@ class TestGeneral:
                                 np.arange(1, rows + 1) + offset
                             )
 
-    def test__add_cti__parallel_only__single_pixel__compare_to_cpluspus_version(self,):
+    def test__add_cti__parallel_only__single_pixel__compare_cplusplus_version(self,):
         image = np.zeros((6, 2))
         image[2, 1] = 1000
 
-        traps = [ac.TrapOld(density=10, lifetime=-1 / np.log(0.5))]
+        traps = [ac.Trap(density=10, lifetime=-1 / np.log(0.5))]
 
         ccd_volume = ac.CCDVolume(
             well_fill_beta=0.8, well_max_height=8.47e4, well_notch_depth=1e-7
@@ -88,7 +88,7 @@ class TestGeneral:
         image = np.zeros((6, 2))
         image[2, 1] = 1000
 
-        traps = [ac.TrapOld(density=10, lifetime=-1 / np.log(0.5))]
+        traps = [ac.Trap(density=10, lifetime=-1 / np.log(0.5))]
 
         ccd_volume = ac.CCDVolume(
             well_fill_beta=0.8, well_max_height=8.47e4, well_notch_depth=1e-7
@@ -123,8 +123,8 @@ class TestGeneral:
 
         # Single trap manager
         traps = [
-            ac.TrapOld(density=10, lifetime=-1 / np.log(0.5)),
-            ac.TrapOld(density=5, lifetime=-1 / np.log(0.5)),
+            ac.Trap(density=10, lifetime=-1 / np.log(0.5)),
+            ac.Trap(density=5, lifetime=-1 / np.log(0.5)),
         ]
 
         ccd_volume = ac.CCDVolume(
@@ -137,8 +137,8 @@ class TestGeneral:
 
         # Multiple trap managers
         traps = [
-            [ac.TrapOld(density=10, lifetime=-1 / np.log(0.5))],
-            [ac.TrapOld(density=5, lifetime=-1 / np.log(0.5))],
+            [ac.Trap(density=10, lifetime=-1 / np.log(0.5))],
+            [ac.Trap(density=5, lifetime=-1 / np.log(0.5))],
         ]
 
         image_multi = ac.add_cti(
@@ -153,7 +153,7 @@ class TestAddCTIParallelOnly:
         image_pre_cti = np.zeros((5, 5))
         image_pre_cti[2, :] += 100
 
-        trap = ac.TrapOld(density=0.1, lifetime=1.0)
+        trap = ac.Trap(density=0.1, lifetime=1.0)
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
@@ -178,7 +178,7 @@ class TestAddCTIParallelOnly:
         image_pre_cti = np.zeros((5, 5))
         image_pre_cti[:, 2] += 100
 
-        trap = ac.TrapOld(density=0.1, lifetime=1.0)
+        trap = ac.Trap(density=0.1, lifetime=1.0)
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
@@ -199,8 +199,8 @@ class TestAddCTIParallelOnly:
 
         # SETUP TWO SETS OF PARAMETERS WITH ONE PARAMETER DOUBLED #
 
-        trap_0 = ac.TrapOld(density=0.1, lifetime=1.0)
-        trap_1 = ac.TrapOld(density=0.2, lifetime=1.0)
+        trap_0 = ac.Trap(density=0.1, lifetime=1.0)
+        trap_1 = ac.Trap(density=0.2, lifetime=1.0)
 
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
@@ -239,8 +239,8 @@ class TestAddCTIParallelOnly:
 
         # SETUP TWO SETS OF PARAMETERS WITH ONE PARAMETER DOUBLED #
 
-        trap_0 = ac.TrapOld(density=0.1, lifetime=1.0)
-        trap_1 = ac.TrapOld(density=0.1, lifetime=2.0)
+        trap_0 = ac.Trap(density=0.1, lifetime=1.0)
+        trap_1 = ac.Trap(density=0.1, lifetime=2.0)
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
@@ -278,7 +278,7 @@ class TestAddCTIParallelOnly:
 
         # SETUP TWO SETS OF PARAMETERS WITH ONE PARAMETER DOUBLED #
 
-        trap = ac.TrapOld(density=0.1, lifetime=1.0)
+        trap = ac.Trap(density=0.1, lifetime=1.0)
         ccd_0 = ac.CCDVolume(
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
@@ -315,8 +315,8 @@ class TestAddCTIParallelOnly:
 
         # SETUP TWO SETS OF PARAMETERS WITH ONE PARAMETER DOUBLED #
 
-        trap_0 = ac.TrapOld(density=0.1, lifetime=1.0)
-        trap_1 = ac.TrapOld(density=0.05, lifetime=1.0)
+        trap_0 = ac.Trap(density=0.1, lifetime=1.0)
+        trap_1 = ac.Trap(density=0.05, lifetime=1.0)
 
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
@@ -344,7 +344,7 @@ class TestAddCTIParallelOnly:
         image_pre_cti[3, 3] += 100  # Delta 2
         image_pre_cti[2, 4] += 100  # Delta 3
 
-        trap = ac.TrapOld(density=0.1, lifetime=1.0)
+        trap = ac.Trap(density=0.1, lifetime=1.0)
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
@@ -375,7 +375,7 @@ class TestAddCTIParallelOnly:
         image_pre_cti = np.zeros((5, 7))
         image_pre_cti[2, :] += 100
 
-        trap = ac.TrapOld(density=0.1, lifetime=1.0)
+        trap = ac.Trap(density=0.1, lifetime=1.0)
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
@@ -394,7 +394,7 @@ class TestAddCTIParallelOnly:
         image_pre_cti = np.zeros((4, 6))
         image_pre_cti[2, :] += 100
 
-        trap = ac.TrapOld(density=0.1, lifetime=1.0)
+        trap = ac.Trap(density=0.1, lifetime=1.0)
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
@@ -413,7 +413,7 @@ class TestAddCTIParallelOnly:
         image_pre_cti = np.zeros((4, 7))
         image_pre_cti[2, :] += 100
 
-        trap = ac.TrapOld(density=0.1, lifetime=1.0)
+        trap = ac.Trap(density=0.1, lifetime=1.0)
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
@@ -432,7 +432,7 @@ class TestAddCTIParallelOnly:
         image_pre_cti = np.zeros((5, 6))
         image_pre_cti[2, :] += 100
 
-        trap = ac.TrapOld(density=0.1, lifetime=1.0)
+        trap = ac.Trap(density=0.1, lifetime=1.0)
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
@@ -450,7 +450,7 @@ class TestAddCTIParallelOnly:
         image_pre_cti = np.zeros((3, 5))
         image_pre_cti[:, 2] += 100
 
-        trap = ac.TrapOld(density=0.1, lifetime=1.0)
+        trap = ac.Trap(density=0.1, lifetime=1.0)
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
@@ -469,7 +469,7 @@ class TestAddCTIParallelOnly:
         image_pre_cti = np.zeros((4, 6))
         image_pre_cti[:, 2] += 100
 
-        trap = ac.TrapOld(density=0.1, lifetime=1.0)
+        trap = ac.Trap(density=0.1, lifetime=1.0)
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
@@ -488,7 +488,7 @@ class TestAddCTIParallelOnly:
         image_pre_cti = np.zeros((4, 7))
         image_pre_cti[:, 2] += 100
 
-        trap = ac.TrapOld(density=0.1, lifetime=1.0)
+        trap = ac.Trap(density=0.1, lifetime=1.0)
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
@@ -507,7 +507,7 @@ class TestAddCTIParallelOnly:
         image_pre_cti = np.zeros((5, 6))
         image_pre_cti[:, 2] += 100
 
-        trap = ac.TrapOld(density=0.1, lifetime=1.0)
+        trap = ac.Trap(density=0.1, lifetime=1.0)
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
@@ -528,7 +528,7 @@ class TestAddCTIParallelOnly:
         image_pre_cti[3, 3] += 100  # Delta 2
         image_pre_cti[2, 4] += 100  # Delta 3
 
-        trap = ac.TrapOld(density=0.1, lifetime=1.0)
+        trap = ac.Trap(density=0.1, lifetime=1.0)
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
@@ -564,7 +564,7 @@ class TestAddCTIParallelOnly:
         image_pre_cti[3, 3] += 100  # Delta 2
         image_pre_cti[2, 4] += 100  # Delta 3
 
-        trap = ac.TrapOld(density=0.1, lifetime=1.0)
+        trap = ac.Trap(density=0.1, lifetime=1.0)
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
@@ -601,7 +601,7 @@ class TestAddCTIParallelOnly:
         image_pre_cti[3, 3] += 100  # Delta 2
         image_pre_cti[2, 4] += 100  # Delta 3
 
-        trap = ac.TrapOld(density=0.1, lifetime=1.0)
+        trap = ac.Trap(density=0.1, lifetime=1.0)
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
@@ -638,7 +638,7 @@ class TestAddCTIParallelOnly:
         image_pre_cti[3, 3] += 100  # Delta 2
         image_pre_cti[2, 4] += 100  # Delta 3
 
-        trap = ac.TrapOld(density=0.1, lifetime=1.0)
+        trap = ac.Trap(density=0.1, lifetime=1.0)
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
@@ -671,12 +671,12 @@ class TestAddCTIParallelOnly:
 class TestArcticAddCTIParallelAndSerial:
     def test__horizontal_charge_line__loses_charge_trails_form_both_directions(self,):
 
-        parallel_traps = [ac.TrapOld(density=0.4, lifetime=1.0)]
+        parallel_traps = [ac.Trap(density=0.4, lifetime=1.0)]
         parallel_ccd_volume = ac.CCDVolume(
             well_notch_depth=0.00001, well_fill_beta=0.8, well_max_height=84700
         )
 
-        serial_traps = [ac.TrapOld(density=0.2, lifetime=2.0)]
+        serial_traps = [ac.Trap(density=0.2, lifetime=2.0)]
         serial_ccd_volume = ac.CCDVolume(
             well_notch_depth=0.00001, well_fill_beta=0.4, well_max_height=84700
         )
@@ -718,12 +718,12 @@ class TestArcticAddCTIParallelAndSerial:
         self,
     ):
 
-        parallel_traps = [ac.TrapOld(density=0.4, lifetime=1.0)]
+        parallel_traps = [ac.Trap(density=0.4, lifetime=1.0)]
         parallel_ccd_volume = ac.CCDVolume(
             well_notch_depth=0.000001, well_fill_beta=0.8, well_max_height=84700
         )
 
-        serial_traps = [ac.TrapOld(density=0.2, lifetime=2.0)]
+        serial_traps = [ac.Trap(density=0.2, lifetime=2.0)]
         serial_ccd_volume = ac.CCDVolume(
             well_notch_depth=0.000001, well_fill_beta=0.4, well_max_height=84700
         )
@@ -762,12 +762,12 @@ class TestArcticAddCTIParallelAndSerial:
 
     def test__individual_pixel_trails_form_cross_around_it(self,):
 
-        parallel_traps = [ac.TrapOld(density=0.4, lifetime=1.0)]
+        parallel_traps = [ac.Trap(density=0.4, lifetime=1.0)]
         parallel_ccd_volume = ac.CCDVolume(
             well_notch_depth=0.00001, well_fill_beta=0.8, well_max_height=84700
         )
 
-        serial_traps = [ac.TrapOld(density=0.2, lifetime=2.0)]
+        serial_traps = [ac.Trap(density=0.2, lifetime=2.0)]
         serial_ccd_volume = ac.CCDVolume(
             well_notch_depth=0.00001, well_fill_beta=0.4, well_max_height=84700
         )
@@ -818,8 +818,8 @@ class TestArcticAddCTIParallelAndSerial:
         image_pre_cti = np.zeros((5, 5))
         image_pre_cti[2, 2] = +100
 
-        parallel_traps = [ac.TrapOld(density=0.4, lifetime=1.0)]
-        serial_traps = [ac.TrapOld(density=0.2, lifetime=2.0)]
+        parallel_traps = [ac.Trap(density=0.4, lifetime=1.0)]
+        serial_traps = [ac.Trap(density=0.2, lifetime=2.0)]
 
         image_post_cti_0 = ac.add_cti(
             image=image_pre_cti,
@@ -831,8 +831,8 @@ class TestArcticAddCTIParallelAndSerial:
             serial_ccd_volume=serial_ccd_volume,
         )
 
-        parallel_traps = [ac.TrapOld(density=0.8, lifetime=1.0)]
-        serial_traps = [ac.TrapOld(density=0.4, lifetime=2.0)]
+        parallel_traps = [ac.Trap(density=0.8, lifetime=1.0)]
+        serial_traps = [ac.Trap(density=0.4, lifetime=2.0)]
 
         image_post_cti_1 = ac.add_cti(
             image=image_pre_cti,
@@ -879,8 +879,8 @@ class TestArcticAddCTIParallelAndSerial:
             well_notch_depth=0.00001, well_fill_beta=0.8, well_max_height=84700
         )
 
-        parallel_traps = [ac.TrapOld(density=0.1, lifetime=1.0)]
-        serial_traps = [ac.TrapOld(density=0.1, lifetime=1.0)]
+        parallel_traps = [ac.Trap(density=0.1, lifetime=1.0)]
+        serial_traps = [ac.Trap(density=0.1, lifetime=1.0)]
 
         image_post_cti_0 = ac.add_cti(
             image=image_pre_cti,
@@ -892,8 +892,8 @@ class TestArcticAddCTIParallelAndSerial:
             serial_ccd_volume=serial_ccd_volume,
         )
 
-        parallel_traps = [ac.TrapOld(density=0.1, lifetime=20.0)]
-        serial_traps = [ac.TrapOld(density=0.1, lifetime=20.0)]
+        parallel_traps = [ac.Trap(density=0.1, lifetime=20.0)]
+        serial_traps = [ac.Trap(density=0.1, lifetime=20.0)]
 
         image_post_cti_1 = ac.add_cti(
             image=image_pre_cti,
@@ -930,8 +930,8 @@ class TestArcticAddCTIParallelAndSerial:
         image_pre_cti = np.zeros((5, 5))
         image_pre_cti[2, 2] = +100
 
-        parallel_traps = [ac.TrapOld(density=0.1, lifetime=1.0)]
-        serial_traps = [ac.TrapOld(density=0.1, lifetime=1.0)]
+        parallel_traps = [ac.Trap(density=0.1, lifetime=1.0)]
+        serial_traps = [ac.Trap(density=0.1, lifetime=1.0)]
 
         parallel_ccd_volume = ac.CCDVolume(
             well_notch_depth=0.00001, well_fill_beta=0.8, well_max_height=84700
@@ -992,7 +992,7 @@ class TestAddCTIParallelMultiPhase:
         image_pre_cti = np.zeros((5, 5))
         image_pre_cti[2, :] += 100
 
-        trap = ac.TrapOld(density=0.1, lifetime=1.0)
+        trap = ac.Trap(density=0.1, lifetime=1.0)
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01,
             well_fill_beta=0.8,
@@ -1027,7 +1027,7 @@ class TestArcticCorrectCTIParallelOnly:
         image_pre_cti = np.zeros((5, 5))
         image_pre_cti[2, :] += 100
 
-        trap = ac.TrapOld(density=0.1, lifetime=1.0)
+        trap = ac.Trap(density=0.1, lifetime=1.0)
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
@@ -1055,7 +1055,7 @@ class TestArcticCorrectCTIParallelOnly:
         image_pre_cti = np.zeros((5, 5))
         image_pre_cti[:, 2] += 100
 
-        trap = ac.TrapOld(density=0.1, lifetime=1.0)
+        trap = ac.Trap(density=0.1, lifetime=1.0)
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
@@ -1085,7 +1085,7 @@ class TestArcticCorrectCTIParallelOnly:
         image_pre_cti[3, 3] += 100  # Delta 2
         image_pre_cti[2, 4] += 100  # Delta 3
 
-        trap = ac.TrapOld(density=0.1, lifetime=1.0)
+        trap = ac.Trap(density=0.1, lifetime=1.0)
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
@@ -1113,7 +1113,7 @@ class TestArcticCorrectCTIParallelOnly:
         image_pre_cti = np.zeros((5, 5))
         image_pre_cti[2, :] += 100
 
-        trap = ac.TrapOld(density=0.1, lifetime=1.0)
+        trap = ac.Trap(density=0.1, lifetime=1.0)
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
@@ -1149,7 +1149,7 @@ class TestArcticCorrectCTIParallelOnly:
         image_pre_cti = np.zeros((5, 3))
         image_pre_cti[2, :] += 100
 
-        trap = ac.TrapOld(density=0.1, lifetime=1.0)
+        trap = ac.Trap(density=0.1, lifetime=1.0)
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
@@ -1177,7 +1177,7 @@ class TestArcticCorrectCTIParallelOnly:
         image_pre_cti = np.zeros((6, 4))
         image_pre_cti[2, :] += 100
 
-        trap = ac.TrapOld(density=0.1, lifetime=1.0)
+        trap = ac.Trap(density=0.1, lifetime=1.0)
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
@@ -1205,7 +1205,7 @@ class TestArcticCorrectCTIParallelOnly:
         image_pre_cti = np.zeros((6, 3))
         image_pre_cti[2, :] += 100
 
-        trap = ac.TrapOld(density=0.1, lifetime=1.0)
+        trap = ac.Trap(density=0.1, lifetime=1.0)
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
@@ -1233,7 +1233,7 @@ class TestArcticCorrectCTIParallelOnly:
         image_pre_cti = np.zeros((5, 4))
         image_pre_cti[2, :] += 100
 
-        trap = ac.TrapOld(density=0.1, lifetime=1.0)
+        trap = ac.Trap(density=0.1, lifetime=1.0)
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
@@ -1261,7 +1261,7 @@ class TestArcticCorrectCTIParallelOnly:
         image_pre_cti = np.zeros((5, 3))
         image_pre_cti[:, 2] += 100
 
-        trap = ac.TrapOld(density=0.1, lifetime=1.0)
+        trap = ac.Trap(density=0.1, lifetime=1.0)
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
@@ -1289,7 +1289,7 @@ class TestArcticCorrectCTIParallelOnly:
         image_pre_cti = np.zeros((6, 4))
         image_pre_cti[:, 2] += 100
 
-        trap = ac.TrapOld(density=0.1, lifetime=1.0)
+        trap = ac.Trap(density=0.1, lifetime=1.0)
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
@@ -1317,7 +1317,7 @@ class TestArcticCorrectCTIParallelOnly:
         image_pre_cti = np.zeros((6, 3))
         image_pre_cti[:, 2] += 100
 
-        trap = ac.TrapOld(density=0.1, lifetime=1.0)
+        trap = ac.Trap(density=0.1, lifetime=1.0)
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
@@ -1345,7 +1345,7 @@ class TestArcticCorrectCTIParallelOnly:
         image_pre_cti = np.zeros((5, 4))
         image_pre_cti[:, 2] += 100
 
-        trap = ac.TrapOld(density=0.1, lifetime=1.0)
+        trap = ac.Trap(density=0.1, lifetime=1.0)
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
@@ -1375,7 +1375,7 @@ class TestArcticCorrectCTIParallelOnly:
         image_pre_cti[3, 3] += 100  # Delta 2
         image_pre_cti[2, 4] += 100  # Delta 3
 
-        trap = ac.TrapOld(density=0.1, lifetime=1.0)
+        trap = ac.Trap(density=0.1, lifetime=1.0)
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
@@ -1405,7 +1405,7 @@ class TestArcticCorrectCTIParallelOnly:
         image_pre_cti[3, 3] += 100  # Delta 2
         image_pre_cti[2, 4] += 100  # Delta 3
 
-        trap = ac.TrapOld(density=0.1, lifetime=1.0)
+        trap = ac.Trap(density=0.1, lifetime=1.0)
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
@@ -1435,7 +1435,7 @@ class TestArcticCorrectCTIParallelOnly:
         image_pre_cti[3, 3] += 100  # Delta 2
         image_pre_cti[2, 4] += 100  # Delta 3
 
-        trap = ac.TrapOld(density=0.1, lifetime=1.0)
+        trap = ac.Trap(density=0.1, lifetime=1.0)
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
@@ -1465,7 +1465,7 @@ class TestArcticCorrectCTIParallelOnly:
         image_pre_cti[3, 3] += 100  # Delta 2
         image_pre_cti[2, 4] += 100  # Delta 3
 
-        trap = ac.TrapOld(density=0.1, lifetime=1.0)
+        trap = ac.Trap(density=0.1, lifetime=1.0)
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01, well_fill_beta=0.8, well_max_height=84700
         )
@@ -1504,12 +1504,12 @@ class TestArcticCorrectCTIParallelAndSerial:
             ]
         )
 
-        parallel_traps = [ac.TrapOld(density=0.4, lifetime=1.0)]
+        parallel_traps = [ac.Trap(density=0.4, lifetime=1.0)]
         parallel_ccd_volume = ac.CCDVolume(
             well_notch_depth=0.00001, well_fill_beta=0.8, well_max_height=84700
         )
 
-        serial_traps = [ac.TrapOld(density=0.2, lifetime=2.0)]
+        serial_traps = [ac.Trap(density=0.2, lifetime=2.0)]
         serial_ccd_volume = ac.CCDVolume(
             well_notch_depth=0.00001, well_fill_beta=0.4, well_max_height=84700
         )

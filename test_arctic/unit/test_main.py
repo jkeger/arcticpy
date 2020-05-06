@@ -992,7 +992,7 @@ class TestAddCTIParallelMultiPhase:
         image_pre_cti = np.zeros((5, 5))
         image_pre_cti[2, :] += 100
 
-        trap = ac.Trap(density=0.1, lifetime=1.0)
+        trap = ac.TrapOld(density=0.1, lifetime=1.0)
         ccd_volume = ac.CCDVolume(
             well_notch_depth=0.01,
             well_fill_beta=0.8,
@@ -1010,10 +1010,10 @@ class TestAddCTIParallelMultiPhase:
         )
 
         image_difference = image_post_cti - image_pre_cti
-
+        
         assert (
             image_difference[0:2, :] == 0.0
-        ).all()  # First four rows should all remain zero
+        ).all()  # First two rows should all remain zero
         assert (
             image_difference[2, :] < 0.0
         ).all()  # All pixels in the charge line should lose charge due to capture

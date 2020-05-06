@@ -396,7 +396,7 @@ class TrapManager(object):
         )
 
         # First capture: make the new watermark then can return immediately
-        if max_watermark_index == -1:
+        if max_watermark_index == -1 and electrons_available > 0:
             # Update the watermark height, duplicated for the initial watermarks
             self.watermarks[0, 0] = electron_fractional_height
             watermarks_initial[0, 0] = self.watermarks[0, 0]

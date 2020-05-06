@@ -363,6 +363,7 @@ class TrapManager(object):
         watermarks : np.ndarray
             The updated watermarks. See initial_watermarks_from_rows_and_total_traps().
         """
+        electrons_available_000 = electrons_available
 
         # Initial watermarks and number of electrons in traps
         watermarks_initial = deepcopy(self.watermarks)
@@ -476,19 +477,20 @@ class TrapManager(object):
             )
 
             # Update the watermark heights, duplicated for the initial watermarks
-            self.watermarks = self.update_watermark_heights_for_cloud_below_highest(
-                watermarks=self.watermarks,
-                electron_fractional_height=electron_fractional_height,
-                watermark_index_above_cloud=watermark_index_above_cloud,
-            )
-            watermarks_initial = self.update_watermark_heights_for_cloud_below_highest(
-                watermarks=watermarks_initial,
-                electron_fractional_height=electron_fractional_height,
-                watermark_index_above_cloud=watermark_index_above_cloud,
-            )
+            if electron_fractional_height > 0:
+                self.watermarks = self.update_watermark_heights_for_cloud_below_highest(
+                    watermarks=self.watermarks,
+                    electron_fractional_height=electron_fractional_height,
+                    watermark_index_above_cloud=watermark_index_above_cloud,
+                )
+                watermarks_initial = self.update_watermark_heights_for_cloud_below_highest(
+                    watermarks=watermarks_initial,
+                    electron_fractional_height=electron_fractional_height,
+                    watermark_index_above_cloud=watermark_index_above_cloud,
+                )
 
-            # Increment the index now that an extra watermark has been set
-            max_watermark_index += 1
+                # Increment the index now that an extra watermark has been set
+                max_watermark_index += 1
 
         # Cloud height above existing watermarks: initialise the new watermark
         else:

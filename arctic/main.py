@@ -291,7 +291,6 @@ def _add_cti_to_image(
         for express_index in range(n_express):
 
             # Reset trap occupancy levels for next express loop
-            # This must use deepcopy or it doesn't work
             trap_managers = deepcopy(rowwise_stored_trap_managers)
             for trap_manager in trap_managers:
                 trap_manager.empty_all_traps()  # Reset watermarks, effectively setting trap occupancy to zero

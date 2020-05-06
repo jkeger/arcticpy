@@ -1010,7 +1010,7 @@ class TestAddCTIParallelMultiPhase:
         )
 
         image_difference = image_post_cti - image_pre_cti
-        
+
         assert (
             image_difference[0:2, :] == 0.0
         ).all()  # First two rows should all remain zero

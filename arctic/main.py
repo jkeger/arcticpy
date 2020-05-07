@@ -15,16 +15,16 @@ import math
 import os
 from copy import deepcopy
 
-from arctic.clock import Clocker
+from arctic.roe import ROE
 from arctic.traps import (
     TrapLifetimeContinuum,
     TrapLogNormalLifetimeContinuum,
-    TrapOld,
+    TrapInstantCapture,
 )
 from arctic.trap_managers import (
     TrapManager,
     TrapManagerTrackTime,
-    TrapManagerOld,
+    TrapManagerInstantCapture,
 )
 from arctic import util
 
@@ -104,8 +104,8 @@ If set to  In most situations, this is a factor ~(E+3)/(E+1) slower to run.
     # Parse inputs
     # Assumed number of rows in the (entire) image (even if given a postage stamp).
     #  with enough rows to contain the supposed image, including offset
-    roi = range(rows) if isinstance(rows, int) else rows
-    n_rows = max(roi) + 1 + offset
+    window = range(rows) if isinstance(rows, int) else rows
+    n_rows = max(window) + 1 + offset
     # Default to very slow but accurate behaviour
     if express == 0:
         express = n_rows - offset
@@ -160,7 +160,7 @@ If set to  In most situations, this is a factor ~(E+3)/(E+1) slower to run.
     # Extract the section of the array corresponding to the image (without the offset)
     n_rows -= offset
     express_matrix = express_matrix[:, offset:]  # remove the offset
-    express_matrix = express_matrix[:, roi]  # keep only the region of interest
+    express_matrix = express_matrix[:, window]  # keep only the region of interest
     express_matrix = express_matrix[  # remove all rows containing only zeros, for speed later
         np.sum(express_matrix, axis=1) > 0, :
     ]
@@ -181,8 +181,8 @@ If set to  In most situations, this is a factor ~(E+3)/(E+1) slower to run.
     return express_matrix
 
 
-def _add_cti_to_image(
-    image, clocker, ccd_volume, traps, express, offset, roi_readout, roi_across,
+def _clock_charge_in_one_dimension(
+    image, roe, ccd, traps, express, offset, window_readout, window_across,
 ):
     """
     Add CTI trails to an image by trapping, releasing, and moving electrons 
@@ -192,10 +192,10 @@ def _add_cti_to_image(
     ----------
     image : np.ndarray
         The input array of pixel values.
-    clocker : Clocker
+    roe : ROE
         The object describing the clocking of electrons with read-out 
         electronics.
-    ccd_volume : CCDVolume
+    ccd : CCD
         The object describing the CCD volume. 
     traps : [Trap] or [[Trap]]
         A list of one or more trap objects. To use different types of traps 
@@ -214,42 +214,42 @@ def _add_cti_to_image(
 
     # Parse inputs
     rows, columns = image.shape
-    roi_readout = (
-        range(rows) if roi_readout is None else roi_readout
+    window_readout = (
+        range(rows) if window_readout is None else window_readout
     )  # list or range of which pixels to process in the redout direction
-    roi_across = (
-        range(columns) if roi_across is None else roi_across
+    window_across = (
+        range(columns) if window_across is None else window_across
     )  # list or range of which pixels to process perpendicular to the readout direction
     if not isinstance(traps[0], list):
         traps = [
             traps
         ]  # If only a single trap species is used, still make sure it is an array
-    phases = len(clocker.sequence)
-    assert len(ccd_volume.phase_widths) == phases
-    assert np.amax(ccd_volume.phase_widths) <= 1
+    phases = len(roe.sequence)
+    assert len(ccd.phase_fractional_widths) == phases
+    assert np.amax(ccd.phase_fractional_widths) <= 1
 
     # Calculate the number of times that the effect of each pixel-to-pixel transfer can be replicated
     express_matrix = express_matrix_from_rows_and_express(
         # dtype=int,
-        rows=roi_readout,
+        rows=window_readout,
         express=express,
         offset=offset,
-        charge_injection=clocker.charge_injection,
-        first_pixel_different=clocker.empty_traps_at_start,
+        charge_injection=roe.charge_injection,
+        first_pixel_different=roe.empty_traps_at_start,
     )
     (n_express, n_rows) = express_matrix.shape
 
     # Prepare the image and express for multi-phase clocking
     if phases > 1:
         new_image = np.zeros((rows * phases, columns))
-        new_image[ccd_volume.integration_phase :: phases] = image
+        new_image[ccd.integration_phase :: phases] = image
         image = new_image
         rows, columns = image.shape
         print(
-            "Need to change roi_readout and roi_across in case roi is set; currently evaluating whole image"
+            "Need to change window_readout and window_across in case window is set; currently evaluating whole image"
         )
-        roi_readout = range(rows)
-        roi_across = range(columns)
+        window_readout = range(rows)
+        window_across = range(columns)
         express_matrix = np.repeat(express_matrix, phases, axis=1)
 
     # Set up an array of trap managers able to monitor the occupancy of all (types of) traps in a pixel/phase
@@ -261,8 +261,8 @@ def _add_cti_to_image(
             trap_group[0], (TrapLifetimeContinuum, TrapLogNormalLifetimeContinuum),
         ):
             trap_managers.append(TrapManagerTrackTime(traps=trap_group, rows=rows))
-        elif isinstance(trap_group[0], TrapOld):
-            trap_managers.append(TrapManagerOld(traps=trap_group, rows=rows))
+        elif isinstance(trap_group[0], TrapInstantCapture):
+            trap_managers.append(TrapManagerInstantCapture(traps=trap_group, rows=rows))
         else:
             trap_managers.append(TrapManager(traps=trap_group, rows=rows))
 
@@ -271,7 +271,7 @@ def _add_cti_to_image(
     # Decide appropriate moments to store trap occupancy levels, so the next EXPRESS iteration
     # can continue from an (approximately) suitable configuration
     when_to_store_traps = np.zeros(express_matrix.shape, dtype=bool)
-    if clocker.empty_traps_at_start is False and clocker.charge_injection is False:
+    if not roe.empty_traps_at_start and not roe.charge_injection:
         for express_index in range(n_express - 1):
             for row_index in range(n_rows - 1):
                 if express_matrix[express_index + 1, row_index] > 0:
@@ -282,8 +282,8 @@ def _add_cti_to_image(
     columnwise_stored_trap_managers = deepcopy(trap_managers)
 
     # Read out one column of pixels through one (column of) traps
-    # for column_index in roi_columns:
-    for column_index in range(len(roi_across)):
+    # for column_index in window_columns:
+    for column_index in range(len(window_across)):
         for trap_manager in trap_managers:
             trap_manager.empty_all_traps()  # Reset watermarks, effectively setting trap occupancy to zero
 
@@ -296,8 +296,8 @@ def _add_cti_to_image(
                 trap_manager.empty_all_traps()  # Reset watermarks, effectively setting trap occupancy to zero
 
             # Each pixel
-            # for row_index in roi_rows:
-            for row_index in range(len(roi_readout)):
+            # for row_index in window_rows:
+            for row_index in range(len(window_readout)):
                 express_multiplier = express_matrix[express_index, row_index]
                 if express_multiplier == 0:
                     continue
@@ -309,17 +309,17 @@ def _add_cti_to_image(
 
                 # Initial number of electrons available for trapping
                 n_free_electrons = image[
-                    roi_readout[row_index], roi_across[column_index]
+                    window_readout[row_index], window_across[column_index]
                 ]
 
                 # Release and capture
                 n_electrons_released_and_captured = 0
                 for trap_manager in trap_managers:
-                    n_electrons_released_and_captured += trap_manager.electrons_released_and_captured_in_pixel(
-                        electrons_available=n_free_electrons,
-                        dwell_time=clocker.sequence[phase],
-                        ccd_volume=ccd_volume.extract_phase(phase),
-                        width=ccd_volume.phase_widths[phase],
+                    n_electrons_released_and_captured += trap_manager.n_electrons_released_and_captured(
+                        n_free_electrons=n_free_electrons,
+                        dwell_time=roe.sequence[phase],
+                        ccd=ccd.extract_phase(phase),
+                        fractional_width=ccd.phase_fractional_widths[phase],
                         express_multiplier=express_multiplier,
                     )
 
@@ -329,7 +329,7 @@ def _add_cti_to_image(
                 )
 
                 image[
-                    roi_readout[row_index], roi_across[column_index]
+                    window_readout[row_index], window_across[column_index]
                 ] = n_free_electrons
 
     # Recombine the image for multi-phase clocking
@@ -342,17 +342,17 @@ def _add_cti_to_image(
 def add_cti(
     image,
     parallel_express=0,
-    parallel_clocker=None,
-    parallel_ccd_volume=None,
+    parallel_roe=None,
+    parallel_ccd=None,
     parallel_traps=None,
     parallel_offset=0,
-    parallel_roi=None,
+    parallel_window=None,
     serial_express=0,
-    serial_clocker=None,
-    serial_ccd_volume=None,
+    serial_roe=None,
+    serial_ccd=None,
     serial_traps=None,
     serial_offset=0,
-    serial_roi=None,
+    serial_window=None,
     prefill_traps=True,
 ):
     """
@@ -370,13 +370,13 @@ def add_cti(
         If True, parallel clocking is performed in charge injection line 
         mode, where each pixel is clocked and therefore trailed by traps 
         over the entire CCD (as opposed to its distance from the CCD register).
-    parallel_clocker : Clocker
+    parallel_roe : ROE
         The object describing the clocking read-out electronics for parallel 
         clocking.
-    parallel_ccd_volume : CCDVolume
+    parallel_ccd : CCD
         The object describing the CCD volume for parallel clocking. For 
         multi-phase clocking optionally use a list of different CCD volumes
-        for each phase, in the same size list as parallel_clocker.sequence.
+        for each phase, in the same size list as parallel_roe.sequence.
     parallel_traps : [Trap] or [[Trap]]
         A list of one or more trap objects for parallel clocking. To use 
         different types of traps that will require different watermark 
@@ -385,7 +385,7 @@ def add_cti(
     parallel_offset : int
         The supplied image array is a postage stamp offset this number of 
         pixels from the readout register
-    parallel_roi : range() or list
+    parallel_window : range() or list
         For speed, calculate only the effect on this subset of pixels. 
         Note that, because of edge effects, you should start the range several 
         pixels before the actual region of interest.
@@ -399,41 +399,41 @@ def add_cti(
         The output array of pixel values.
     """
 
-    # If Clocker not provided then assume simple, single-phase clocking
-    if parallel_clocker is None:
-        parallel_clocker = Clocker()
-    if serial_clocker is None:
-        serial_clocker = Clocker()
+    # If ROE not provided then assume simple, single-phase clocking
+    if parallel_roe is None:
+        parallel_roe = ROE()
+    if serial_roe is None:
+        serial_roe = ROE()
 
     # Don't modify the external array passed to this function
     image = deepcopy(image)
 
     if parallel_traps is not None:
 
-        image = _add_cti_to_image(
+        image = _clock_charge_in_one_dimension(
             image=image,
-            clocker=parallel_clocker,
+            roe=parallel_roe,
             traps=parallel_traps,
-            ccd_volume=parallel_ccd_volume,
+            ccd=parallel_ccd,
             express=parallel_express,
             offset=parallel_offset,
-            roi_readout=parallel_roi,
-            roi_across=serial_roi,
+            window_readout=parallel_window,
+            window_across=serial_window,
         )
 
     if serial_traps is not None:
 
         image = image.T.copy()
 
-        image = _add_cti_to_image(
+        image = _clock_charge_in_one_dimension(
             image=image,
-            clocker=serial_clocker,
+            roe=serial_roe,
             traps=serial_traps,
-            ccd_volume=serial_ccd_volume,
+            ccd=serial_ccd,
             express=serial_express,
             offset=serial_offset,
-            roi_readout=serial_roi,
-            roi_across=parallel_roi,
+            window_readout=serial_window,
+            window_across=parallel_window,
         )
 
         image = image.T
@@ -445,17 +445,17 @@ def remove_cti(
     image,
     iterations,
     parallel_express=0,
-    parallel_clocker=None,
-    parallel_ccd_volume=None,
+    parallel_roe=None,
+    parallel_ccd=None,
     parallel_traps=None,
     parallel_offset=0,
-    parallel_roi=None,
+    parallel_window=None,
     serial_express=0,
-    serial_clocker=None,
-    serial_ccd_volume=None,
+    serial_roe=None,
+    serial_ccd=None,
     serial_traps=None,
     serial_offset=0,
-    serial_roi=None,
+    serial_window=None,
     prefill_traps=True,
 ):
     """
@@ -477,13 +477,13 @@ def remove_cti(
         If True, parallel clocking is performed in charge injection line 
         mode, where each pixel is clocked and therefore trailed by traps 
         over the entire CCD (as opposed to its distance from the CCD register).
-    parallel_clocker : Clocker
+    parallel_roe : ROE
         The object describing the clocking read-out electronics for parallel 
         clocking.
-    parallel_ccd_volume : CCDVolume
+    parallel_ccd : CCD
         The object describing the CCD volume for parallel clocking. For 
         multi-phase clocking optionally use a list of different CCD volumes
-        for each phase, in the same size list as parallel_clocker.sequence.
+        for each phase, in the same size list as parallel_roe.sequence.
     parallel_traps : [Trap] or [[Trap]]
         A list of one or more trap objects for parallel clocking. To use 
         different types of traps that will require different watermark 
@@ -508,17 +508,17 @@ def remove_cti(
         image_add_cti = add_cti(
             image=image_remove_cti,
             parallel_express=parallel_express,
-            parallel_clocker=parallel_clocker,
-            parallel_ccd_volume=parallel_ccd_volume,
+            parallel_roe=parallel_roe,
+            parallel_ccd=parallel_ccd,
             parallel_traps=parallel_traps,
             parallel_offset=parallel_offset,
-            parallel_roi=parallel_roi,
+            parallel_window=parallel_window,
             serial_express=serial_express,
-            serial_clocker=serial_clocker,
-            serial_ccd_volume=serial_ccd_volume,
+            serial_roe=serial_roe,
+            serial_ccd=serial_ccd,
             serial_traps=serial_traps,
             serial_offset=serial_offset,
-            serial_roi=serial_roi,
+            serial_window=serial_window,
             prefill_traps=prefill_traps,
         )
 

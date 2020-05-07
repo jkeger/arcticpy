@@ -8,7 +8,7 @@ import numpy as np
 from copy import deepcopy
 
 
-class Clocker(object):
+class ROE(object):
     def __init__(
         self,
         sequence=[1],

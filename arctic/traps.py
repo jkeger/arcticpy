@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import integrate, optimize
 from copy import deepcopy
-from arctic.ccd_volume import CCDVolume
+from arctic.ccd import CCD
 from arctic import util
 
 
@@ -9,9 +9,9 @@ class Trap(object):
     def __init__(
         self,
         density=0.13,
-        lifetime=0.25,
+        release_timescale=0.25,
         capture_timescale=0,
-        ccd_volume=None,
+        ccd=None,
         surface=False,
     ):
         """The parameters for a single trap species.
@@ -20,8 +20,8 @@ class Trap(object):
         ----------
         density : float
             The density of the trap species in a pixel.
-        lifetime : float
-            The release lifetime of the trap, in the same units as the time 
+        release_timescale : float
+            The release timescale of the trap, in the same units as the time 
             spent in each pixel or phase (Clocker sequence).
         capture_timescale : float
             The capture timescale of the trap. Default 0 for instant capture.
@@ -32,13 +32,13 @@ class Trap(object):
             The capture and emission rates (Lindegren (1998) section 3.2).
         """
 
-        if ccd_volume is None:
-            ccd_volume = CCDVolume()
+        if ccd is None:
+            ccd = CCD()
 
         self.density = density
-        self.lifetime = lifetime
+        self.release_timescale = release_timescale
         self.capture_timescale = capture_timescale
-        self.ccd_volume = ccd_volume
+        self.ccd = ccd
         self.surface = surface
 
         # Rates
@@ -46,7 +46,7 @@ class Trap(object):
             self.capture_rate = np.inf
         else:
             self.capture_rate = 1 / self.capture_timescale
-        self.emission_rate = 1 / self.lifetime
+        self.emission_rate = 1 / self.release_timescale
 
     def cumulative_n_traps_from_n_electrons(self, n_electrons):
         """ Calculate the total number of charge traps exposed to a charge cloud
@@ -83,9 +83,9 @@ class Trap(object):
         # RJM: this is not currently used. But it could be....
         #
 
-        well_depth = self.ccd_volume.well_max_height
+        well_depth = self.ccd.full_well_depth
         if self.surface:
-            alpha = self.ccd_volume.blooming_level
+            alpha = self.ccd.blooming_level
             beta = 1
             # Let surface traps soak up everything they can, as a cheap way of
             # ensuring that (at least with instantaneous trapping), no pixel in
@@ -93,8 +93,8 @@ class Trap(object):
             # well depth.
             extra_traps = min(n_electrons - well_depth, 0)
         else:
-            alpha = self.ccd_volume.well_notch_depth
-            beta = self.ccd_volume.well_fill_beta
+            alpha = self.ccd.well_notch_depth
+            beta = self.ccd.well_fill_power
             extra_traps = 0
 
         n_electrons_available = n_electrons - alpha
@@ -120,14 +120,14 @@ class Trap(object):
         ----------
         time_elapsed : float
             The total time elapsed since the traps were filled, in the same 
-            units as the trap lifetime.
+            units as the trap timescales.
 
         Returns
         -------
         fill : float
             The fraction of filled traps.
         """
-        return np.exp(-time_elapsed / self.lifetime)
+        return np.exp(-time_elapsed / self.release_timescale)
 
     def time_elapsed_from_fill_fraction(self, fill):
         """ Calculate the total time elapsed from the fraction of filled traps.
@@ -140,9 +140,9 @@ class Trap(object):
         Returns
         -------
         time_elapsed : float
-            The time elapsed, in the same units as the trap lifetime.
+            The time elapsed, in the same units as the trap timescales.
         """
-        return -self.lifetime * np.log(fill)
+        return -self.release_timescale * np.log(fill)
 
     def electrons_released_from_electrons_and_dwell_time(self, electrons, dwell_time=1):
         """ Calculate the number of released electrons from the trap.
@@ -153,7 +153,7 @@ class Trap(object):
             The initial number of trapped electrons.
         dwell_time : float
             The time spent in this pixel or phase, in the same units as the 
-            trap lifetime.
+            trap timescales.
 
         Returns
         -------
@@ -173,15 +173,15 @@ class Trap(object):
             The time elapsed since capture.
         dwell_time : float
             The time spent in this pixel or phase, in the same units as the 
-            trap lifetime.
+            trap release_timescale.
 
         Returns
         -------
         electrons_released : float
             The number of released electrons.
         """
-        return np.exp(-time_elapsed / self.lifetime) * (
-            1 - np.exp(-dwell_time / self.lifetime)
+        return np.exp(-time_elapsed / self.release_timescale) * (
+            1 - np.exp(-dwell_time / self.release_timescale)
         )
 
     @property
@@ -197,15 +197,20 @@ class Trap(object):
 
         return self.density * (
             a
-            + d_a * (np.arctan((np.log(self.lifetime) - d_p) / d_w))
-            + (g_a * np.exp(-((np.log(self.lifetime) - g_p) ** 2.0) / (2 * g_w ** 2.0)))
+            + d_a * (np.arctan((np.log(self.release_timescale) - d_p) / d_w))
+            + (
+                g_a
+                * np.exp(
+                    -((np.log(self.release_timescale) - g_p) ** 2.0) / (2 * g_w ** 2.0)
+                )
+            )
         )
 
     def __repr__(self):
         return "\n".join(
             (
                 "Trap Density: {}".format(self.density),
-                "Trap Lifetime: {}".format(self.lifetime),
+                "Trap Lifetime: {}".format(self.release_timescale),
             )
         )
 
@@ -234,37 +239,41 @@ class Trap(object):
         ]
         poisson_trap = []
         for densities in poisson_densities:
-            for i, s in enumerate(trap):
-                poisson_trap.append(Trap(density=densities[i], lifetime=s.lifetime))
+            for i, trap_i in enumerate(trap):
+                poisson_trap.append(
+                    Trap(
+                        density=densities[i], release_timescale=trap_i.release_timescale
+                    )
+                )
 
         return poisson_trap
 
 
-class TrapOld(Trap):
+class TrapInstantCapture(Trap):
     """ For the old C++ style release-then-instant-capture algorithm. """
 
-    def __init__(self, density=0.13, lifetime=0.25, ccd_volume=None, surface=False):
+    def __init__(self, density=0.13, release_timescale=0.25, ccd=None, surface=False):
         """The parameters for a single trap species.
 
         Parameters
         ----------
         density : float
             The density of the trap species in a pixel.
-        lifetime : float
-            The release lifetime of the trap, in the same units as the time 
+        release_timescale : float
+            The release timescale of the trap, in the same units as the time 
             spent in each pixel or phase (Clocker sequence).
         """
 
-        if ccd_volume is None:
-            ccd_volume = CCDVolume()
+        if ccd is None:
+            ccd = CCD()
 
         self.density = density
-        self.lifetime = lifetime
-        self.ccd_volume = ccd_volume
+        self.release_timescale = release_timescale
+        self.ccd = ccd
         self.surface = surface
 
 
-class TrapLifetimeContinuum(TrapOld):
+class TrapLifetimeContinuum(TrapInstantCapture):
     """ For a continuum distribution of release lifetimes for the traps.
         Must be used with TrapManagerTrackTime.
     """
@@ -273,8 +282,8 @@ class TrapLifetimeContinuum(TrapOld):
         self,
         density,
         distribution_of_traps_with_lifetime,
-        middle_lifetime=None,
-        scale_lifetime=None,
+        release_timescale_mu=None,
+        release_timescale_sigma=None,
     ):
         """The parameters for a single trap species.
 
@@ -283,22 +292,22 @@ class TrapLifetimeContinuum(TrapOld):
         density : float
             The density of the trap species in a pixel.
         distribution_of_traps_with_lifetime : func
-            The distribution of traps as a function of lifetime, middle lifetime, 
+            The distribution of traps as a function of release_timescale, middle lifetime, 
             and lifetime scale, such that its integral from 0 to infinity = 1.
             e.g. a log-normal probability density function.
-        middle_lifetime : float
+        release_timescale_mu : float
             The middle (e.g. mean or median depending on the distribution) 
-            release lifetime of the traps.
-        scale_lifetime : float
+            release timescale of the traps.
+        release_timescale_sigma : float
             The scale of release lifetimes of the traps.
         """
         super(TrapLifetimeContinuum, self).__init__(
-            density=density, lifetime=middle_lifetime
+            density=density, release_timescale=release_timescale_mu
         )
 
         self.distribution_of_traps_with_lifetime = distribution_of_traps_with_lifetime
-        self.middle_lifetime = middle_lifetime
-        self.scale_lifetime = scale_lifetime
+        self.release_timescale_mu = release_timescale_mu
+        self.release_timescale_sigma = release_timescale_sigma
 
     def fill_fraction_from_time_elapsed(self, time_elapsed):
         """ Calculate the fraction of filled traps after a certain time_elapsed.
@@ -307,7 +316,7 @@ class TrapLifetimeContinuum(TrapOld):
         ----------
         time_elapsed : float
             The total time elapsed since the traps were filled, in the same 
-            units as the trap lifetime.
+            units as the trap timescales.
 
         Returns
         -------
@@ -315,16 +324,20 @@ class TrapLifetimeContinuum(TrapOld):
             The fraction of filled traps.
         """
 
-        def integrand(lifetime, time_elapsed, middle, scale):
+        def integrand(release_timescale, time_elapsed, middle, scale):
             return self.distribution_of_traps_with_lifetime(
-                lifetime, middle, scale
-            ) * np.exp(-time_elapsed / lifetime)
+                release_timescale, middle, scale
+            ) * np.exp(-time_elapsed / release_timescale)
 
         return integrate.quad(
             integrand,
             0,
             np.inf,
-            args=(time_elapsed, self.middle_lifetime, self.scale_lifetime),
+            args=(
+                time_elapsed,
+                self.release_timescale_mu,
+                self.release_timescale_sigma,
+            ),
         )[0]
 
     def time_elapsed_from_fill_fraction(self, fill):
@@ -338,7 +351,7 @@ class TrapLifetimeContinuum(TrapOld):
         Returns
         -------
         time_elapsed : float
-            The time elapsed, in the same units as the trap lifetime.
+            The time elapsed, in the same units as the trap timescales.
         """
         # Crudely iterate to find the time that gives the required fill fraction
         def find_time(time_elapsed):
@@ -357,7 +370,7 @@ class TrapLifetimeContinuum(TrapOld):
             The time elapsed since capture.
         dwell_time : float
             The time spent in this pixel or phase, in the same units as the 
-            trap lifetime.
+            trap timescales.
 
         Returns
         -------
@@ -365,18 +378,25 @@ class TrapLifetimeContinuum(TrapOld):
             The number of released electrons.
         """
 
-        def integrand(lifetime, time_elapsed, dwell_time, middle, scale):
+        def integrand(release_timescale, time_elapsed, dwell_time, middle, scale):
             return (
-                self.distribution_of_traps_with_lifetime(lifetime, middle, scale)
-                * np.exp(-time_elapsed / lifetime)
-                * (1 - np.exp(-dwell_time / lifetime))
+                self.distribution_of_traps_with_lifetime(
+                    release_timescale, middle, scale
+                )
+                * np.exp(-time_elapsed / release_timescale)
+                * (1 - np.exp(-dwell_time / release_timescale))
             )
 
         return integrate.quad(
             integrand,
             0,
             np.inf,
-            args=(time_elapsed, dwell_time, self.middle_lifetime, self.scale_lifetime),
+            args=(
+                time_elapsed,
+                dwell_time,
+                self.release_timescale_mu,
+                self.release_timescale_sigma,
+            ),
         )[0]
 
 
@@ -406,7 +426,7 @@ class TrapLogNormalLifetimeContinuum(TrapLifetimeContinuum):
         )
 
     def __init__(
-        self, density, middle_lifetime=None, scale_lifetime=None,
+        self, density, release_timescale_mu=None, release_timescale_sigma=None,
     ):
         """The parameters for a single trap species.
 
@@ -414,15 +434,15 @@ class TrapLogNormalLifetimeContinuum(TrapLifetimeContinuum):
         ---------
         density : float
             The density of the trap species in a pixel.
-        middle_lifetime : float
-            The median release lifetime of the traps.
-        scale_lifetime : float
+        release_timescale_mu : float
+            The median release timescale of the traps.
+        release_timescale_sigma : float
             The scale of release lifetimes of the traps.
         """
 
         super(TrapLogNormalLifetimeContinuum, self).__init__(
             density=density,
             distribution_of_traps_with_lifetime=self.log_normal_distribution,
-            middle_lifetime=middle_lifetime,
-            scale_lifetime=scale_lifetime,
+            release_timescale_mu=release_timescale_mu,
+            release_timescale_sigma=release_timescale_sigma,
         )

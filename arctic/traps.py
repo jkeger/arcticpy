@@ -263,14 +263,13 @@ class TrapInstantCapture(Trap):
             The release timescale of the trap, in the same units as the time 
             spent in each pixel or phase (Clocker sequence).
         """
-
-        if ccd is None:
-            ccd = CCD()
-
-        self.density = density
-        self.release_timescale = release_timescale
-        self.ccd = ccd
-        self.surface = surface
+        super(TrapInstantCapture, self).__init__(
+            density=density,
+            release_timescale=release_timescale,
+            capture_timescale=0,
+            ccd=None,
+            surface=False,
+        )
 
 
 class TrapLifetimeContinuum(TrapInstantCapture):

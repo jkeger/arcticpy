@@ -59,11 +59,13 @@ class TrapManager(object):
         Returns
         -------
         watermarks : np.ndarray
-            Array of watermark heights and fill fractions to describe the trap states. Lists each (active) watermark
-            height_e fraction and the corresponding fill fractions of each traps. Inactive elements are set to 0.
+            Array of watermark fractional volumes and fill fractions to describe 
+            the trap states. Lists each (active) watermark fractional volume and 
+            the corresponding fill fractions of each traps. Inactive elements 
+            are set to 0.
 
-            [[height_e, fill, fill, ...],
-             [height_e, fill, fill, ...],
+            [[volume, fill, fill, ...],
+             [volume, fill, fill, ...],
              ...                       ]
         """
         return np.zeros((rows * 2, 1 + total_traps), dtype=float)
@@ -182,7 +184,7 @@ class TrapManager(object):
         Parameters
         ----------
         cloud_fractional_volume : float
-            The fractional height of the electron cloud in the pixel.
+            The fractional volume of the electron cloud in the pixel.
         watermarks : np.ndarray
             The initial watermarks. See initial_watermarks_from_rows_and_total_traps().
         max_watermark_index : int
@@ -202,7 +204,7 @@ class TrapManager(object):
         else:
             return np.argmax(cloud_fractional_volume < np.cumsum(watermarks[:, 0]))
 
-    def update_watermark_heights_for_cloud_below_highest(
+    def update_watermark_volumes_for_cloud_below_highest(
         self, watermarks, cloud_fractional_volume, watermark_index_above_cloud
     ):
         """ Update the trap watermarks for a cloud below the highest watermark.
@@ -212,7 +214,7 @@ class TrapManager(object):
         watermarks : np.ndarray
             The initial watermarks. See initial_watermarks_from_rows_and_total_traps().
         cloud_fractional_volume : float
-            The fractional height of the electron cloud in the pixel.
+            The fractional volume of the electron cloud in the pixel.
         watermark_index_above_cloud : int
             The index of the first watermark above the cloud.
             
@@ -221,9 +223,9 @@ class TrapManager(object):
         watermarks : np.ndarray
             The updated watermarks. See initial_watermarks_from_rows_and_total_traps().
         """
-        # The height and cumulative height of the watermark around the cloud height
-        watermark_height = watermarks[watermark_index_above_cloud, 0]
-        cumulative_watermark_height = np.sum(
+        # The volume and cumulative volume of the watermark around the cloud volume
+        watermark_fractional_volume = watermarks[watermark_index_above_cloud, 0]
+        cumulative_watermark_fractional_volume = np.sum(
             watermarks[: watermark_index_above_cloud + 1, 0]
         )
 
@@ -238,13 +240,13 @@ class TrapManager(object):
                 1 : watermark_index_above_cloud + 2
             ]
 
-        # Update the new split watermarks' heights
-        old_height = watermark_height
+        # Update the new split watermarks' volumes
+        old_fractional_volume = watermark_fractional_volume
         watermarks[watermark_index_above_cloud, 0] = cloud_fractional_volume - (
-            cumulative_watermark_height - watermark_height
+            cumulative_watermark_fractional_volume - watermark_fractional_volume
         )
         watermarks[watermark_index_above_cloud + 1, 0] = (
-            old_height - watermarks[watermark_index_above_cloud, 0]
+            old_fractional_volume - watermarks[watermark_index_above_cloud, 0]
         )
 
         return watermarks
@@ -254,7 +256,7 @@ class TrapManager(object):
     ):
         """ 
         Tweak trap watermarks for capturing electrons when not enough are 
-        available to fill every trap below the cloud height (rare!).
+        available to fill every trap below the cloud fractional volume (rare!).
         
         Parameters
         ----------
@@ -262,17 +264,17 @@ class TrapManager(object):
             The current watermarks after attempted capture. See 
             initial_watermarks_from_rows_and_total_traps().
         watermarks_initial : np.ndarray
-            The initial watermarks before capture, but with updated heights to 
-            match the current watermarks.
+            The initial watermarks before capture, but with updated fractional 
+            volumes to match the current watermarks.
         enough : float
-            The ratio of available electrons to traps up to this height.
+            The ratio of available electrons to traps up to this fractional volume.
 
         Returns
         -------
         watermarks : np.ndarray
             The updated watermarks. See initial_watermarks_from_rows_and_total_traps().
         """
-        # Matching watermark heights
+        # Matching watermark fractional volumes
         assert (watermarks_initial[:, 0] == watermarks[:, 0]).all()
 
         # Select watermark fill fractions that increased
@@ -306,8 +308,8 @@ class TrapManager(object):
         if watermark_index_not_filled <= 1:
             return watermarks
 
-        # Total height of filled watermarks
-        height_filled = np.sum(watermarks[:watermark_index_not_filled, 0])
+        # Total fractional volume of filled watermarks
+        fractional_volume_filled = np.sum(watermarks[:watermark_index_not_filled, 0])
 
         # Remove the no-longer-needed overwritten watermarks
         watermarks[:watermark_index_not_filled, :] = 0
@@ -316,7 +318,7 @@ class TrapManager(object):
         watermarks = np.roll(watermarks, 1 - watermark_index_not_filled, axis=0)
 
         # Edit the new first watermark
-        watermarks[0, 0] = height_filled
+        watermarks[0, 0] = fractional_volume_filled
         watermarks[0, 1:] = 1
 
         return watermarks
@@ -375,7 +377,7 @@ class TrapManager(object):
         # Find the highest active watermark
         max_watermark_index = np.argmax(self.watermarks[:, 0] == 0) - 1
 
-        # The fractional height the electron cloud reaches in the pixel well
+        # The fractional volume the electron cloud reaches in the pixel well
         cloud_fractional_volume = ccd.cloud_fractional_volume_from_electrons(
             electrons=n_free_electrons
         )
@@ -389,7 +391,7 @@ class TrapManager(object):
 
         # First capture: make the new watermark then can return immediately
         if max_watermark_index == -1 and n_free_electrons > 0:
-            # Update the watermark height, duplicated for the initial watermarks
+            # Update the watermark volume, duplicated for the initial watermarks
             self.watermarks[0, 0] = cloud_fractional_volume
             watermarks_initial[0, 0] = self.watermarks[0, 0]
 
@@ -419,23 +421,24 @@ class TrapManager(object):
 
             return -n_trapped_electrons_final
 
-        # Cloud height below existing watermarks: create a new watermark at the
-        #   cloud height then release electrons from watermarks above the cloud
+        # Cloud fractional volumebelow existing watermarks: create a new
+        #   watermark at the cloud fractional volume then release electrons from
+        #   watermarks above the cloud
         elif (
             watermark_index_above_cloud <= max_watermark_index
             or max_watermark_index == -1
         ):
 
-            # Create the new watermark at the cloud height
+            # Create the new watermark at the cloud fractional volume
             if cloud_fractional_volume > 0:
 
-                # Update the watermark heights, duplicated for the initial watermarks
-                self.watermarks = self.update_watermark_heights_for_cloud_below_highest(
+                # Update the watermark volumes, duplicated for the initial watermarks
+                self.watermarks = self.update_watermark_volumes_for_cloud_below_highest(
                     watermarks=self.watermarks,
                     cloud_fractional_volume=cloud_fractional_volume,
                     watermark_index_above_cloud=watermark_index_above_cloud,
                 )
-                watermarks_initial = self.update_watermark_heights_for_cloud_below_highest(
+                watermarks_initial = self.update_watermark_volumes_for_cloud_below_highest(
                     watermarks=watermarks_initial,
                     cloud_fractional_volume=cloud_fractional_volume,
                     watermark_index_above_cloud=watermark_index_above_cloud,
@@ -461,7 +464,7 @@ class TrapManager(object):
             )
             n_free_electrons += n_trapped_electrons_initial - n_trapped_electrons_tmp
 
-            # Re-calculate the height of the electron cloud
+            # Re-calculate the fractional volume of the electron cloud
             cloud_fractional_volume = ccd.cloud_fractional_volume_from_electrons(
                 electrons=n_free_electrons
             )
@@ -471,14 +474,14 @@ class TrapManager(object):
                 max_watermark_index=max_watermark_index,
             )
 
-            # Update the watermark heights, duplicated for the initial watermarks
+            # Update the watermark volumes, duplicated for the initial watermarks
             if cloud_fractional_volume > 0:
-                self.watermarks = self.update_watermark_heights_for_cloud_below_highest(
+                self.watermarks = self.update_watermark_volumes_for_cloud_below_highest(
                     watermarks=self.watermarks,
                     cloud_fractional_volume=cloud_fractional_volume,
                     watermark_index_above_cloud=watermark_index_above_cloud,
                 )
-                watermarks_initial = self.update_watermark_heights_for_cloud_below_highest(
+                watermarks_initial = self.update_watermark_volumes_for_cloud_below_highest(
                     watermarks=watermarks_initial,
                     cloud_fractional_volume=cloud_fractional_volume,
                     watermark_index_above_cloud=watermark_index_above_cloud,
@@ -487,9 +490,9 @@ class TrapManager(object):
                 # Increment the index now that an extra watermark has been set
                 max_watermark_index += 1
 
-        # Cloud height above existing watermarks: initialise the new watermark
+        # Cloud fractional volume above existing watermarks: initialise the new watermark
         else:
-            # Update the watermark height, duplicated for the initial watermarks
+            # Update the watermark volume, duplicated for the initial watermarks
             self.watermarks[
                 watermark_index_above_cloud, 0
             ] = cloud_fractional_volume - np.sum(self.watermarks[:, 0])
@@ -557,11 +560,13 @@ class TrapManagerInstantCapture(TrapManager):
         Returns
         -------
         watermarks : np.ndarray
-            Array of watermark heights and fill fractions to describe the trap states. Lists each (active) watermark
-            height_e fraction and the corresponding fill fractions of each traps. Inactive elements are set to 0.
+            Array of watermark fractional volumes and fill fractions to describe 
+            the trap states. Lists each (active) watermark fractional volume and 
+            the corresponding fill fractions of each traps. Inactive elements 
+            are set to 0.
 
-            [[height_e, fill, fill, ...],
-             [height_e, fill, fill, ...],
+            [[volume, fill, fill, ...],
+             [volume, fill, fill, ...],
              ...                       ]
         """
         return np.zeros((rows, 1 + total_traps), dtype=float)
@@ -665,7 +670,7 @@ class TrapManagerInstantCapture(TrapManager):
         # Find the highest active watermark
         max_watermark_index = np.argmax(self.watermarks[:, 0] == 0) - 1
 
-        # The fractional height the electron cloud reaches in the pixel well
+        # The fractional volume the electron cloud reaches in the pixel well
         cloud_fractional_volume = ccd.cloud_fractional_volume_from_electrons(
             electrons=n_free_electrons
         )
@@ -679,7 +684,7 @@ class TrapManagerInstantCapture(TrapManager):
 
         # First capture: make the new watermark then can return immediately
         if max_watermark_index == -1 and n_free_electrons > 0:
-            # Update the watermark height, duplicated for the initial watermarks
+            # Update the watermark volume, duplicated for the initial watermarks
             self.watermarks[0, 0] = cloud_fractional_volume
             watermarks_initial[0, 0] = self.watermarks[0, 0]
 
@@ -709,23 +714,23 @@ class TrapManagerInstantCapture(TrapManager):
 
             return n_trapped_electrons_final
 
-        # Cloud height below existing watermarks: create a new watermark at the
-        #   cloud height
+        # Cloud fractional volume below existing watermarks: create a new
+        #   watermark at the cloud fractional volume
         elif (
             watermark_index_above_cloud <= max_watermark_index
             or max_watermark_index == -1
         ):
 
-            # Create the new watermark at the cloud height
+            # Create the new watermark at the cloud fractional volume
             if cloud_fractional_volume > 0:
 
-                # Update the watermark heights, duplicated for the initial watermarks
-                self.watermarks = self.update_watermark_heights_for_cloud_below_highest(
+                # Update the watermark volumes, duplicated for the initial watermarks
+                self.watermarks = self.update_watermark_volumes_for_cloud_below_highest(
                     watermarks=self.watermarks,
                     cloud_fractional_volume=cloud_fractional_volume,
                     watermark_index_above_cloud=watermark_index_above_cloud,
                 )
-                watermarks_initial = self.update_watermark_heights_for_cloud_below_highest(
+                watermarks_initial = self.update_watermark_volumes_for_cloud_below_highest(
                     watermarks=watermarks_initial,
                     cloud_fractional_volume=cloud_fractional_volume,
                     watermark_index_above_cloud=watermark_index_above_cloud,
@@ -734,9 +739,9 @@ class TrapManagerInstantCapture(TrapManager):
                 # Increment the index now that an extra watermark has been set
                 max_watermark_index += 1
 
-        # Cloud height above existing watermarks: initialise the new watermark
+        # Cloud fractional volume above existing watermarks: initialise the new watermark
         else:
-            # Update the watermark height, duplicated for the initial watermarks
+            # Update the watermark volume, duplicated for the initial watermarks
             self.watermarks[
                 watermark_index_above_cloud, 0
             ] = cloud_fractional_volume - np.sum(self.watermarks[:, 0])
@@ -865,7 +870,7 @@ class TrapManagerInstantCapture(TrapManager):
         # Find the highest active watermark
         max_watermark_index = np.argmax(self.watermarks[:, 0] == 0) - 1
 
-        # The fractional height the electron cloud reaches in the pixel well
+        # The fractional volume the electron cloud reaches in the pixel well
         cloud_fractional_volume = ccd.cloud_fractional_volume_from_electrons(
             electrons=n_free_electrons
         )
@@ -879,7 +884,7 @@ class TrapManagerInstantCapture(TrapManager):
 
         # First capture: make the new watermark then can return immediately
         if max_watermark_index == -1 and n_free_electrons > 0:
-            # Update the watermark height, duplicated for the initial watermarks
+            # Update the watermark volume, duplicated for the initial watermarks
             self.watermarks[0, 0] = cloud_fractional_volume
             watermarks_initial[0, 0] = self.watermarks[0, 0]
 
@@ -909,23 +914,23 @@ class TrapManagerInstantCapture(TrapManager):
 
             return n_electrons_released - n_trapped_electrons_final
 
-        # Cloud height below existing watermarks: create a new watermark at the
-        #   cloud height
+        # Cloud fractional volume below existing watermarks: create a new
+        #   watermark at the cloud fractional volume
         elif (
             watermark_index_above_cloud <= max_watermark_index
             or max_watermark_index == -1
         ):
 
-            # Create the new watermark at the cloud height
+            # Create the new watermark at the cloud fractional volume
             if cloud_fractional_volume > 0:
 
-                # Update the watermark heights, duplicated for the initial watermarks
-                self.watermarks = self.update_watermark_heights_for_cloud_below_highest(
+                # Update the watermark volumes, duplicated for the initial watermarks
+                self.watermarks = self.update_watermark_volumes_for_cloud_below_highest(
                     watermarks=self.watermarks,
                     cloud_fractional_volume=cloud_fractional_volume,
                     watermark_index_above_cloud=watermark_index_above_cloud,
                 )
-                watermarks_initial = self.update_watermark_heights_for_cloud_below_highest(
+                watermarks_initial = self.update_watermark_volumes_for_cloud_below_highest(
                     watermarks=watermarks_initial,
                     cloud_fractional_volume=cloud_fractional_volume,
                     watermark_index_above_cloud=watermark_index_above_cloud,
@@ -934,9 +939,9 @@ class TrapManagerInstantCapture(TrapManager):
                 # Increment the index now that an extra watermark has been set
                 max_watermark_index += 1
 
-        # Cloud height above existing watermarks: initialise the new watermark
+        # Cloud fractional volume above existing watermarks: initialise the new watermark
         else:
-            # Update the watermark height, duplicated for the initial watermarks
+            # Update the watermark volume, duplicated for the initial watermarks
             self.watermarks[
                 watermark_index_above_cloud, 0
             ] = cloud_fractional_volume - np.sum(self.watermarks[:, 0])
@@ -1006,13 +1011,13 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
         Returns
         -------
         watermarks : np.ndarray
-            Array of watermark heights and times to describe the trap states. 
-            Lists each (active) watermark height_e fraction and the 
+            Array of watermark fractional volumes and times to describe the trap states. 
+            Lists each (active) watermark fractional volume and and the 
             corresponding total time elapsed since the traps were filled for 
             each trap species. Inactive elements are set to 0.
 
-            [[height_e, time_elapsed, time_elapsed, ...],
-             [height_e, time_elapsed, time_elapsed, ...],
+            [[volume, time_elapsed, time_elapsed, ...],
+             [volume, time_elapsed, time_elapsed, ...],
              ...                        ]
         """
         return np.zeros((rows, 1 + total_traps), dtype=float)
@@ -1067,7 +1072,7 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
                     n_electrons_released_from_trap * trap.density * fractional_width
                 )
 
-            # Multiply the summed fill fractions by the height
+            # Multiply the summed fill fractions by the fractional volume
             n_electrons_released += (
                 n_electrons_released_watermark * self.watermarks[watermark_index, 0]
             )
@@ -1083,7 +1088,7 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
         Parameters
         -----------
         cloud_fractional_volume : float
-            The fractional height of the electron cloud in the pixel.
+            The fractional volume of the electron cloud in the pixel.
         watermarks : np.ndarray
             The initial watermarks. See initial_watermarks_from_rows_and_total_traps().
         traps : [TrapSpecies]
@@ -1105,14 +1110,14 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
         # Find the highest active watermark
         max_watermark_index = np.argmax(watermarks[:, 0] == 0) - 1
 
-        # Initialise cumulative watermark height
-        cumulative_watermark_height = 0
+        # Initialise cumulative watermark fractional volume
+        cumulative_watermark_fractional_volume = 0
 
         # Capture electrons above each existing watermark level below the highest
         for watermark_index in range(max_watermark_index + 1):
-            # Update cumulative watermark height
-            watermark_height = watermarks[watermark_index, 0]
-            cumulative_watermark_height += watermark_height
+            # Update cumulative watermark fractional volume
+            watermark_fractional_volume = watermarks[watermark_index, 0]
+            cumulative_watermark_fractional_volume += watermark_fractional_volume
 
             # Fill fractions from elapsed times
             fill_fractions = np.array(
@@ -1125,8 +1130,8 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
             )
 
             # Capture electrons all the way to this watermark (for all traps)
-            if cumulative_watermark_height < cloud_fractional_volume:
-                n_electrons_captured += watermark_height * np.sum(
+            if cumulative_watermark_fractional_volume < cloud_fractional_volume:
+                n_electrons_captured += watermark_fractional_volume * np.sum(
                     (1 - fill_fractions) * densities
                 )
 
@@ -1134,7 +1139,10 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
             else:
                 n_electrons_captured += (
                     cloud_fractional_volume
-                    - (cumulative_watermark_height - watermark_height)
+                    - (
+                        cumulative_watermark_fractional_volume
+                        - watermark_fractional_volume
+                    )
                 ) * np.sum((1 - fill_fractions) * densities)
 
                 # No point in checking even higher watermarks
@@ -1143,7 +1151,7 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
         # Capture any electrons above the highest existing watermark
         if watermarks[max_watermark_index, 0] < cloud_fractional_volume:
             n_electrons_captured += (
-                cloud_fractional_volume - cumulative_watermark_height
+                cloud_fractional_volume - cumulative_watermark_fractional_volume
             ) * np.sum(densities)
 
         return n_electrons_captured
@@ -1154,7 +1162,7 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
         Parameters
         ----------
         cloud_fractional_volume : float
-            The fractional height of the electron cloud in the pixel.
+            The fractional volume of the electron cloud in the pixel.
 
         watermarks : np.ndarray
             The initial watermarks. See initial_watermarks_from_rows_and_total_traps().
@@ -1170,13 +1178,13 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
         if max_watermark_index == -1:
             max_watermark_index = 0
 
-        # Cumulative watermark heights
-        cumulative_watermark_height = np.cumsum(
+        # Cumulative watermark fractional volumes
+        cumulative_watermark_fractional_volume = np.cumsum(
             watermarks[: max_watermark_index + 1, 0]
         )
 
         # If all watermarks will be overwritten
-        if cumulative_watermark_height[-1] < cloud_fractional_volume:
+        if cumulative_watermark_fractional_volume[-1] < cloud_fractional_volume:
             # Overwrite the first watermark
             watermarks[0, 0] = cloud_fractional_volume
             watermarks[0, 1:] = 0
@@ -1188,7 +1196,7 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
 
         # Find the first watermark above the cloud, which won't be fully overwritten
         watermark_index_above_cloud = np.argmax(
-            cloud_fractional_volume < cumulative_watermark_height
+            cloud_fractional_volume < cumulative_watermark_fractional_volume
         )
 
         # If some will be overwritten
@@ -1196,7 +1204,9 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
             # Edit the partially overwritten watermark
             watermarks[watermark_index_above_cloud, 0] -= (
                 cloud_fractional_volume
-                - cumulative_watermark_height[watermark_index_above_cloud - 1]
+                - cumulative_watermark_fractional_volume[
+                    watermark_index_above_cloud - 1
+                ]
             )
 
             # Remove the no-longer-needed overwritten watermarks
@@ -1227,8 +1237,8 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
         self, cloud_fractional_volume, watermarks, enough
     ):
         """
-        Update the trap watermarks for capturing electrons when not enough are available to fill every trap below the
-        cloud height (rare!).
+        Update the trap watermarks for capturing electrons when not enough are 
+        available to fill every trap below the cloud fractional volume (rare!).
 
         Like update_trap_wmk_capture(), but instead of setting filled trap fractions to 1, increase them by the enough
         fraction towards 1.
@@ -1236,11 +1246,11 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
         Parameters
         ----------
         cloud_fractional_volume : float
-            The fractional height of the electron cloud in the pixel.
+            The fractional volume of the electron cloud in the pixel.
         watermarks : np.ndarray
             The initial watermarks. See initial_watermarks_from_rows_and_total_traps().
         enough : float
-            The ratio of available electrons to traps up to this height.
+            The ratio of available electrons to traps up to this fractional volume.
 
         Returns
         -------
@@ -1263,18 +1273,18 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
 
             return watermarks
 
-        # Cumulative watermark heights
-        cumulative_watermark_height = np.cumsum(
+        # Cumulative watermark fractional volumes
+        cumulative_watermark_fractional_volume = np.cumsum(
             watermarks[: max_watermark_index + 1, 0]
         )
 
         # Find the first watermark above the cloud, which won't be fully overwritten
         watermark_index_above_cloud = np.argmax(
-            cloud_fractional_volume < cumulative_watermark_height
+            cloud_fractional_volume < cumulative_watermark_fractional_volume
         )
 
         # If all watermarks will be overwritten
-        if cumulative_watermark_height[-1] < cloud_fractional_volume:
+        if cumulative_watermark_fractional_volume[-1] < cloud_fractional_volume:
             # Do the same as the only-some case (unlike update_trap_wmk_capture())
             watermark_index_above_cloud = max_watermark_index
 
@@ -1318,16 +1328,16 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
                 ]
 
             # If all watermarks will be overwritten
-            if cumulative_watermark_height[-1] < cloud_fractional_volume:
+            if cumulative_watermark_fractional_volume[-1] < cloud_fractional_volume:
                 # Edit the new highest watermark
                 watermarks[watermark_index_above_cloud + 1, 0] = (
-                    cloud_fractional_volume - cumulative_watermark_height[-1]
+                    cloud_fractional_volume - cumulative_watermark_fractional_volume[-1]
                 )
                 watermarks[watermark_index_above_cloud + 1, 1:] = [
                     trap.time_elapsed_from_fill_fraction(enough) for trap in self.traps
                 ]
             else:
-                # Edit the new watermarks' heights
+                # Edit the new watermarks' fractional volumes
                 watermarks[
                     watermark_index_above_cloud : watermark_index_above_cloud + 2, 0,
                 ] *= (1 - enough)

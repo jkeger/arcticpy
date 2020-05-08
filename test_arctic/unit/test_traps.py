@@ -1697,7 +1697,7 @@ class TestElectronsReleasedAndCapturedIncludingSlowTraps:
         )
         assert net_electrons_fast == net_electrons_instant
 
-        # Slow traps capture fewer electrons but same watermark heights
+        # Slow traps capture fewer electrons but same watermark volumes
         assert self.trap_manager_slow.watermarks[:, 0] == pytest.approx(
             self.trap_manager_instant.watermarks[:, 0]
         )
@@ -1742,13 +1742,13 @@ class TestElectronsReleasedAndCapturedIncludingSlowTraps:
         # Slow traps capture less than fast
         assert net_electrons_fast < net_electrons_slow
 
-        # Lowest watermark heights add up to previous height, fill fractions
+        # Lowest watermark volumes add up to previous volume, fill fractions
         #   increased below the cloud, decreased above it
         assert self.trap_manager_slow.watermarks[:3, 0].sum() == watermarks[0, 0]
         assert (self.trap_manager_slow.watermarks[:1, 1] > watermarks[0, 1]).all()
         assert self.trap_manager_slow.watermarks[2, 1] < watermarks[0, 1]
 
-        # Upper watermark heights unchanged, fill fractions decreased
+        # Upper watermark volumes unchanged, fill fractions decreased
         assert self.trap_manager_slow.watermarks[3:, 0] == pytest.approx(
             watermarks[1:-2, 0]
         )
@@ -1792,17 +1792,17 @@ class TestElectronsReleasedAndCapturedIncludingSlowTraps:
         # Slow traps capture less than fast
         assert net_electrons_fast < net_electrons_slow
 
-        # Lowest watermark height unchanged, fill fractions increased
+        # Lowest watermark volume unchanged, fill fractions increased
         assert self.trap_manager_slow.watermarks[0, 0] == watermarks[0, 0]
         assert self.trap_manager_slow.watermarks[0, 1] > watermarks[0, 1]
 
-        # Middle watermark heights add up to previous height, fill fractions
+        # Middle watermark volumes add up to previous volume, fill fractions
         #   increased below the cloud, decreased above it
         assert self.trap_manager_slow.watermarks[1:4, 0].sum() == watermarks[1, 0]
         assert (self.trap_manager_slow.watermarks[1:3, 1] > watermarks[1, 1]).all()
         assert self.trap_manager_slow.watermarks[3, 1] < watermarks[1, 1]
 
-        # Upper watermark heights unchanged, fill fractions decreased
+        # Upper watermark volumes unchanged, fill fractions decreased
         assert self.trap_manager_slow.watermarks[4:, 0] == pytest.approx(
             watermarks[2:-2, 0]
         )
@@ -1847,11 +1847,11 @@ class TestElectronsReleasedAndCapturedIncludingSlowTraps:
         # Slow traps capture less than fast
         assert net_electrons_fast < net_electrons_slow
 
-        # Lower watermark heights unchanged, fill fractions increased
+        # Lower watermark volumes unchanged, fill fractions increased
         assert (self.trap_manager_slow.watermarks[:3, 0] == watermarks[:3, 0]).all()
         assert (self.trap_manager_slow.watermarks[:3, 1] > watermarks[:3, 1]).all()
 
-        # New upper watermark height added, fill fraction increased
+        # New upper watermark volume added, fill fraction increased
         assert self.trap_manager_slow.watermarks[3, 0] > watermarks[3, 0]
         assert self.trap_manager_slow.watermarks[3, 1] > watermarks[3, 1]
 
@@ -1894,13 +1894,13 @@ class TestElectronsReleasedAndCapturedIncludingSlowTraps:
         # Slow traps capture less than fast
         assert net_electrons_fast < net_electrons_slow
 
-        # Lowest watermark heights add up to previous height, fill fractions
+        # Lowest watermark volumes add up to previous volume, fill fractions
         #   increased in the new lowest level, decreased above it
         assert self.trap_manager_slow.watermarks[:2, 0].sum() == watermarks[0, 0]
         assert self.trap_manager_slow.watermarks[0, 1] > watermarks[0, 1]
         assert self.trap_manager_slow.watermarks[1, 1] < watermarks[0, 1]
 
-        # Upper watermark heights unchanged, fill fractions decreased
+        # Upper watermark volumes unchanged, fill fractions decreased
         assert self.trap_manager_slow.watermarks[2:, 0] == pytest.approx(
             watermarks[1:-1, 0]
         )
@@ -1913,7 +1913,7 @@ class TestElectronsReleasedAndCapturedIncludingSlowTraps:
 
     def test__updated_watermarks_from_capture_not_enough(self):
 
-        # Initial watermarks with updated heights to match current watermarks
+        # Initial watermarks with updated volumes to match current watermarks
         watermarks_initial = np.array(
             [[0.5, 0.8], [0.1, 0.4], [0.1, 0.4], [0.1, 0.2], [0, 0], [0, 0]]
         )

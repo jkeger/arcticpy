@@ -124,17 +124,17 @@ class Trap(object):
 
         Returns
         -------
-        fill : float
+        fill_fraction : float
             The fraction of filled traps.
         """
         return np.exp(-time_elapsed / self.release_timescale)
 
-    def time_elapsed_from_fill_fraction(self, fill):
+    def time_elapsed_from_fill_fraction(self, fill_fraction):
         """ Calculate the total time elapsed from the fraction of filled traps.
 
         Parameters
         ----------
-        fill : float
+        fill_fraction : float
             The fraction of filled traps.
 
         Returns
@@ -142,7 +142,7 @@ class Trap(object):
         time_elapsed : float
             The time elapsed, in the same units as the trap timescales.
         """
-        return -self.release_timescale * np.log(fill)
+        return -self.release_timescale * np.log(fill_fraction)
 
     def electrons_released_from_electrons_and_dwell_time(self, electrons, dwell_time=1):
         """ Calculate the number of released electrons from the trap.
@@ -291,14 +291,14 @@ class TrapLifetimeContinuum(TrapInstantCapture):
         density : float
             The density of the trap species in a pixel.
         distribution_of_traps_with_lifetime : func
-            The distribution of traps as a function of release_timescale, middle lifetime, 
-            and lifetime scale, such that its integral from 0 to infinity = 1.
+            The distribution of traps as a function of release_timescale, mu lifetime, 
+            and lifetime sigma, such that its integral from 0 to infinity = 1.
             e.g. a log-normal probability density function.
         release_timescale_mu : float
-            The middle (e.g. mean or median depending on the distribution) 
+            The mu (e.g. mean or median depending on the distribution) 
             release timescale of the traps.
         release_timescale_sigma : float
-            The scale of release lifetimes of the traps.
+            The sigma of release lifetimes of the traps.
         """
         super(TrapLifetimeContinuum, self).__init__(
             density=density, release_timescale=release_timescale_mu
@@ -319,14 +319,55 @@ class TrapLifetimeContinuum(TrapInstantCapture):
 
         Returns
         -------
-        fill : float
+        fill_fraction : float
             The fraction of filled traps.
         """
 
-        def integrand(release_timescale, time_elapsed, middle, scale):
+        def integrand(release_timescale, time_elapsed, mu, sigma):
             return self.distribution_of_traps_with_lifetime(
-                release_timescale, middle, scale
+                release_timescale, mu, sigma
             ) * np.exp(-time_elapsed / release_timescale)
+
+        ###debug
+        if not True:
+            break_1 = self.release_timescale_mu - self.release_timescale_sigma
+            break_2 = self.release_timescale_mu + self.release_timescale_sigma
+
+            intg_1 = integrate.quad(
+                integrand,
+                0,
+                break_1,
+                args=(
+                    time_elapsed,
+                    self.release_timescale_mu,
+                    self.release_timescale_sigma,
+                ),
+            )[0]
+            intg_2 = integrate.quad(
+                integrand,
+                break_1,
+                break_2,
+                args=(
+                    time_elapsed,
+                    self.release_timescale_mu,
+                    self.release_timescale_sigma,
+                ),
+            )[0]
+            intg_3 = integrate.quad(
+                integrand,
+                break_2,
+                np.inf,
+                args=(
+                    time_elapsed,
+                    self.release_timescale_mu,
+                    self.release_timescale_sigma,
+                ),
+            )[0]
+
+            print(intg_1, intg_2, intg_3)
+            print(intg_1 + intg_2 + intg_3)
+
+            return intg_1 + intg_2 + intg_3
 
         return integrate.quad(
             integrand,
@@ -339,12 +380,12 @@ class TrapLifetimeContinuum(TrapInstantCapture):
             ),
         )[0]
 
-    def time_elapsed_from_fill_fraction(self, fill):
+    def time_elapsed_from_fill_fraction(self, fill_fraction):
         """ Calculate the total time elapsed from the fraction of filled traps.
     
         Parameters
         ----------
-        fill : float
+        fill_fraction : float
             The fraction of filled traps.
 
         Returns
@@ -354,7 +395,7 @@ class TrapLifetimeContinuum(TrapInstantCapture):
         """
         # Crudely iterate to find the time that gives the required fill fraction
         def find_time(time_elapsed):
-            return self.fill_fraction_from_time_elapsed(time_elapsed) - fill
+            return self.fill_fraction_from_time_elapsed(time_elapsed) - fill_fraction
 
         return optimize.fsolve(find_time, 1)[0]
 
@@ -377,11 +418,9 @@ class TrapLifetimeContinuum(TrapInstantCapture):
             The number of released electrons.
         """
 
-        def integrand(release_timescale, time_elapsed, dwell_time, middle, scale):
+        def integrand(release_timescale, time_elapsed, dwell_time, mu, sigma):
             return (
-                self.distribution_of_traps_with_lifetime(
-                    release_timescale, middle, scale
-                )
+                self.distribution_of_traps_with_lifetime(release_timescale, mu, sigma)
                 * np.exp(-time_elapsed / release_timescale)
                 * (1 - np.exp(-dwell_time / release_timescale))
             )
@@ -405,7 +444,7 @@ class TrapLogNormalLifetimeContinuum(TrapLifetimeContinuum):
     """
 
     @staticmethod
-    def log_normal_distribution(x, median, scale):
+    def log_normal_distribution(x, median, sigma):
         """ Return the log-normal probability density.
             
         Parameters
@@ -414,14 +453,14 @@ class TrapLogNormalLifetimeContinuum(TrapLifetimeContinuum):
             The input value.
         median : float 
             The median of the distribution.
-        scale : float 
-            The scale of the distribution.
+        sigma : float 
+            The sigma of the distribution.
             
         Returns
         --------
         """
-        return np.exp(-((np.log(x) - np.log(median)) ** 2) / (2 * scale ** 2)) / (
-            x * scale * np.sqrt(2 * np.pi)
+        return np.exp(-((np.log(x) - np.log(median)) ** 2) / (2 * sigma ** 2)) / (
+            x * sigma * np.sqrt(2 * np.pi)
         )
 
     def __init__(
@@ -436,7 +475,7 @@ class TrapLogNormalLifetimeContinuum(TrapLifetimeContinuum):
         release_timescale_mu : float
             The median release timescale of the traps.
         release_timescale_sigma : float
-            The scale of release lifetimes of the traps.
+            The sigma of release lifetimes of the traps.
         """
 
         super(TrapLogNormalLifetimeContinuum, self).__init__(

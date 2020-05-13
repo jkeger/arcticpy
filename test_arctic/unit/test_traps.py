@@ -832,9 +832,7 @@ class TestTrapLifetimeContinuum:
             )
         )
 
-    def test__n_trapped_electrons_from_watermarks__WIP(self):
-
-        return  ###
+    def test__n_trapped_electrons_from_watermarks(self):
 
         # Single trap
         trap = ac.TrapInstantCapture(density=10, release_timescale=1)
@@ -849,11 +847,9 @@ class TestTrapLifetimeContinuum:
                 [0, 0],
             ]
         )
-        print(trap_manager_single.watermarks)
         n_electrons_single = trap_manager_single.n_trapped_electrons_from_watermarks(
             trap_manager_single.watermarks
         )
-        print("n_electrons_single", n_electrons_single)
 
         # Continua
         def trap_distribution(release_timescale, median, sigma):
@@ -861,8 +857,7 @@ class TestTrapLifetimeContinuum:
                 -((np.log(release_timescale) - np.log(median)) ** 2) / (2 * sigma ** 2)
             ) / (release_timescale * sigma * np.sqrt(2 * np.pi))
 
-        for sigma in [0.260, 0.2601]:
-            print("\nsigma", sigma)
+        for sigma in [0.1, 1, 2]:
             median = 1
             trap = ac.TrapLifetimeContinuum(
                 density=10,
@@ -881,15 +876,11 @@ class TestTrapLifetimeContinuum:
                     [0, 0],
                 ]
             )
-            print(trap_manager_continuum.watermarks)
-            n_electrons_continuum = trap_manager_single.n_trapped_electrons_from_watermarks(
+            n_electrons_continuum = trap_manager_continuum.n_trapped_electrons_from_watermarks(
                 trap_manager_continuum.watermarks
             )
 
-            print("n_electrons_continuum", n_electrons_continuum)
             assert n_electrons_continuum == pytest.approx(n_electrons_single)
-
-        exit()
 
     def test__electrons_released_and_captured_continuum(self):
 

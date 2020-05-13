@@ -328,48 +328,7 @@ class TrapLifetimeContinuum(TrapInstantCapture):
                 release_timescale, mu, sigma
             ) * np.exp(-time_elapsed / release_timescale)
 
-        ###debug
-        if not True:
-            break_1 = self.release_timescale_mu - self.release_timescale_sigma
-            break_2 = self.release_timescale_mu + self.release_timescale_sigma
-
-            intg_1 = integrate.quad(
-                integrand,
-                0,
-                break_1,
-                args=(
-                    time_elapsed,
-                    self.release_timescale_mu,
-                    self.release_timescale_sigma,
-                ),
-            )[0]
-            intg_2 = integrate.quad(
-                integrand,
-                break_1,
-                break_2,
-                args=(
-                    time_elapsed,
-                    self.release_timescale_mu,
-                    self.release_timescale_sigma,
-                ),
-            )[0]
-            intg_3 = integrate.quad(
-                integrand,
-                break_2,
-                np.inf,
-                args=(
-                    time_elapsed,
-                    self.release_timescale_mu,
-                    self.release_timescale_sigma,
-                ),
-            )[0]
-
-            print(intg_1, intg_2, intg_3)
-            print(intg_1 + intg_2 + intg_3)
-
-            return intg_1 + intg_2 + intg_3
-
-        return integrate.quad(
+        fill_fraction = integrate.quad(
             integrand,
             0,
             np.inf,
@@ -379,6 +338,8 @@ class TrapLifetimeContinuum(TrapInstantCapture):
                 self.release_timescale_sigma,
             ),
         )[0]
+
+        return fill_fraction
 
     def time_elapsed_from_fill_fraction(self, fill_fraction):
         """ Calculate the total time elapsed from the fraction of filled traps.
@@ -397,7 +358,12 @@ class TrapLifetimeContinuum(TrapInstantCapture):
         def find_time(time_elapsed):
             return self.fill_fraction_from_time_elapsed(time_elapsed) - fill_fraction
 
-        return optimize.fsolve(find_time, 1)[0]
+        time_elapsed = optimize.fsolve(find_time, 0.1 * self.release_timescale_mu)[0]
+
+        # Check solution (seems to be slightly unreliable for very small sigmas)
+        assert abs(find_time(time_elapsed)) < 1e-7
+
+        return time_elapsed
 
     def electrons_released_from_time_elapsed_and_dwell_time(
         self, time_elapsed, dwell_time=1

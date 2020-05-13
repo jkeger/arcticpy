@@ -80,6 +80,30 @@ class TestGeneral:
             abs=1e-3,
         )
 
+        # Instant capture traps (same release-then-capture algorithm as the C++)
+        image = np.zeros((6, 2))
+        image[2, 1] = 1000
+
+        traps = [ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))]
+
+        ccd = ac.CCD(well_fill_power=0.8, full_well_depth=8.47e4, well_notch_depth=1e-7)
+
+        image = ac.add_cti(image=image, parallel_traps=traps, parallel_ccd=ccd)
+
+        assert image == pytest.approx(
+            np.array(
+                [
+                    [0, 0],
+                    [0, 0],
+                    [0, 999.1396],
+                    [0, 0.4292094],
+                    [0, 0.2149715],
+                    [0, 0.1077534],
+                ]
+            ),
+            abs=1e-3,
+        )
+
     def test__remove_cti__parallel_only__single_pixel__successive_iterations(self,):
         image = np.zeros((6, 2))
         image[2, 1] = 1000

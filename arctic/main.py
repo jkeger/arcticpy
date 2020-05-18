@@ -252,7 +252,8 @@ def _clock_charge_in_one_dimension(
         window_across = range(columns)
         express_matrix = np.repeat(express_matrix, phases, axis=1)
 
-    # Set up an array of trap managers able to monitor the occupancy of all (types of) traps in a pixel/phase
+    # Set up an array of trap managers able to monitor the occupancy of all
+    # (types of) traps in a pixel/phase
     # NB: these are automatically created with all traps empty
     trap_managers = []
     for trap_group in traps:
@@ -267,9 +268,8 @@ def _clock_charge_in_one_dimension(
             trap_managers.append(TrapManager(traps=trap_group, rows=rows))
 
     # Accounting for first transfer differently
-    # store_trap_occupancy = True
-    # Decide appropriate moments to store trap occupancy levels, so the next EXPRESS iteration
-    # can continue from an (approximately) suitable configuration
+    # Decide appropriate moments to store trap occupancy levels, so the next
+    # EXPRESS iteration can continue from an (approximately) suitable configuration
     when_to_store_traps = np.zeros(express_matrix.shape, dtype=bool)
     if not roe.empty_traps_at_start and not roe.charge_injection:
         for express_index in range(n_express - 1):
@@ -277,26 +277,22 @@ def _clock_charge_in_one_dimension(
                 if express_matrix[express_index + 1, row_index] > 0:
                     break
             when_to_store_traps[express_index, row_index] = True
-
     rowwise_stored_trap_managers = trap_managers
-    columnwise_stored_trap_managers = deepcopy(trap_managers)
 
     # Read out one column of pixels through one (column of) traps
-    # for column_index in window_columns:
     for column_index in range(len(window_across)):
+        # Reset watermarks, effectively setting trap occupancy to zero
         for trap_manager in trap_managers:
-            trap_manager.empty_all_traps()  # Reset watermarks, effectively setting trap occupancy to zero
+            trap_manager.empty_all_traps()
 
-        # Monitor the traps in every pixel, or just one (express=1) or a few (express=a few) then replicate their effect
+        # Monitor the traps in every pixel, or just one (express=1) or a few
+        # (express=a few) then replicate their effect
         for express_index in range(n_express):
 
             # Reset trap occupancy levels for next express loop
             trap_managers = deepcopy(rowwise_stored_trap_managers)
-            for trap_manager in trap_managers:
-                trap_manager.empty_all_traps()  # Reset watermarks, effectively setting trap occupancy to zero
 
             # Each pixel
-            # for row_index in window_rows:
             for row_index in range(len(window_readout)):
                 express_multiplier = express_matrix[express_index, row_index]
                 if express_multiplier == 0:

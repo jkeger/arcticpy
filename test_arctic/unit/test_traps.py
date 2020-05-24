@@ -1210,7 +1210,6 @@ class TestTrapLifetimeContinuum:
         image_orig[1, 0] = 1e4
 
         ccd = ac.CCD(well_fill_power=0.8, full_well_depth=8.47e4, well_notch_depth=1e-7)
-        #ccd = ac.CCDPhase(ccd)
 
         density = 1000
         release_timescale = 3

@@ -7,11 +7,10 @@
 import numpy as np
 from copy import deepcopy
 
-
 class ROE(object):
     def __init__(
         self,
-        sequence=[1],
+        dwell_times=[1],
         charge_injection=False,
         empty_traps_at_start=True,
         empty_traps_between_columns=True,
@@ -41,12 +40,86 @@ class ROE(object):
         empty_traps_between_columns : bool
             Not yet implemented
         """
+        # The units of dwell times matter!
 
-        # Make sure the arrays are arrays
-        if not isinstance(sequence, list):
-            sequence = [sequence]
+        #Deprecated
+        self.sequence=[1]
+        
+        # Check input number of dwell times as an indication of the desired
+        # number of steps in the clocking sequence
+        if not isinstance(dwell_times, list):
+            dwell_times = [dwell_times]
+        self.n_steps = len(dwell_times) 
+        self.dwell_times = dwell_times  # The units of these matter!
 
-        self.sequence = sequence
         self.charge_injection = charge_injection
         self.empty_traps_at_start = empty_traps_at_start
         self.empty_traps_between_columns = empty_traps_between_columns
+    
+        self.clock_sequence = self._clock_sequence_readout(self.n_steps)
+        self.n_phases = len(self.clock_sequence[0])
+        print(self.dwell_times)
+        print(self.dwell_times[0])
+        #print(self.clock_sequence[step][phase].high)
+        
+        
+        self.min_referred_to_pixel = -1
+        self.max_referred_to_pixel = 1
+        
+        
+    def _clock_sequence_readout(self, n_steps):
+        """
+        A list of steps describing the readout electronics at each stage of
+        a clocking sequence. The number of steps need not be the same as the 
+        number of phases in the CCD, but is for a simple scheme.
+        """
+        
+        # The number of steps need not be the same as the number of phases 
+        # in the CCD, but is for a simple scheme.
+        n_phases = n_steps
+        
+        clock_sequence = []
+        for step in range(n_steps):
+            potentials = []
+            for phase in range(n_phases):
+                high = phase == step
+                adjacent_phases_high = [phase]
+                capture_from_which_pixel = 0
+                n_steps_around_into_same_pixel = n_phases // 2 # 1 for 3 or 4 phase devices
+                if phase > ( step + n_steps_around_into_same_pixel):
+                    release_to_which_pixel = -1
+                elif phase < (step -n_steps_around_into_same_pixel):
+                    release_to_which_pixel = 1
+                else:
+                    release_to_which_pixel = 0
+                potentials.append(ROEPotential(
+                    high=high,
+                    adjacent_phases_high=adjacent_phases_high,
+                    capture_from_which_pixel=capture_from_which_pixel,
+                    release_to_which_pixel=release_to_which_pixel,
+                ))
+            clock_sequence.append(potentials)
+            
+        return clock_sequence
+
+        
+class ROEPotential(object):
+    def __init__(
+        self,
+        high=True,
+        adjacent_phases_high=[0],
+        capture_from_which_pixel=0,
+        release_to_which_pixel=0,
+    ):
+        """
+        The configuration of readout electronics for one CCD phase, during 
+        one step of a clocking sequence.
+        """
+        self.high = high
+        if not isinstance(adjacent_phases_high, list):
+            adjacent_phases_high = [adjacent_phases_high]
+        self.adjacent_phases_high = adjacent_phases_high
+        self.capture_from_which_pixel = capture_from_which_pixel
+        self.release_to_which_pixel = release_to_which_pixel
+        
+        

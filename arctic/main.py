@@ -16,6 +16,7 @@ import os
 from copy import deepcopy
 
 from arctic.roe import ROE
+from arctic.ccd import ( CCD, CCDPhase )
 from arctic.traps import (
     TrapLifetimeContinuum,
     TrapLogNormalLifetimeContinuum,
@@ -213,20 +214,17 @@ def _clock_charge_in_one_dimension(
     """
 
     # Parse inputs
-    rows, columns = image.shape
+    n_rows, n_columns = image.shape
     window_readout = (
-        range(rows) if window_readout is None else window_readout
+        range(n_rows) if window_readout is None else window_readout
     )  # list or range of which pixels to process in the redout direction
     window_across = (
-        range(columns) if window_across is None else window_across
+        range(n_columns) if window_across is None else window_across
     )  # list or range of which pixels to process perpendicular to the readout direction
     if not isinstance(traps[0], list):
         traps = [
             traps
         ]  # If only a single trap species is used, still make sure it is an array
-    phases = len(roe.sequence)
-    assert len(ccd.phase_fractional_widths) == phases
-    assert np.amax(ccd.phase_fractional_widths) <= 1
 
     # Calculate the number of times that the effect of each pixel-to-pixel transfer can be replicated
     express_matrix = express_matrix_from_rows_and_express(
@@ -239,33 +237,65 @@ def _clock_charge_in_one_dimension(
     )
     (n_express, n_rows) = express_matrix.shape
 
-    # Prepare the image and express for multi-phase clocking
-    if phases > 1:
-        new_image = np.zeros((rows * phases, columns))
-        new_image[ccd.integration_phase :: phases] = image
-        image = new_image
-        rows, columns = image.shape
-        print(
-            "Need to change window_readout and window_across in case window is set; currently evaluating whole image"
-        )
-        window_readout = range(rows)
-        window_across = range(columns)
-        express_matrix = np.repeat(express_matrix, phases, axis=1)
+    #
+    # This is another way to achieve multi-step clocking, which omits a nested for loop and may be faster, but is less clear.
+    #
+    ## Prepare the image and express for multi-step clocking
+    n_steps_in_clock_cycle = len(roe.dwell_times)
+    #assert n_steps_in_clock_cycle >= len(ccd.phase_fractional_widths)
+    ##assert np.amax(ccd.phase_fractional_widths) <= 1
+    #if n_steps_in_clock_cycle > 1:
+    #    new_image = np.zeros((rows * n_steps_in_clock_cycle, columns))
+    #    new_image[ccd.integration_phase :: n_steps_in_clock_cycle] = image
+    #    image = new_image
+    #    rows, columns = image.shape
+    #    print(
+    #        "Need to change window_readout and window_across in case window is set; currently evaluating whole image"
+    #    )
+    #    window_readout = range(n_rows)
+    #    window_across = range(n_columns)
+    #    express_matrix = np.repeat(express_matrix, n_steps_in_clock_cycle, axis=1)
 
     # Set up an array of trap managers able to monitor the occupancy of all
-    # (types of) traps in a pixel/phase
+    # (types of) traps in (one phase of) a pixel
     # NB: these are automatically created with all traps empty
-    trap_managers = []
+    trap_managers_one_phase = []
     for trap_group in traps:
+        if trap_group[0].discrete:
+            for trap in trap_group:
+                trap_managers_one_phase.append(TrapManagerDiscrete(traps=trap, rows=rows))               
         # Use a non-default trap manager if required for the input trap species
-        if isinstance(
+        elif isinstance(
             trap_group[0], (TrapLifetimeContinuum, TrapLogNormalLifetimeContinuum),
         ):
-            trap_managers.append(TrapManagerTrackTime(traps=trap_group, rows=rows))
+            trap_managers_one_phase.append(TrapManagerTrackTime(traps=trap_group, rows=n_rows))
         elif isinstance(trap_group[0], TrapInstantCapture):
-            trap_managers.append(TrapManagerInstantCapture(traps=trap_group, rows=rows))
+            trap_managers_one_phase.append(TrapManagerInstantCapture(traps=trap_group, rows=n_rows))
         else:
-            trap_managers.append(TrapManager(traps=trap_group, rows=rows))
+            trap_managers_one_phase.append(TrapManager(traps=trap_group, rows=n_rows))
+
+   
+    # Replicate trap managers to keep track of traps in different phases separately
+    trap_managers = []
+    for _ in range(ccd.n_phases): trap_managers.append(trap_managers_one_phase)
+    phases_with_traps = [i for i,x in enumerate(ccd.fraction_of_traps_per_phase) if x>0]
+ 
+    
+#    # Replicate trap managers to keep track of traps in different phases separately
+#    trap_managers = []
+#    for i in range(ccd.n_phases): 
+#        trap_managers_this_phase = deepcopy(trap_managers_one_phase)
+#        #print(trap_managers_this_phase.densities)
+#        #
+#        # Caution; next line makes densities differe from those in manager.traps.density - should add setter and getter to trap_manager
+#        #
+#        #trap_managers_this_phase.densities *= ccd.fraction_of_traps_per_phase[i]
+#        trap_managers.append(trap_managers_this_phase)
+#    phases_with_traps = [i for i,x in enumerate(ccd.fraction_of_traps_per_phase) if x>0]
+    
+    # Store trap managers with empty traps, for future recall
+    rowwise_stored_trap_managers = trap_managers
+    columnwise_stored_trap_managers = trap_managers
 
     # Accounting for first transfer differently
     # Decide appropriate moments to store trap occupancy levels, so the next
@@ -277,13 +307,15 @@ def _clock_charge_in_one_dimension(
                 if express_matrix[express_index + 1, row_index] > 0:
                     break
             when_to_store_traps[express_index, row_index] = True
-    rowwise_stored_trap_managers = trap_managers
+    
 
     # Read out one column of pixels through one (column of) traps
     for column_index in range(len(window_across)):
+    
         # Reset watermarks, effectively setting trap occupancy to zero
-        for trap_manager in trap_managers:
-            trap_manager.empty_all_traps()
+        trap_managers = deepcopy(columnwise_stored_trap_managers)
+        #for trap_manager in trap_managers:
+        #    trap_manager.empty_all_traps()
 
         # Monitor the traps in every pixel, or just one (express=1) or a few
         # (express=a few) then replicate their effect
@@ -297,40 +329,49 @@ def _clock_charge_in_one_dimension(
                 express_multiplier = express_matrix[express_index, row_index]
                 if express_multiplier == 0:
                     continue
-                phase = row_index % phases
+                step_in_clock_cycle = row_index % n_steps_in_clock_cycle
+                step_in_clock_cycle = 0
+                dwell_time = roe.dwell_times[step_in_clock_cycle]
 
                 # Save trap occupancy
                 if when_to_store_traps[express_index, row_index]:
                     rowwise_stored_trap_managers = trap_managers
 
-                # Initial number of electrons available for trapping
-                n_free_electrons = image[
-                    window_readout[row_index], window_across[column_index]
-                ]
+                #for clocking_step in clocking_sequence:
+                for phase in phases_with_traps:
+                
+                    # Initial number of electrons available for trapping
+                    n_free_electrons = image[
+                        window_readout[row_index], window_across[column_index]
+                    ]
 
-                # Release and capture
-                n_electrons_released_and_captured = 0
-                for trap_manager in trap_managers:
-                    n_electrons_released_and_captured += trap_manager.n_electrons_released_and_captured(
-                        n_free_electrons=n_free_electrons,
-                        dwell_time=roe.sequence[phase],
-                        ccd=ccd.extract_phase(phase),
-                        fractional_width=ccd.phase_fractional_widths[phase],
-                        express_multiplier=express_multiplier,
+                    # Release and capture
+                    n_electrons_released_and_captured = 0
+                    
+                    #trap_managers_one_phase=trap_managers[phase]
+                    
+                    for trap_manager in trap_managers[phase]:
+                        n_electrons_released_and_captured += trap_manager.n_electrons_released_and_captured(
+                            n_free_electrons=n_free_electrons,
+                            dwell_time=dwell_time,
+                            ccd=CCDPhase(ccd,phase),
+                            #ccd=ccd.extract_phase(phase),
+                            fractional_width=ccd.phase_fractional_widths[phase],
+                            express_multiplier=express_multiplier,
+                        )
+
+                    # Total change to electrons in pixel
+                    n_free_electrons += (
+                        n_electrons_released_and_captured * express_multiplier
                     )
 
-                # Total change to electrons in pixel
-                n_free_electrons += (
-                    n_electrons_released_and_captured * express_multiplier
-                )
-
-                image[
-                    window_readout[row_index], window_across[column_index]
-                ] = n_free_electrons
+                    image[
+                        window_readout[row_index], window_across[column_index]
+                    ] = n_free_electrons
 
     # Recombine the image for multi-phase clocking
-    if phases > 1:
-        image = image.reshape((int(rows / phases), phases, columns)).sum(axis=1)
+    #if n_simple_phases > 1:
+    #    image = image.reshape((int(rows / n_simple_phases), n_simple_phases, columns)).sum(axis=1)
 
     return image
 
@@ -372,7 +413,7 @@ def add_cti(
     parallel_ccd : CCD
         The object describing the CCD volume for parallel clocking. For 
         multi-phase clocking optionally use a list of different CCD volumes
-        for each phase, in the same size list as parallel_roe.sequence.
+        for each phase, in the same size list as parallel_roe.dwell_times.
     parallel_traps : [Trap] or [[Trap]]
         A list of one or more trap objects for parallel clocking. To use 
         different types of traps that will require different watermark 
@@ -479,7 +520,7 @@ def remove_cti(
     parallel_ccd : CCD
         The object describing the CCD volume for parallel clocking. For 
         multi-phase clocking optionally use a list of different CCD volumes
-        for each phase, in the same size list as parallel_roe.sequence.
+        for each phase, in the same size list as parallel_roe.dwell_times.
     parallel_traps : [Trap] or [[Trap]]
         A list of one or more trap objects for parallel clocking. To use 
         different types of traps that will require different watermark 

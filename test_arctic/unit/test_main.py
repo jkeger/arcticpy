@@ -959,10 +959,10 @@ class TestAddCTIParallelMultiPhase:
             well_notch_depth=0.01,
             well_fill_power=0.8,
             full_well_depth=84700,
-            phase_fractional_widths=[0.5, 0.2, 0.2, 0.1],
+            phase_widths=[0.5, 0.2, 0.2, 0.1],
         )
 
-        roe = ac.ROE(sequence=[0.5, 0.2, 0.2, 0.1])
+        roe = ac.ROE(dwell_times=[0.5, 0.2, 0.2, 0.1])
 
         image_post_cti = ac.add_cti(
             image=image_pre_cti,

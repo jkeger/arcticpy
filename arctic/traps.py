@@ -13,6 +13,7 @@ class Trap(object):
         capture_timescale=0,
         ccd=None,
         surface=False,
+        discrete=False,
     ):
         """The parameters for a single trap species.
 
@@ -40,6 +41,7 @@ class Trap(object):
         self.capture_timescale = capture_timescale
         self.ccd = ccd
         self.surface = surface
+        self.discrete = discrete
 
         # Rates
         if self.capture_timescale == 0:

@@ -5,7 +5,7 @@ from copy import deepcopy
 
 class TrapManager(object):
     def __init__(self, traps, rows):
-        """The manager for potentially multiple trap species that must use 
+        """The manager for potentially multiple trap species that are able to use 
         watermarks in the same way as each other.
 
         Parameters
@@ -29,9 +29,7 @@ class TrapManager(object):
         self.rows = rows
 
         # Set up the watermarks
-        self.watermarks = self.initial_watermarks_from_rows_and_total_traps(
-            rows=self.rows, total_traps=len(self.traps)
-        )
+        self.watermarks = self.initial_watermarks_from_rows_and_total_traps()
 
         # The value for a filled watermark level, here 1 as a fill fraction
         self.filled_watermark_value = 1
@@ -48,7 +46,7 @@ class TrapManager(object):
     def delta_ellipticity(self):
         return sum([trap.delta_ellipticity for trap in self.traps])
 
-    def initial_watermarks_from_rows_and_total_traps(self, rows, total_traps):
+    def initial_watermarks_from_rows_and_total_traps(self):
         """ Initialise the watermark array of trap states.
 
         Parameters
@@ -71,8 +69,14 @@ class TrapManager(object):
              [volume, fill, fill, ...],
              ...                       ]
         """
-        return np.zeros((rows * 2, 1 + total_traps), dtype=float)
+        n_rows = self.rows
+        total_traps = len(self.traps)
+        n_watermarks_per_transfer = 2
+        return np.zeros((n_rows * n_watermarks_per_transfer, 1 + total_traps), dtype=float)
 
+    def n_watermarks_per_transfer(self):
+        return 2
+        
     def fill_probabilities_from_dwell_time(self, dwell_time):
         """ The probabilities of being full after release and/or capture.
         
@@ -151,8 +155,8 @@ class TrapManager(object):
             # fraction_of_exposed_traps = n_exposed_traps / self.densities
 
         else:
-            fraction_of_exposed_traps = ccd.cloud_fractional_volume_from_electrons(
-                electrons=n_free_electrons
+            fraction_of_exposed_traps = ccd.cloud_fractional_volume_from_n_electrons(
+                n_electrons=n_free_electrons
             )
 
         return fraction_of_exposed_traps
@@ -381,8 +385,8 @@ class TrapManager(object):
         max_watermark_index = np.argmax(self.watermarks[:, 0] == 0) - 1
 
         # The fractional volume the electron cloud reaches in the pixel well
-        cloud_fractional_volume = ccd.cloud_fractional_volume_from_electrons(
-            electrons=n_free_electrons
+        cloud_fractional_volume = ccd.cloud_fractional_volume_from_n_electrons(
+            n_electrons=n_free_electrons
         )
 
         # Find the first watermark above the cloud
@@ -468,8 +472,8 @@ class TrapManager(object):
             n_free_electrons += n_trapped_electrons_initial - n_trapped_electrons_tmp
 
             # Re-calculate the fractional volume of the electron cloud
-            cloud_fractional_volume = ccd.cloud_fractional_volume_from_electrons(
-                electrons=n_free_electrons
+            cloud_fractional_volume = ccd.cloud_fractional_volume_from_n_electrons(
+                n_electrons=n_free_electrons
             )
             watermark_index_above_cloud = self.watermark_index_above_cloud_from_cloud_fractional_volume(
                 cloud_fractional_volume=cloud_fractional_volume,
@@ -549,7 +553,7 @@ class TrapManager(object):
 class TrapManagerInstantCapture(TrapManager):
     """ For the old C++ style release-then-instant-capture algorithm. """
 
-    def initial_watermarks_from_rows_and_total_traps(self, rows, total_traps):
+    def initial_watermarks_from_rows_and_total_traps(self):
         """ Initialise the watermark array of trap states.
 
         Parameters
@@ -572,7 +576,13 @@ class TrapManagerInstantCapture(TrapManager):
              [volume, fill, fill, ...],
              ...                       ]
         """
-        return np.zeros((rows, 1 + total_traps), dtype=float)
+        n_rows = self.rows
+        total_traps = len(self.traps)
+        n_watermarks_per_transfer = 1
+        return np.zeros((n_rows * n_watermarks_per_transfer, 1 + total_traps), dtype=float)
+
+    def n_watermarks_per_transfer():
+        return 1
 
     def n_electrons_released(
         self, dwell_time=1, fractional_width=1, express_multiplier=1
@@ -674,8 +684,8 @@ class TrapManagerInstantCapture(TrapManager):
         max_watermark_index = np.argmax(self.watermarks[:, 0] == 0) - 1
 
         # The fractional volume the electron cloud reaches in the pixel well
-        cloud_fractional_volume = ccd.cloud_fractional_volume_from_electrons(
-            electrons=n_free_electrons
+        cloud_fractional_volume = ccd.cloud_fractional_volume_from_n_electrons(
+            n_electrons=n_free_electrons
         )
 
         # Find the first watermark above the cloud
@@ -891,8 +901,8 @@ class TrapManagerInstantCapture(TrapManager):
         max_watermark_index = np.argmax(self.watermarks[:, 0] == 0) - 1
 
         # The fractional volume the electron cloud reaches in the pixel well
-        cloud_fractional_volume = ccd.cloud_fractional_volume_from_electrons(
-            electrons=n_free_electrons
+        cloud_fractional_volume = ccd.cloud_fractional_volume_from_n_electrons(
+            n_electrons=n_free_electrons
         )
 
         # Find the first watermark above the cloud
@@ -1168,3 +1178,46 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
         """
         # Update the elapsed times
         return watermark_values + dwell_time
+
+class TrapManagerDiscrete(TrapManager):
+    """
+    To monitor traps as a set of discree entities, 
+    rather than a sea of traps with uniform density
+    """
+    
+    def initial_watermarks_from_rows_and_total_traps(self):
+        """ Initialise the watermark array of trap states.
+
+        Returns
+        -------
+        dictionary containing trap locations, occupancy, and multiplicity
+        (the number of physical traps represented by each simulated trap, and
+        hence the number of electrons it holds when it is at maximum occupancy).
+        """
+        
+        n_pixels = self.rows
+        n_traps_per_trap = self.traps.discrete
+        n_traps = self.traps.density * self.rows * n_traps_per_trap
+
+        # Make sure that n_traps is an integer
+        if is_integer(n_traps_per_trap):
+            # round to integer with probability given by modulus
+            n_traps += np.random.random_sample() < ( n_traps % 1 ) 
+            n_traps = np.floor( n_traps )
+        else:
+            n_traps_per_trap *= np.rint( n_traps ) / n_traps
+            n_traps = np.rint( n_traps )
+        
+        # Decide (random) trap locations
+        print("This should account for phase widths!!!")
+        x = np.random.randint( 0, n_pixels, n_traps )
+        x.sort
+        z = np.random.rand( n_pixels )
+                
+        return {'n_traps':n_traps, 'x':x, 'z':z, 
+                'occupancy':np.zeros( n_pixels, dtype=float ), 
+                'multiplicity':1/n_traps_per_trap }
+        
+    
+    
+    

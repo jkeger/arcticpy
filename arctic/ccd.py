@@ -166,6 +166,7 @@ class CCD(object):
         def cloud_fractional_volume_from_n_electrons(n_electrons, surface=False):
         
             phase_width = self.phase_widths[phase]
+            phase_fractional_width = self.phase_fractional_widths[phase]
             full_well_depth = self.full_well_depth[phase]
             well_fill_power = self.well_fill_power[phase]
             well_notch_depth = self.well_notch_depth[phase]
@@ -182,7 +183,7 @@ class CCD(object):
                 beta = self.well_fill_power[phase]
             well_range = self.full_well_depth[phase] - empty
 
-            volume = (
+            volume = phase_fractional_width * (
                 util.set_min_max(
                     ( n_electrons - empty ) / well_range, 0, 1
                 )

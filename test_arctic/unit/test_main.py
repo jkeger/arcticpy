@@ -949,7 +949,7 @@ class TestArcticAddCTIParallelAndSerial:
         ).all()  # fewer captures in 2, so fainter trails trail region
 
 
-class TestAddCTIParallelMultiPhase:
+#class TestAddCTIParallelMultiPhase:
     def test__square__horizontal_line__line_loses_charge_trails_appear(self):
         image_pre_cti = np.zeros((5, 5))
         image_pre_cti[2, :] += 100
@@ -959,7 +959,7 @@ class TestAddCTIParallelMultiPhase:
             well_notch_depth=0.01,
             well_fill_power=0.8,
             full_well_depth=84700,
-            phase_widths=[0.5, 0.2, 0.2, 0.1],
+            fraction_of_traps=[0.5, 0.2, 0.2, 0.1],
         )
 
         roe = ac.ROE(dwell_times=[0.5, 0.2, 0.2, 0.1])

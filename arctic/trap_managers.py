@@ -46,6 +46,9 @@ class TrapManager(object):
     def delta_ellipticity(self):
         return sum([trap.delta_ellipticity for trap in self.traps])
 
+    def n_watermarks_per_transfer(self):
+        return 2
+
     def initial_watermarks_from_rows_and_total_traps(self):
         """ Initialise the watermark array of trap states.
 
@@ -73,9 +76,6 @@ class TrapManager(object):
         total_traps = len(self.traps)
         n_watermarks_per_transfer = 2
         return np.zeros((n_rows * n_watermarks_per_transfer, 1 + total_traps), dtype=float)
-
-    def n_watermarks_per_transfer(self):
-        return 2
         
     def fill_probabilities_from_dwell_time(self, dwell_time):
         """ The probabilities of being full after release and/or capture.

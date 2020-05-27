@@ -22,79 +22,80 @@ import arctic as ac
 class CCD(object):
     def __init__(
         self,
-        phase_widths=[1],
-        integration_phase=0,
-        fraction_of_traps_per_phase=None,
+        fraction_of_traps=[1],
         full_well_depth=1000.0,
         well_notch_depth=0.0,
         well_fill_power=0.58,
         well_bloom_level=None,
     ):
-        """The parameters for how electrons fill the CCD volume.
+        """
+        A model of a CCD detector, and how electrons fill the volume inside each pixel/phase.
+        By default, only a single phase is modelled within each pixel. To specify a
+        multi-phase device (which will need a comparably complicated clocking sequence to
+        be defined in readout electronics), specify the fraction of traps as a list. If the
+        trap density is uniform, this is equivalent to the 
 
         Parameters
         ----------
-        phase_widths : float or [float]
-            For multi-phase clocking, the physical width of each phase. The units do 
-            not matter and can be anything from microns to light years, or fractions of a pixel.
-            Only the fractional widths are ever returned. If this is an array then you can
-            optionally also enter a list of different full_well_depth, well_notch_depth, 
-            and well_fill_power for each phase.
+        fraction_of_traps : float or [float]
+            For multi-phase clocking, the physical width of each phase. This is used only to
+            distribute the traps between phases (they are assigned to a phaae in proportional
+            to the width of that phase). The units do not matter and can be anything from
+            microns to light years, or fractions of a pixel. Only the fractional widths are
+            ever returned. If this is an array then you can optionally also enter a list of
+            different full_well_depth, well_notch_depth, and well_fill_power for each phase.
         full_well_depth : float or [float]
-            The maximum height of an electron cloud filling the pixel.
+            The maximum number of electrons that can be contained within a pixel/phase.
+            For multiphase clocking, if only one value is supplied, that is (by default)
+            replicated to all phases. However, different physical widths of phases can be
+            set by specifying the full well depth as a list containing different values.
+            If the potential in more than one phase is held high during any stage in the 
+            clocking cycle, their full well depths are added together.
+            This value is indpependent of the fraction of traps allocated to each phase.
         well_notch_depth : float or [float]
-            The CCD notch depth.
+            The number of electrons that fit inside a 'notch' at the bottom of a potential
+            well, occupying negligible volume and therefore being immune to trapping. These
+            electrons still count towards the full well depth. The notch depth can, in 
+            principle, vary between phases.
         well_fill_power : float or [float]
-            The volume-filling power (beta) of how an electron cloud fills the 
-            volume of a pixel.
-        integration_phase : int
-            For multi-phase clocking, the initial phase in which the electrons 
-            start when the input image is divided into the separate phases.
+            The exponent in a power-law model of the volume occupied by a cloud of electrons.
+            This can, in principle, vary between phases.
+        well_bloom_level : float or [float]
+            Acts similarly to a notch, but for surface traps.
+            Default value is full_well_depth - i.e. no blooming is possible.
         """
-
-        # Parse defaults
-        self.phase_widths = phase_widths
-        self.integration_phase = integration_phase
         
+        # All parameters are returned as a list of length n_phases
+        self.fraction_of_traps = fraction_of_traps
         self.full_well_depth = full_well_depth
         self.well_fill_power = well_fill_power
         self.well_notch_depth = well_notch_depth
-        self.well_bloom_level = well_bloom_level # Default is full_well_depth
-        
-        # Decide how traps will be distributed between phases
-        if fraction_of_traps_per_phase is None:
-            fraction_of_traps_per_phase = self.phase_fractional_widths
-        else:
-            assert len(fraction_of_traps_per_phase) == self.n_phases, "Number of elements in fraction_of_traps_per_phase and phase_widths do not agree."
-            total = sum( i for i in fraction_of_traps_per_phase )
-            fraction_of_traps_per_phase = [i / total for i in fraction_of_traps_per_phase]
-        self.fraction_of_traps_per_phase = fraction_of_traps_per_phase
-
+        self.well_bloom_level = well_bloom_level
 
     @property
-    def phase_widths(self):
-        return self._phase_widths    
+    def fraction_of_traps(self):
+        return self._fraction_of_traps    
     
-    @phase_widths.setter
-    def phase_widths(self, value):
+    @fraction_of_traps.setter
+    def fraction_of_traps(self, value):
         if isinstance(value, list):
-            self._phase_widths = value
+            self._fraction_of_traps = value
         else:
-            self._phase_widths = [value] # Make sure the arrays are arrays
-        self._n_phases = len(self._phase_widths)
-        self._pixel_width = sum( i for i in self._phase_widths )
-
-    @property
-    def pixel_width(self):
-        return self._pixel_width    
+            self._fraction_of_traps = [value] # Make sure the arrays are arrays
+        self._n_phases = len(self._fraction_of_traps)
+     #   self._pixel_width = sum( i for i in self._fraction_of_traps )
 
     @property
     def n_phases(self):
         return self._n_phases    
 
-    @property
-    def phase_fractional_widths(self):
-        return [i / self._pixel_width for i in self._phase_widths]    
+    #@property
+    #def pixel_width(self):
+    #    return self._pixel_width    
+
+    #@property
+    #def phase_fractional_widths(self):
+    #    return [i / self._pixel_width for i in self._fraction_of_traps]    
 
     @property
     def full_well_depth(self):
@@ -156,17 +157,16 @@ class CCD(object):
             if value is None: value = self.full_well_depth
             self._well_bloom_level = [value] * self.n_phases
 
-    
+    # Returns a (self-contained) function describing the well-filling model in a single phase
     def cloud_fractional_volume_from_n_electrons_and_phase(self, n_electrons, phase=0, surface=False):
         ccd_phase = self.cloud_fractional_volume_from_n_electrons_in_phase(phase)
         return ccd_phase(n_electrons, surface)
 
-
+    # Returns a (self-contained) function describing the well-filling model in any phase
     def cloud_fractional_volume_from_n_electrons_in_phase(self, phase=0):
         def cloud_fractional_volume_from_n_electrons(n_electrons, surface=False):
         
-            phase_width = self.phase_widths[phase]
-            phase_fractional_width = self.phase_fractional_widths[phase]
+            fraction_of_traps = self.fraction_of_traps[phase]
             full_well_depth = self.full_well_depth[phase]
             well_fill_power = self.well_fill_power[phase]
             well_notch_depth = self.well_notch_depth[phase]
@@ -183,7 +183,7 @@ class CCD(object):
                 beta = self.well_fill_power[phase]
             well_range = self.full_well_depth[phase] - empty
 
-            volume = phase_fractional_width * (
+            volume = (
                 util.set_min_max(
                     ( n_electrons - empty ) / well_range, 0, 1
                 )
@@ -198,8 +198,7 @@ class CCDPhase(object):
     def __init__(self,ccd=CCD(),phase=0):
         """Hello"""
         
-        self.phase_widths = ccd.phase_widths[phase]
-        self.integration_phase = phase == ccd.integration_phase
+        self.fraction_of_traps = ccd.fraction_of_traps[phase]
         
         self.full_well_depth = ccd.full_well_depth[phase]
         self.well_fill_power = ccd.well_fill_power[phase]
@@ -208,7 +207,7 @@ class CCDPhase(object):
 
     def cloud_fractional_volume_from_n_electrons(self, n_electrons, surface=False):
     
-        phase_width = self.phase_widths
+        fraction_of_traps = self.fraction_of_traps
         full_well_depth = self.full_well_depth
         well_fill_power = self.well_fill_power
         well_notch_depth = self.well_notch_depth
@@ -265,9 +264,6 @@ class CCDComplex(CCD):
             fraction of the pixel for multi-phase clocking. If an array then
             optionally enter a list of different full_well_depth, 
             well_notch_depth, and well_fill_power for each phase.
-        integration_phase : int
-            For multi-phase clocking, the initial phase in which the electrons 
-            start when the input image is divided into the separate phases.
         """
 
         super(CCDComplex, self).__init__(

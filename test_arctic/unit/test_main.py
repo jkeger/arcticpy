@@ -949,7 +949,7 @@ class TestArcticAddCTIParallelAndSerial:
         ).all()  # fewer captures in 2, so fainter trails trail region
 
 
-#class TestAddCTIParallelMultiPhase:
+class TestAddCTIParallelMultiPhase:
     def test__square__horizontal_line__line_loses_charge_trails_appear(self):
         image_pre_cti = np.zeros((5, 5))
         image_pre_cti[2, :] += 100

@@ -33,7 +33,9 @@ class CCD(object):
         By default, only a single phase is modelled within each pixel. To specify a
         multi-phase device (which will need a comparably complicated clocking sequence to
         be defined in readout electronics), specify the fraction of traps as a list. If the
-        trap density is uniform, this is equivalent to the 
+        phases have different sizes, specify each full_well_depth. If the trap density is 
+        uniform, the ratio of full_well_depth to fraction_of_traps will be the same in all
+        phases. 
 
         Parameters
         ----------
@@ -164,6 +166,25 @@ class CCD(object):
 
     # Returns a (self-contained) function describing the well-filling model in any phase
     def cloud_fractional_volume_from_n_electrons_in_phase(self, phase=0):
+        """
+        Calculate the total number of charge traps exposed to a charge cloud
+        containing n_electrons. This assumes that charge traps are uniformly
+        distributed through the volume, but that assumption can be relaxed
+        by adjusting this function to reflect the net number of traps seen
+        as a function of charge cloud size. An example of that is provided,
+        for surface traps that are responsible for blooming (which is
+        asymmetric and happens during readout, unlike bleeding). 
+        
+        This function embodies the core assumption of a volume-driven CTI
+        model like arCTIc: that traps are either exposed (and have a
+        constant capture timescale, which may be zero for instant capture),
+        or unexposed and therefore unavailable. This behaviour differs from
+        a density-driven CTI model, in which traps may capture an electron
+        anywhere in a pixel, but at varying capture probability. There is 
+        considerable evidence that CCDs in the Hubble Space Telescope are 
+        primarily density-driven; a software algorithm to mimic such 
+        behaviour also runs much faster.
+        """
         def cloud_fractional_volume_from_n_electrons(n_electrons, surface=False):
         
             fraction_of_traps = self.fraction_of_traps[phase]
@@ -216,6 +237,7 @@ class CCDPhase(object):
         if n_electrons == 0:
             return 0
 
+        #print('surface?',surface)
         if surface:
             empty = self.blooming_level
             beta = 1

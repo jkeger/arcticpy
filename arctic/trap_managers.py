@@ -1,6 +1,49 @@
 import numpy as np
 from scipy import integrate, optimize
 from copy import deepcopy
+from arctic.traps import (
+    TrapLifetimeContinuum,
+    TrapLogNormalLifetimeContinuum,
+    TrapInstantCapture,
+)
+
+def concatenate_trap_managers(traps, n_rows, ccd=None):
+    #
+    # DEFINE THIS AS A CLASS THAT INHERITS EVERYTHING FROM A LIST!
+    #
+    """
+    Set up a list of trap managers able to monitor the occupancy of (all types of) traps.
+    They are created with all traps initially empty.
+    """
+    
+    # Set up list of traps in a single phase of the CCD
+    trap_managers_one_phase = []
+    for trap_group in traps:
+        if trap_group[0].discrete:
+            for trap in trap_group:
+                trap_managers_one_phase.append(TrapManagerDiscrete(traps=trap, rows=n_rows))               
+        # Use a non-default trap manager if required for the input trap species
+        elif isinstance(
+            trap_group[0], (TrapLifetimeContinuum, TrapLogNormalLifetimeContinuum),
+        ):
+            trap_managers_one_phase.append(TrapManagerTrackTime(traps=trap_group, rows=n_rows))
+        elif isinstance(trap_group[0], TrapInstantCapture):
+            trap_managers_one_phase.append(TrapManagerInstantCapture(traps=trap_group, rows=n_rows))
+        else:
+            trap_managers_one_phase.append(TrapManager(traps=trap_group, rows=n_rows))
+
+    # Replicate trap managers to keep track of traps in different phases separately
+    trap_managers = []
+    for i in range(ccd.n_phases): 
+        trap_managers_this_phase = deepcopy(trap_managers_one_phase)
+        for j in range(len(trap_managers_one_phase)): 
+            #
+            # Caution; next line makes densities differ from those in manager.traps.density - should add setter and getter to trap_manager
+            #
+            trap_managers_this_phase[j].densities *= ccd.fraction_of_traps[i]
+        trap_managers.append(trap_managers_this_phase)
+    
+    return trap_managers
 
 
 class TrapManager(object):
@@ -35,12 +78,15 @@ class TrapManager(object):
         self.filled_watermark_value = 1
 
         # Trap densities
-        self.densities = np.array([trap.density for trap in self.traps])
+        self.densities = np.array([trap.density for trap in self.traps], dtype=float)
 
         # Trap rates
         self.capture_rates = np.array([trap.capture_rate for trap in self.traps])
         self.emission_rates = np.array([trap.emission_rate for trap in self.traps])
         self.total_rates = self.capture_rates + self.emission_rates
+        
+        # Are they surface traps?
+        self.surface = self.traps[0].surface
 
     @property
     def delta_ellipticity(self):
@@ -74,7 +120,7 @@ class TrapManager(object):
         """
         n_rows = self.rows
         total_traps = len(self.traps)
-        n_watermarks_per_transfer = 2
+        n_watermarks_per_transfer = self.n_watermarks_per_transfer()
         return np.zeros((n_rows * n_watermarks_per_transfer, 1 + total_traps), dtype=float)
         
     def fill_probabilities_from_dwell_time(self, dwell_time):
@@ -119,61 +165,16 @@ class TrapManager(object):
             fill_probabilities_from_release,
         )
 
-    def fraction_of_exposed_traps(self, n_free_electrons, ccd):
-        """ 
-        Calculate the total number of charge traps exposed to a charge cloud
-        containing n_electrons. This assumes that charge traps are uniformly
-        distributed through the volume, but that assumption can be relaxed
-        by adjusting this function to reflect the net number of traps seen
-        as a function of charge cloud size. An example of that is provided,
-        for surface traps that are responsible for blooming (which is
-        asymmetric and happens during readout, unlike bleeding). 
-        
-        This function embodies the core assumption of a volume-driven CTI
-        model like arCTIc: that traps are either exposed (and have a
-        constant capture timescale, which may be zero for instant capture),
-        or unexposed and therefore unavailable. This behaviour differs from
-        a density-driven CTI model, in which traps may capture an electron
-        anywhere in a pixel, but at varying capture probability. There is 
-        considerable evidence that CCDs in the Hubble Space Telescope are 
-        primarily density-driven; a software algorithm to mimic such 
-        behaviour also runs much faster.
-        
-        
-        """
-        if self.traps[0].surface:
-            n_exposed_traps = max(n_free_electrons - ccd.blooming_level, 0)
-            # RJM: what density to use if more than one trap species?
-            fraction_of_exposed_traps = min(n_exposed_traps / self.densities, 1)
-            if 0 < n_exposed_traps < 1:
-                print(
-                    "hello",
-                    n_free_electrons,
-                    ccd.blooming_level,
-                    fraction_of_exposed_traps,
-                )
-            # fraction_of_exposed_traps = n_exposed_traps / self.densities
-
-        else:
-            fraction_of_exposed_traps = ccd.cloud_fractional_volume_from_n_electrons(
-                n_electrons=n_free_electrons
-            )
-
-        return fraction_of_exposed_traps
-
-    def n_trapped_electrons_from_watermarks(self, watermarks, fractional_width=1):
+    def n_trapped_electrons_from_watermarks(self, watermarks):
         """ Sum the total number of electrons currently held in traps.
 
         Parameters
         ----------
         watermarks : np.ndarray
             The watermarks. See initial_watermarks_from_rows_and_total_traps().
-        fractional_width : float
-            The width of this pixel or phase, as a fraction of the whole pixel.
         """
         return (
             np.sum((watermarks[:, 0] * watermarks[:, 1:].T).T * self.densities)
-            * fractional_width
         )
 
     def empty_all_traps(self):
@@ -333,9 +334,8 @@ class TrapManager(object):
     def n_electrons_released_and_captured(
         self,
         n_free_electrons,
-        ccd,
+        ccd=None,
         dwell_time=1,
-        fractional_width=1,
         express_multiplier=1,
     ):
         """ Release and capture electrons and update the trap watermarks.
@@ -352,8 +352,6 @@ class TrapManager(object):
         dwell_time : float
             The time spent in this pixel or phase, in the same units as the 
             trap timescales.
-        fractional_width : float
-            The width of this pixel or phase, as a fraction of the whole pixel.
             
         Returns
         -------
@@ -368,11 +366,11 @@ class TrapManager(object):
         # Initial watermarks and number of electrons in traps
         watermarks_initial = deepcopy(self.watermarks)
         n_trapped_electrons_initial = self.n_trapped_electrons_from_watermarks(
-            watermarks=self.watermarks, fractional_width=fractional_width
+            watermarks=self.watermarks
         )
 
         # The number of traps for each species
-        densities = self.densities * fractional_width
+        densities = self.densities
 
         # Probabilities of being full after release and/or capture
         (
@@ -407,7 +405,7 @@ class TrapManager(object):
 
             # Final number of electrons in traps
             n_trapped_electrons_final = self.n_trapped_electrons_from_watermarks(
-                watermarks=self.watermarks, fractional_width=fractional_width
+                watermarks=self.watermarks
             )
 
             # Not enough available electrons to capture
@@ -423,7 +421,7 @@ class TrapManager(object):
 
                 # Final number of electrons in traps
                 n_trapped_electrons_final = self.n_trapped_electrons_from_watermarks(
-                    watermarks=self.watermarks, fractional_width=fractional_width
+                    watermarks=self.watermarks
                 )
 
             return -n_trapped_electrons_final
@@ -467,7 +465,7 @@ class TrapManager(object):
 
             # Current numbers of electrons temporarily in traps and now available
             n_trapped_electrons_tmp = self.n_trapped_electrons_from_watermarks(
-                watermarks=self.watermarks, fractional_width=fractional_width
+                watermarks=self.watermarks
             )
             n_free_electrons += n_trapped_electrons_initial - n_trapped_electrons_tmp
 
@@ -519,7 +517,7 @@ class TrapManager(object):
 
         # Final number of electrons in traps
         n_trapped_electrons_final = self.n_trapped_electrons_from_watermarks(
-            watermarks=self.watermarks, fractional_width=fractional_width
+            watermarks=self.watermarks
         )
 
         # Prevent division by zero errors
@@ -541,7 +539,7 @@ class TrapManager(object):
 
             # Final number of electrons in traps
             n_trapped_electrons_final = self.n_trapped_electrons_from_watermarks(
-                watermarks=self.watermarks, fractional_width=fractional_width
+                watermarks=self.watermarks
             )
 
         # Collapse any redundant watermarks that are completely full
@@ -553,39 +551,11 @@ class TrapManager(object):
 class TrapManagerInstantCapture(TrapManager):
     """ For the old C++ style release-then-instant-capture algorithm. """
 
-    def initial_watermarks_from_rows_and_total_traps(self):
-        """ Initialise the watermark array of trap states.
-
-        Parameters
-        ----------
-        rows :int
-            The number of rows in the image. i.e. the maximum number of
-            possible electron trap/release events.
-        total_traps : int
-            The number of traps being modelled.
-
-        Returns
-        -------
-        watermarks : np.ndarray
-            Array of watermark fractional volumes and fill fractions to describe 
-            the trap states. Lists each (active) watermark fractional volume and 
-            the corresponding fill fractions of each traps. Inactive elements 
-            are set to 0.
-
-            [[volume, fill, fill, ...],
-             [volume, fill, fill, ...],
-             ...                       ]
-        """
-        n_rows = self.rows
-        total_traps = len(self.traps)
-        n_watermarks_per_transfer = 1
-        return np.zeros((n_rows * n_watermarks_per_transfer, 1 + total_traps), dtype=float)
-
-    def n_watermarks_per_transfer():
+    def n_watermarks_per_transfer(self):
         return 1
 
     def n_electrons_released(
-        self, dwell_time=1, fractional_width=1, express_multiplier=1
+        self, dwell_time=1, express_multiplier=1
     ):
         """ DEPRECATED but is used for some comparison tests. Replaced by 
             n_electrons_released_and_captured()
@@ -597,8 +567,6 @@ class TrapManagerInstantCapture(TrapManager):
         dwell_time : float
             The time spent in this pixel or phase, in the same units as the 
             trap timescales.
-        fractional_width : float
-            The width of this pixel or phase, as a fraction of the whole pixel.
             
         Returns
         -------
@@ -613,11 +581,11 @@ class TrapManagerInstantCapture(TrapManager):
         # Initial watermarks and number of electrons in traps
         watermarks_initial = deepcopy(self.watermarks)
         n_trapped_electrons_initial = self.n_trapped_electrons_from_watermarks(
-            watermarks=self.watermarks, fractional_width=fractional_width
+            watermarks=self.watermarks
         )
 
         # The number of traps for each species
-        densities = self.densities * fractional_width
+        densities = self.densities
 
         # Probabilities of being full after release and/or capture
         (
@@ -638,13 +606,13 @@ class TrapManagerInstantCapture(TrapManager):
 
         # Resulting numbers of electrons in traps
         n_trapped_electrons_final = self.n_trapped_electrons_from_watermarks(
-            watermarks=self.watermarks, fractional_width=fractional_width
+            watermarks=self.watermarks
         )
 
         return n_trapped_electrons_initial - n_trapped_electrons_final
 
     def n_electrons_captured(
-        self, n_free_electrons, ccd, fractional_width=1, express_multiplier=1
+        self, n_free_electrons, ccd, express_multiplier=1
     ):
         """ DEPRECATED but is used for some comparison tests. Replaced by 
             n_electrons_released_and_captured()
@@ -658,8 +626,6 @@ class TrapManagerInstantCapture(TrapManager):
         ccd : CCD
             The object describing the CCD. Must have only a single value for 
             each parameter, as set by CCD.extract_phase().
-        fractional_width : float
-            The width of this pixel or phase, as a fraction of the whole pixel.
 
         Returns
         -------
@@ -674,11 +640,11 @@ class TrapManagerInstantCapture(TrapManager):
         # Initial watermarks and number of electrons in traps
         watermarks_initial = deepcopy(self.watermarks)
         n_trapped_electrons_initial = self.n_trapped_electrons_from_watermarks(
-            watermarks=self.watermarks, fractional_width=fractional_width
+            watermarks=self.watermarks
         )
 
         # The number of traps for each species
-        densities = self.densities * fractional_width
+        densities = self.densities
 
         # Find the highest active watermark
         max_watermark_index = np.argmax(self.watermarks[:, 0] == 0) - 1
@@ -706,7 +672,7 @@ class TrapManagerInstantCapture(TrapManager):
 
             # Final number of electrons in traps
             n_trapped_electrons_final = self.n_trapped_electrons_from_watermarks(
-                watermarks=self.watermarks, fractional_width=fractional_width
+                watermarks=self.watermarks
             )
 
             # Not enough available electrons to capture
@@ -722,7 +688,7 @@ class TrapManagerInstantCapture(TrapManager):
 
                 # Final number of electrons in traps
                 n_trapped_electrons_final = self.n_trapped_electrons_from_watermarks(
-                    watermarks=self.watermarks, fractional_width=fractional_width
+                    watermarks=self.watermarks
                 )
 
             return n_trapped_electrons_final
@@ -770,7 +736,7 @@ class TrapManagerInstantCapture(TrapManager):
 
         # Final number of electrons in traps
         n_trapped_electrons_final = self.n_trapped_electrons_from_watermarks(
-            watermarks=self.watermarks, fractional_width=fractional_width
+            watermarks=self.watermarks
         )
 
         # Prevent division by zero errors
@@ -792,7 +758,7 @@ class TrapManagerInstantCapture(TrapManager):
 
             # Final number of electrons in traps
             n_trapped_electrons_final = self.n_trapped_electrons_from_watermarks(
-                watermarks=self.watermarks, fractional_width=fractional_width
+                watermarks=self.watermarks
             )
 
         # Collapse any redundant watermarks that are completely full
@@ -828,9 +794,8 @@ class TrapManagerInstantCapture(TrapManager):
     def n_electrons_released_and_captured(
         self,
         n_free_electrons,
-        ccd,
+        ccd=None,
         dwell_time=1,
-        fractional_width=1,
         express_multiplier=1,
     ):
         """ Release and capture electrons and update the trap watermarks.
@@ -845,8 +810,6 @@ class TrapManagerInstantCapture(TrapManager):
         dwell_time : float
             The time spent in this pixel or phase, in the same units as the 
             trap timescales.
-        fractional_width : float
-            The width of this pixel or phase, as a fraction of the whole pixel.
             
         Returns
         -------
@@ -862,11 +825,11 @@ class TrapManagerInstantCapture(TrapManager):
         # Initial watermarks and number of electrons in traps
         watermarks_initial = deepcopy(self.watermarks)
         n_trapped_electrons_initial = self.n_trapped_electrons_from_watermarks(
-            watermarks=self.watermarks, fractional_width=fractional_width
+            watermarks=self.watermarks
         )
 
         # The number of traps for each species
-        densities = self.densities * fractional_width
+        densities = self.densities
 
         # Find the highest active watermark
         max_watermark_index = np.argmax(self.watermarks[:, 0] == 0) - 1
@@ -880,7 +843,7 @@ class TrapManagerInstantCapture(TrapManager):
 
         # Resulting numbers of electrons in traps
         n_trapped_electrons_final = self.n_trapped_electrons_from_watermarks(
-            watermarks=self.watermarks, fractional_width=fractional_width
+            watermarks=self.watermarks
         )
 
         # Total number of released electrons and updated free electrons
@@ -891,11 +854,11 @@ class TrapManagerInstantCapture(TrapManager):
         # Initial watermarks and number of electrons in traps
         watermarks_initial = deepcopy(self.watermarks)
         n_trapped_electrons_initial = self.n_trapped_electrons_from_watermarks(
-            watermarks=self.watermarks, fractional_width=fractional_width
+            watermarks=self.watermarks
         )
 
         # The number of traps for each species
-        densities = self.densities * fractional_width
+        densities = self.densities
 
         # Find the highest active watermark
         max_watermark_index = np.argmax(self.watermarks[:, 0] == 0) - 1
@@ -925,7 +888,7 @@ class TrapManagerInstantCapture(TrapManager):
 
             # Final number of electrons in traps
             n_trapped_electrons_final = self.n_trapped_electrons_from_watermarks(
-                watermarks=self.watermarks, fractional_width=fractional_width
+                watermarks=self.watermarks
             )
 
             # Not enough available electrons to capture
@@ -941,7 +904,7 @@ class TrapManagerInstantCapture(TrapManager):
 
                 # Final number of electrons in traps
                 n_trapped_electrons_final = self.n_trapped_electrons_from_watermarks(
-                    watermarks=self.watermarks, fractional_width=fractional_width
+                    watermarks=self.watermarks
                 )
 
             return -n_trapped_electrons_final
@@ -992,7 +955,7 @@ class TrapManagerInstantCapture(TrapManager):
 
         # Final number of electrons in traps
         n_trapped_electrons_final = self.n_trapped_electrons_from_watermarks(
-            watermarks=self.watermarks, fractional_width=fractional_width
+            watermarks=self.watermarks
         )
 
         # Prevent division by zero errors
@@ -1014,7 +977,7 @@ class TrapManagerInstantCapture(TrapManager):
 
             # Final number of electrons in traps
             n_trapped_electrons_final = self.n_trapped_electrons_from_watermarks(
-                watermarks=self.watermarks, fractional_width=fractional_width
+                watermarks=self.watermarks
             )
 
         # Collapse any redundant watermarks that are completely full
@@ -1087,15 +1050,13 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
 
         return watermarks
 
-    def n_trapped_electrons_from_watermarks(self, watermarks, fractional_width=1):
+    def n_trapped_electrons_from_watermarks(self, watermarks):
         """ Sum the total number of electrons currently held in traps.
 
         Parameters
         ----------
         watermarks : np.ndarray
             The watermarks. See initial_watermarks_from_rows_and_total_traps().
-        fractional_width : float
-            The width of this pixel or phase, as a fraction of the whole pixel.
         """
         # Convert to fill fractions
         watermarks = self.watermarks_converted_to_fill_fractions_from_elapsed_times(
@@ -1104,7 +1065,6 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
 
         return (
             np.sum((watermarks[:, 0] * watermarks[:, 1:].T).T * self.densities)
-            * fractional_width
         )
 
     def updated_watermarks_from_capture_not_enough(
@@ -1217,7 +1177,8 @@ class TrapManagerDiscrete(TrapManager):
         return {'n_traps':n_traps, 'x':x, 'z':z, 
                 'occupancy':np.zeros( n_pixels, dtype=float ), 
                 'multiplicity':1/n_traps_per_trap }
-        
+   
+  
     
     
     

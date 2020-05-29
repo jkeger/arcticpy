@@ -1332,19 +1332,16 @@ class TestElectronsReleasedAndCapturedIncludingSlowTraps:
             n_free_electrons=n_free_electrons,
             ccd=self.ccd,
             dwell_time=1,
-            fractional_width=1,
         )
         net_electrons_fast = self.trap_manager_fast.n_electrons_released_and_captured(
             n_free_electrons=n_free_electrons,
             ccd=self.ccd,
             dwell_time=1,
-            fractional_width=1,
         )
         net_electrons_slow = self.trap_manager_slow.n_electrons_released_and_captured(
             n_free_electrons=n_free_electrons,
             ccd=self.ccd,
             dwell_time=1,
-            fractional_width=1,
         )
 
         # Fast traps reproduce old-style behaviour
@@ -1374,19 +1371,16 @@ class TestElectronsReleasedAndCapturedIncludingSlowTraps:
             n_free_electrons=n_free_electrons,
             ccd=self.ccd,
             dwell_time=1,
-            fractional_width=1,
         )
         net_electrons_fast = self.trap_manager_fast.n_electrons_released_and_captured(
             n_free_electrons=n_free_electrons,
             ccd=self.ccd,
             dwell_time=1,
-            fractional_width=1,
         )
         net_electrons_slow = self.trap_manager_slow.n_electrons_released_and_captured(
             n_free_electrons=n_free_electrons,
             ccd=self.ccd,
             dwell_time=1,
-            fractional_width=1,
         )
 
         # Fast traps reproduce old-style behaviour
@@ -1425,19 +1419,16 @@ class TestElectronsReleasedAndCapturedIncludingSlowTraps:
             n_free_electrons=n_free_electrons,
             ccd=self.ccd,
             dwell_time=1,
-            fractional_width=1,
         )
         net_electrons_fast = self.trap_manager_fast.n_electrons_released_and_captured(
             n_free_electrons=n_free_electrons,
             ccd=self.ccd,
             dwell_time=1,
-            fractional_width=1,
         )
         net_electrons_slow = self.trap_manager_slow.n_electrons_released_and_captured(
             n_free_electrons=n_free_electrons,
             ccd=self.ccd,
             dwell_time=1,
-            fractional_width=1,
         )
 
         assert self.trap_manager_fast.watermarks == pytest.approx(
@@ -1479,19 +1470,16 @@ class TestElectronsReleasedAndCapturedIncludingSlowTraps:
             n_free_electrons=n_free_electrons,
             ccd=self.ccd,
             dwell_time=1,
-            fractional_width=1,
         )
         net_electrons_fast = self.trap_manager_fast.n_electrons_released_and_captured(
             n_free_electrons=n_free_electrons,
             ccd=self.ccd,
             dwell_time=1,
-            fractional_width=1,
         )
         net_electrons_slow = self.trap_manager_slow.n_electrons_released_and_captured(
             n_free_electrons=n_free_electrons,
             ccd=self.ccd,
             dwell_time=1,
-            fractional_width=1,
         )
 
         # Fast traps reproduce old-style behaviour
@@ -1526,19 +1514,16 @@ class TestElectronsReleasedAndCapturedIncludingSlowTraps:
             n_free_electrons=n_free_electrons,
             ccd=self.ccd,
             dwell_time=1,
-            fractional_width=1,
         )
         net_electrons_fast = self.trap_manager_fast.n_electrons_released_and_captured(
             n_free_electrons=n_free_electrons,
             ccd=self.ccd,
             dwell_time=1,
-            fractional_width=1,
         )
         net_electrons_slow = self.trap_manager_slow.n_electrons_released_and_captured(
             n_free_electrons=n_free_electrons,
             ccd=self.ccd,
             dwell_time=1,
-            fractional_width=1,
         )
 
         # Fast traps reproduce old-style behaviour

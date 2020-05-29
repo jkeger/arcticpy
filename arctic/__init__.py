@@ -8,6 +8,7 @@ from arctic.traps import (
     TrapInstantCapture,
 )
 from arctic.trap_managers import (
+    concatenate_trap_managers,
     TrapManager,
     TrapManagerTrackTime,
     TrapManagerInstantCapture,

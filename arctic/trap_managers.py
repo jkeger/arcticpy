@@ -7,8 +7,9 @@ from arctic.traps import (
     TrapInstantCapture,
 )
 
+
 def concatenate_trap_managers(traps, n_pixels, fraction_of_traps=[1]):
-    #class TrapManagersss(list):
+    # class TrapManagersss(list):
     #    def __init__(self, traps, n_pixels, fraction_of_traps=[1]):
     #    """
     #
@@ -18,34 +19,42 @@ def concatenate_trap_managers(traps, n_pixels, fraction_of_traps=[1]):
     Set up a list of trap managers able to monitor the occupancy of (all types of) traps.
     They are created with all traps initially empty.
     """
-    
+
     # Set up list of traps in a single phase of the CCD
     trap_managers_one_phase = []
     for trap_group in traps:
         if trap_group[0].discrete:
             for trap in trap_group:
-                trap_managers_one_phase.append(TrapManagerDiscrete(traps=trap, n_pixels=n_pixels))               
+                trap_managers_one_phase.append(
+                    TrapManagerDiscrete(traps=trap, n_pixels=n_pixels)
+                )
         # Use a non-default trap manager if required for the input trap species
         elif isinstance(
             trap_group[0], (TrapLifetimeContinuum, TrapLogNormalLifetimeContinuum),
         ):
-            trap_managers_one_phase.append(TrapManagerTrackTime(traps=trap_group, n_pixels=n_pixels))
+            trap_managers_one_phase.append(
+                TrapManagerTrackTime(traps=trap_group, n_pixels=n_pixels)
+            )
         elif isinstance(trap_group[0], TrapInstantCapture):
-            trap_managers_one_phase.append(TrapManagerInstantCapture(traps=trap_group, n_pixels=n_pixels))
+            trap_managers_one_phase.append(
+                TrapManagerInstantCapture(traps=trap_group, n_pixels=n_pixels)
+            )
         else:
-            trap_managers_one_phase.append(TrapManager(traps=trap_group, n_pixels=n_pixels))
+            trap_managers_one_phase.append(
+                TrapManager(traps=trap_group, n_pixels=n_pixels)
+            )
 
     # Replicate trap managers to keep track of traps in different phases separately
     trap_managers = []
-    for i in range(len(fraction_of_traps)): 
+    for i in range(len(fraction_of_traps)):
         trap_managers_this_phase = deepcopy(trap_managers_one_phase)
-        for j in range(len(trap_managers_one_phase)): 
+        for j in range(len(trap_managers_one_phase)):
             #
             # Caution; next line makes densities differ from those in manager.traps.density - should add setter and getter to trap_manager
             #
             trap_managers_this_phase[j].n_traps_per_pixel *= fraction_of_traps[i]
         trap_managers.append(trap_managers_this_phase)
-    
+
     return trap_managers
 
 
@@ -85,7 +94,10 @@ class TrapManager(object):
         self._n_pixels = n_pixels
 
         # Set up the watermarks
-        self.watermarks = np.zeros((self.n_pixels * self.n_watermarks_per_transfer(), 1 + self.n_trap_species), dtype=float)
+        self.watermarks = np.zeros(
+            (self.n_pixels * self.n_watermarks_per_transfer(), 1 + self.n_trap_species),
+            dtype=float,
+        )
         # The value for a filled watermark level, here 1 as a fill fraction
         self.filled_watermark_value = 1
 
@@ -93,7 +105,7 @@ class TrapManager(object):
         self.capture_rates = np.array([trap.capture_rate for trap in traps])
         self.emission_rates = np.array([trap.emission_rate for trap in traps])
         self.total_rates = self.capture_rates + self.emission_rates
-        
+
         # Are they surface traps?
         self.surface = np.array([trap.surface for trap in traps], dtype=bool)
 
@@ -115,8 +127,10 @@ class TrapManager(object):
     @n_traps_per_pixel.setter
     def n_traps_per_pixel(self, values):
         if len(values) != len(self.traps):
-            raise ValueError(f'{len(value)} trap densities supplied, for {len(self.traps)} species of traps')
-        for i,value in enumerate(values):
+            raise ValueError(
+                f"{len(value)} trap densities supplied, for {len(self.traps)} species of traps"
+            )
+        for i, value in enumerate(values):
             self.traps[i].density = float(value)
 
     @property
@@ -125,7 +139,7 @@ class TrapManager(object):
 
     def n_watermarks_per_transfer(self):
         return int(2)
-        
+
     def fill_probabilities_from_dwell_time(self, dwell_time):
         """ The probabilities of being full after release and/or capture.
         
@@ -176,8 +190,8 @@ class TrapManager(object):
         watermarks : np.ndarray
             The watermarks. See initial_watermarks_from_n_pixels_and_total_traps().
         """
-        return (
-            np.sum((watermarks[:, 0] * watermarks[:, 1:].T).T * self.n_traps_per_pixel)
+        return np.sum(
+            (watermarks[:, 0] * watermarks[:, 1:].T).T * self.n_traps_per_pixel
         )
 
     def empty_all_traps(self):
@@ -284,12 +298,12 @@ class TrapManager(object):
             The updated watermarks. See initial_watermarks_from_n_pixels_and_total_traps().
         """
         # Matching watermark fractional volumes
-        np.set_printoptions(suppress=True,linewidth=0)
-        print('wi',watermarks_initial[0:10, 0])
-        print('w ',watermarks[0:10, 0])
+        np.set_printoptions(suppress=True, linewidth=0)
+        print("wi", watermarks_initial[0:10, 0])
+        print("w ", watermarks[0:10, 0])
         if not (watermarks_initial[:, 0] == watermarks[:, 0]).all():
-            print('wi',watermarks_initial[:, 0])
-            print('w ',watermarks[:, 0])
+            print("wi", watermarks_initial[:, 0])
+            print("w ", watermarks[:, 0])
         assert (watermarks_initial[:, 0] == watermarks[:, 0]).all()
 
         # Select watermark fill fractions that increased
@@ -341,11 +355,7 @@ class TrapManager(object):
         return watermarks
 
     def n_electrons_released_and_captured(
-        self,
-        n_free_electrons,
-        ccd=None,
-        dwell_time=1,
-        express_multiplier=1,
+        self, n_free_electrons, ccd=None, dwell_time=1, express_multiplier=1,
     ):
         """ Release and capture electrons and update the trap watermarks.
         
@@ -563,9 +573,7 @@ class TrapManagerInstantCapture(TrapManager):
     def n_watermarks_per_transfer(self):
         return int(1)
 
-    def n_electrons_released(
-        self, dwell_time=1, express_multiplier=1
-    ):
+    def n_electrons_released(self, dwell_time=1, express_multiplier=1):
         """ DEPRECATED but is used for some comparison tests. Replaced by 
             n_electrons_released_and_captured()
             
@@ -620,9 +628,7 @@ class TrapManagerInstantCapture(TrapManager):
 
         return n_trapped_electrons_initial - n_trapped_electrons_final
 
-    def n_electrons_captured(
-        self, n_free_electrons, ccd, express_multiplier=1
-    ):
+    def n_electrons_captured(self, n_free_electrons, ccd, express_multiplier=1):
         """ DEPRECATED but is used for some comparison tests. Replaced by 
             n_electrons_released_and_captured()
             
@@ -801,11 +807,7 @@ class TrapManagerInstantCapture(TrapManager):
         return watermark_values * fill_probabilities_from_release
 
     def n_electrons_released_and_captured(
-        self,
-        n_free_electrons,
-        ccd=None,
-        dwell_time=1,
-        express_multiplier=1,
+        self, n_free_electrons, ccd=None, dwell_time=1, express_multiplier=1,
     ):
         """ Release and capture electrons and update the trap watermarks.
 
@@ -1072,8 +1074,8 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
             watermarks=watermarks
         )
 
-        return (
-            np.sum((watermarks[:, 0] * watermarks[:, 1:].T).T * self.n_traps_per_pixel)
+        return np.sum(
+            (watermarks[:, 0] * watermarks[:, 1:].T).T * self.n_traps_per_pixel
         )
 
     def updated_watermarks_from_capture_not_enough(
@@ -1148,12 +1150,13 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
         # Update the elapsed times
         return watermark_values + dwell_time
 
+
 class TrapManagerDiscrete(TrapManager):
     """
     To monitor traps as a set of discree entities, 
     rather than a sea of traps with uniform density
     """
-    
+
     def initial_watermarks_from_n_pixels_and_total_traps(self):
         """ Initialise the watermark array of trap states.
 
@@ -1163,7 +1166,7 @@ class TrapManagerDiscrete(TrapManager):
         (the number of physical traps represented by each simulated trap, and
         hence the number of electrons it holds when it is at maximum occupancy).
         """
-        
+
         n_pixels = self.n_pixels
         n_traps_per_trap = self.traps.discrete
         n_traps = self.traps.density * n_pixels * n_traps_per_trap
@@ -1171,23 +1174,22 @@ class TrapManagerDiscrete(TrapManager):
         # Make sure that n_traps is an integer
         if is_integer(n_traps_per_trap):
             # round to integer with probability given by modulus
-            n_traps += np.random.random_sample() < ( n_traps % 1 ) 
-            n_traps = np.floor( n_traps )
+            n_traps += np.random.random_sample() < (n_traps % 1)
+            n_traps = np.floor(n_traps)
         else:
-            n_traps_per_trap *= np.rint( n_traps ) / n_traps
-            n_traps = np.rint( n_traps )
-        
+            n_traps_per_trap *= np.rint(n_traps) / n_traps
+            n_traps = np.rint(n_traps)
+
         # Decide (random) trap locations
         print("This should account for phase widths!!!")
-        x = np.random.randint( 0, n_pixels, n_traps )
+        x = np.random.randint(0, n_pixels, n_traps)
         x.sort
-        z = np.random.rand( n_pixels )
-                
-        return {'n_traps':n_traps, 'x':x, 'z':z, 
-                'occupancy':np.zeros( n_pixels, dtype=float ), 
-                'multiplicity':1/n_traps_per_trap }
-   
-  
-    
-    
-    
+        z = np.random.rand(n_pixels)
+
+        return {
+            "n_traps": n_traps,
+            "x": x,
+            "z": z,
+            "occupancy": np.zeros(n_pixels, dtype=float),
+            "multiplicity": 1 / n_traps_per_trap,
+        }

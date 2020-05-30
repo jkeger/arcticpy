@@ -12,12 +12,13 @@ import arctic as ac
 # # All the following are equivalent
 #
 # detector.cloud_fractional_volume_from_n_electrons_and_phase(n_electrons,phase)
-# 
-# f=detector.cloud_fractional_volume_from_n_electrons_in_phase(phase)                                                                                                          
-# f(n_electrons) 
+#
+# f=detector.cloud_fractional_volume_from_n_electrons_in_phase(phase)
+# f(n_electrons)
 #
 # p=ac.CCDPhase(detector,phase)
 # p.cloud_fractional_volume_from_n_electrons(n_electrons)
+
 
 class CCD(object):
     def __init__(
@@ -66,7 +67,7 @@ class CCD(object):
             Acts similarly to a notch, but for surface traps.
             Default value is full_well_depth - i.e. no blooming is possible.
         """
-        
+
         # All parameters are returned as a list of length n_phases
         self.fraction_of_traps = fraction_of_traps
         self.full_well_depth = full_well_depth
@@ -76,38 +77,41 @@ class CCD(object):
 
     @property
     def fraction_of_traps(self):
-        return self._fraction_of_traps    
-    
+        return self._fraction_of_traps
+
     @fraction_of_traps.setter
     def fraction_of_traps(self, value):
         if isinstance(value, list):
             self._fraction_of_traps = value
         else:
-            self._fraction_of_traps = [value] # Make sure the arrays are arrays
+            self._fraction_of_traps = [value]  # Make sure the arrays are arrays
         self._n_phases = len(self._fraction_of_traps)
-     #   self._pixel_width = sum( i for i in self._fraction_of_traps )
+
+    #   self._pixel_width = sum( i for i in self._fraction_of_traps )
 
     @property
     def n_phases(self):
-        return self._n_phases    
+        return self._n_phases
 
-    #@property
-    #def pixel_width(self):
-    #    return self._pixel_width    
+    # @property
+    # def pixel_width(self):
+    #    return self._pixel_width
 
-    #@property
-    #def phase_fractional_widths(self):
-    #    return [i / self._pixel_width for i in self._fraction_of_traps]    
+    # @property
+    # def phase_fractional_widths(self):
+    #    return [i / self._pixel_width for i in self._fraction_of_traps]
 
     @property
     def full_well_depth(self):
-        return self._full_well_depth    
-    
+        return self._full_well_depth
+
     @full_well_depth.setter
     def full_well_depth(self, value):
         if isinstance(value, list):
             if len(value) != self.n_phases:
-                raise ValueError(f'Incorrect number of phases ({len(value)}) in full_well_depth')
+                raise ValueError(
+                    f"Incorrect number of phases ({len(value)}) in full_well_depth"
+                )
             self._full_well_depth = value
         else:
             self._full_well_depth = [value] * self.n_phases
@@ -115,31 +119,35 @@ class CCD(object):
     @property
     def well_fill_power(self):
         return self._well_fill_power
-    
+
     @well_fill_power.setter
     def well_fill_power(self, value):
         if isinstance(value, list):
             if len(value) != self.n_phases:
-                raise ValueError(f'Incorrect number of phases ({len(value)}) in well_fill_power')
+                raise ValueError(
+                    f"Incorrect number of phases ({len(value)}) in well_fill_power"
+                )
             self._well_fill_power = value
         else:
             self._well_fill_power = [value] * self.n_phases
 
     @property
     def well_notch_depth(self):
-        return self._well_notch_depth 
-    
+        return self._well_notch_depth
+
     @well_notch_depth.setter
     def well_notch_depth(self, value):
         if isinstance(value, list):
             if len(value) != self.n_phases:
-                raise ValueError(f'Incorrect number of phases ({len(value)}) in well_notch_depth')
+                raise ValueError(
+                    f"Incorrect number of phases ({len(value)}) in well_notch_depth"
+                )
             self._well_notch_depth = value
         else:
             self._well_notch_depth = [value] * self.n_phases
 
-    #@property
-    #def well_range(self):
+    # @property
+    # def well_range(self):
     #    return [
     #        full_well_depth - well_notch_depth
     #        for full_well_depth, well_notch_depth in zip(self._full_well_depth, self._well_notch_depth)
@@ -148,15 +156,18 @@ class CCD(object):
     @property
     def well_bloom_level(self):
         return self._well_bloom_level
-    
+
     @well_bloom_level.setter
     def well_bloom_level(self, value):
         if isinstance(value, list):
             if len(value) != self.n_phases:
-                raise ValueError(f'Incorrect number of phases ({len(value)}) in well_bloom_level')
+                raise ValueError(
+                    f"Incorrect number of phases ({len(value)}) in well_bloom_level"
+                )
             self._well_bloom_level = value
         else:
-            if value is None: value = self.full_well_depth
+            if value is None:
+                value = self.full_well_depth
             self._well_bloom_level = [value] * self.n_phases
 
     def cumulative_n_traps_from_n_electrons(self, n_electrons):
@@ -195,7 +206,9 @@ class CCD(object):
         return n_traps
 
     # Returns a (self-contained) function describing the well-filling model in a single phase
-    def cloud_fractional_volume_from_n_electrons_and_phase(self, n_electrons, phase=0, surface=False):
+    def cloud_fractional_volume_from_n_electrons_and_phase(
+        self, n_electrons, phase=0, surface=False
+    ):
         ccd_phase = self.cloud_fractional_volume_from_n_electrons_in_phase(phase)
         return ccd_phase(n_electrons, surface)
 
@@ -220,6 +233,7 @@ class CCD(object):
         primarily density-driven; a software algorithm to mimic such 
         behaviour also runs much faster.
         """
+
         def cloud_fractional_volume_from_n_electrons(n_electrons, surface=False):
             """
             Inputs
@@ -237,8 +251,8 @@ class CCD(object):
             full_well_depth = self.full_well_depth[phase]
             well_fill_power = self.well_fill_power[phase]
             well_notch_depth = self.well_notch_depth[phase]
-            well_bloom_level = self.well_bloom_level[phase]        
-            
+            well_bloom_level = self.well_bloom_level[phase]
+
             if n_electrons == 0:
                 return 0
 
@@ -251,39 +265,36 @@ class CCD(object):
             well_range = self.full_well_depth[phase] - empty
 
             volume = (
-                util.set_min_max(
-                    ( n_electrons - empty ) / well_range, 0, 1
-                )
+                util.set_min_max((n_electrons - empty) / well_range, 0, 1)
             ) ** beta
             return volume
-        
+
         return cloud_fractional_volume_from_n_electrons
 
 
-
 class CCDPhase(object):
-    def __init__(self,ccd=CCD(),phase=0):
+    def __init__(self, ccd=CCD(), phase=0):
         """Hello"""
-        
+
         self.fraction_of_traps = ccd.fraction_of_traps[phase]
-        
+
         self.full_well_depth = ccd.full_well_depth[phase]
         self.well_fill_power = ccd.well_fill_power[phase]
         self.well_notch_depth = ccd.well_notch_depth[phase]
         self.well_bloom_level = ccd.well_bloom_level[phase]
 
     def cloud_fractional_volume_from_n_electrons(self, n_electrons, surface=False):
-    
+
         fraction_of_traps = self.fraction_of_traps
         full_well_depth = self.full_well_depth
         well_fill_power = self.well_fill_power
         well_notch_depth = self.well_notch_depth
-        well_bloom_level = self.well_bloom_level  
-        
+        well_bloom_level = self.well_bloom_level
+
         if n_electrons == 0:
             return 0
 
-        #print('surface?',surface)
+        # print('surface?',surface)
         if surface:
             empty = self.blooming_level
             beta = 1
@@ -292,14 +303,8 @@ class CCDPhase(object):
             beta = self.well_fill_power
         well_range = self.full_well_depth - empty
 
-        volume = (
-            util.set_min_max(
-                ( n_electrons - empty ) / well_range, 0, 1
-            )
-        ) ** beta
+        volume = (util.set_min_max((n_electrons - empty) / well_range, 0, 1)) ** beta
         return volume
-
-
 
 
 class CCDComplex(CCD):
@@ -374,7 +379,7 @@ class CCDComplex(CCD):
         """
 
         assert phase == 0, "TBD"
-        
+
         cloud_fractional_volume = (
             self.well_fill_alpha
             * (
@@ -386,5 +391,3 @@ class CCDComplex(CCD):
         ) ** self.well_fill_power
 
         return util.set_min_max(cloud_fractional_volume, 0, 1)
-
-

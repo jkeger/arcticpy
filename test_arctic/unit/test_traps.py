@@ -26,6 +26,7 @@ class TestTrapParams:
         assert serial_trap_1.density == 0.4
         assert serial_trap_1.release_timescale == 4.0
 
+
 #    def test__ccd_class___sets_value_correctly(self):
 #
 #        parallel_ccd = ac.CCDComplex(
@@ -93,7 +94,9 @@ class TestSpecies:
         trap_manager = ac.TrapManager(traps=[parallel_1_trap], n_pixels=1)
         assert trap_manager.delta_ellipticity == parallel_1_trap.delta_ellipticity
 
-        trap_manager = ac.TrapManager(traps=[parallel_1_trap, parallel_2_trap], n_pixels=1)
+        trap_manager = ac.TrapManager(
+            traps=[parallel_1_trap, parallel_2_trap], n_pixels=1
+        )
         assert (
             trap_manager.delta_ellipticity
             == parallel_1_trap.delta_ellipticity + parallel_2_trap.delta_ellipticity
@@ -248,6 +251,7 @@ class TestTrapManagerUtilities:
             watermarks=watermarks
         ) == ((0.5 * 0.8 + 0.2 * 0.4 + 0.1 * 0.3) * trap.density)
 
+
 #        watermarks = np.array(
 #            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0], [0, 0]]
 #        )
@@ -265,11 +269,13 @@ class TestInitialWatermarks:
         assert (trap_manager.watermarks == np.zeros(shape=(6, 2))).all()
 
         # 5 trap species, 3 n_pixels of image pixels
-        trap_manager = ac.TrapManager(traps=[ac.Trap(),ac.Trap(),ac.Trap(),ac.Trap(),ac.Trap()], n_pixels=3)
+        trap_manager = ac.TrapManager(
+            traps=[ac.Trap(), ac.Trap(), ac.Trap(), ac.Trap(), ac.Trap()], n_pixels=3
+        )
         assert (trap_manager.watermarks == np.zeros(shape=(6, 6))).all()
 
         # 2 trap species, 5 n_pixels of image pixels
-        trap_manager = ac.TrapManager(traps=[ac.Trap(),ac.Trap()], n_pixels=5)
+        trap_manager = ac.TrapManager(traps=[ac.Trap(), ac.Trap()], n_pixels=5)
         assert (trap_manager.watermarks == np.zeros(shape=(10, 3))).all()
 
 
@@ -356,25 +362,25 @@ class TestElectronsReleasedAndCapturedInstantCapture:
             np.array([[0.5, 0.4], [0.2, 0.2], [0.1, 0.1], [0, 0], [0, 0], [0, 0]])
         )
 
-#
-# FRACTIONAL_WIDTH deprecated since it is redundant with full_well_depth
-#
-#    def test__single_trap_release__change_fractional_width(self):
-#
-#        # Half the time, double the density --> same result
-#        traps = [ac.TrapInstantCapture(density=20, release_timescale=-1 / np.log(0.5))] #1.4426950408889634
-#        trap_manager = ac.TrapManagerInstantCapture(traps=traps, n_pixels=6)
-#
-#        trap_manager.watermarks = np.array(
-#            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]]
-#        )
-#
-#        n_electrons_released = trap_manager.n_electrons_released(fractional_width=0.5)
-#
-#        assert n_electrons_released == pytest.approx(2.5)
-#        assert trap_manager.watermarks == pytest.approx(
-#            np.array([[0.5, 0.4], [0.2, 0.2], [0.1, 0.1], [0, 0], [0, 0], [0, 0]])
-#        )
+    #
+    # FRACTIONAL_WIDTH deprecated since it is redundant with full_well_depth
+    #
+    #    def test__single_trap_release__change_fractional_width(self):
+    #
+    #        # Half the time, double the density --> same result
+    #        traps = [ac.TrapInstantCapture(density=20, release_timescale=-1 / np.log(0.5))] #1.4426950408889634
+    #        trap_manager = ac.TrapManagerInstantCapture(traps=traps, n_pixels=6)
+    #
+    #        trap_manager.watermarks = np.array(
+    #            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]]
+    #        )
+    #
+    #        n_electrons_released = trap_manager.n_electrons_released(fractional_width=0.5)
+    #
+    #        assert n_electrons_released == pytest.approx(2.5)
+    #        assert trap_manager.watermarks == pytest.approx(
+    #            np.array([[0.5, 0.4], [0.2, 0.2], [0.1, 0.1], [0, 0], [0, 0], [0, 0]])
+    #        )
 
     def test__first_capture(self):
 
@@ -383,7 +389,10 @@ class TestElectronsReleasedAndCapturedInstantCapture:
         traps = [ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))]
         trap_manager = ac.TrapManagerInstantCapture(traps=traps, n_pixels=6)
 
-        ccd = ac.CCDPhase(ac.CCD(well_fill_power=0.5, full_well_depth=10000, well_notch_depth=1e-7),phase=0)        
+        ccd = ac.CCDPhase(
+            ac.CCD(well_fill_power=0.5, full_well_depth=10000, well_notch_depth=1e-7),
+            phase=0,
+        )
 
         n_electrons_captured = trap_manager.n_electrons_captured(
             n_free_electrons=n_free_electrons, ccd=ccd
@@ -415,7 +424,10 @@ class TestElectronsReleasedAndCapturedInstantCapture:
             ]
         )
 
-        ccd = ac.CCDPhase(ac.CCD(well_fill_power=0.5, full_well_depth=10000, well_notch_depth=1e-7),phase=0)
+        ccd = ac.CCDPhase(
+            ac.CCD(well_fill_power=0.5, full_well_depth=10000, well_notch_depth=1e-7),
+            phase=0,
+        )
 
         n_electrons_captured = trap_manager.n_electrons_captured(
             n_free_electrons=n_free_electrons, ccd=ccd
@@ -446,7 +458,10 @@ class TestElectronsReleasedAndCapturedInstantCapture:
         traps = [ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))]
         trap_manager = ac.TrapManagerInstantCapture(traps=traps, n_pixels=6)
 
-        ccd = ac.CCDPhase(ac.CCD(well_fill_power=0.5, full_well_depth=10000, well_notch_depth=1e-7),phase=0)
+        ccd = ac.CCDPhase(
+            ac.CCD(well_fill_power=0.5, full_well_depth=10000, well_notch_depth=1e-7),
+            phase=0,
+        )
 
         n_electrons_captured = trap_manager.n_electrons_captured(
             n_free_electrons=n_free_electrons, ccd=ccd
@@ -480,7 +495,10 @@ class TestElectronsReleasedAndCapturedInstantCapture:
             ]
         )
 
-        ccd = ac.CCDPhase(ac.CCD(well_fill_power=0.5, full_well_depth=10000, well_notch_depth=1e-7),phase=0)
+        ccd = ac.CCDPhase(
+            ac.CCD(well_fill_power=0.5, full_well_depth=10000, well_notch_depth=1e-7),
+            phase=0,
+        )
 
         n_electrons_captured = trap_manager.n_electrons_captured(
             n_free_electrons=n_free_electrons, ccd=ccd
@@ -509,7 +527,10 @@ class TestElectronsReleasedAndCapturedInstantCapture:
             ac.TrapInstantCapture(density=8, release_timescale=-1 / np.log(0.2)),
         ]
         trap_manager_1 = ac.TrapManagerInstantCapture(traps=traps, n_pixels=6)
-        ccd = ac.CCDPhase(ac.CCD(well_fill_power=0.5, full_well_depth=10000, well_notch_depth=1e-7),phase=0)
+        ccd = ac.CCDPhase(
+            ac.CCD(well_fill_power=0.5, full_well_depth=10000, well_notch_depth=1e-7),
+            phase=0,
+        )
 
         n_free_electrons = 3600  # --> cloud_fractional_volume = 0.6
 
@@ -671,7 +692,9 @@ class TestTrapManagerTrackTime:
 
         trap_1 = ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))
         trap_2 = ac.TrapInstantCapture(density=10, release_timescale=-2 / np.log(0.5))
-        trap_manager_fill = ac.TrapManagerInstantCapture(traps=[trap_1, trap_2], n_pixels=6)
+        trap_manager_fill = ac.TrapManagerInstantCapture(
+            traps=[trap_1, trap_2], n_pixels=6
+        )
         trap_manager_time = ac.TrapManagerTrackTime(traps=[trap_1, trap_2], n_pixels=6)
 
         trap_manager_fill.watermarks = np.array(
@@ -1047,7 +1070,9 @@ class TestTrapLifetimeContinuum:
             release_timescale_mu=release_timescale,
             release_timescale_sigma=sigma,
         )
-        trap_manager_continuum = ac.TrapManagerTrackTime(traps=[trap_continuum], n_pixels=6)
+        trap_manager_continuum = ac.TrapManagerTrackTime(
+            traps=[trap_continuum], n_pixels=6
+        )
         trap_manager_continuum.watermarks = np.array(
             [[0.5, t_elapsed], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],]
         )
@@ -1329,19 +1354,13 @@ class TestElectronsReleasedAndCapturedIncludingSlowTraps:
         n_free_electrons = 5e4  # cloud_fractional_volume ~= 0.656
 
         net_electrons_instant = self.trap_manager_instant.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons,
-            ccd=self.ccd,
-            dwell_time=1,
+            n_free_electrons=n_free_electrons, ccd=self.ccd, dwell_time=1,
         )
         net_electrons_fast = self.trap_manager_fast.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons,
-            ccd=self.ccd,
-            dwell_time=1,
+            n_free_electrons=n_free_electrons, ccd=self.ccd, dwell_time=1,
         )
         net_electrons_slow = self.trap_manager_slow.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons,
-            ccd=self.ccd,
-            dwell_time=1,
+            n_free_electrons=n_free_electrons, ccd=self.ccd, dwell_time=1,
         )
 
         # Fast traps reproduce old-style behaviour
@@ -1368,19 +1387,13 @@ class TestElectronsReleasedAndCapturedIncludingSlowTraps:
         self.trap_manager_slow.watermarks = deepcopy(watermarks)
 
         net_electrons_instant = self.trap_manager_instant.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons,
-            ccd=self.ccd,
-            dwell_time=1,
+            n_free_electrons=n_free_electrons, ccd=self.ccd, dwell_time=1,
         )
         net_electrons_fast = self.trap_manager_fast.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons,
-            ccd=self.ccd,
-            dwell_time=1,
+            n_free_electrons=n_free_electrons, ccd=self.ccd, dwell_time=1,
         )
         net_electrons_slow = self.trap_manager_slow.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons,
-            ccd=self.ccd,
-            dwell_time=1,
+            n_free_electrons=n_free_electrons, ccd=self.ccd, dwell_time=1,
         )
 
         # Fast traps reproduce old-style behaviour
@@ -1416,19 +1429,13 @@ class TestElectronsReleasedAndCapturedIncludingSlowTraps:
         self.trap_manager_slow.watermarks = deepcopy(watermarks)
 
         net_electrons_instant = self.trap_manager_instant.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons,
-            ccd=self.ccd,
-            dwell_time=1,
+            n_free_electrons=n_free_electrons, ccd=self.ccd, dwell_time=1,
         )
         net_electrons_fast = self.trap_manager_fast.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons,
-            ccd=self.ccd,
-            dwell_time=1,
+            n_free_electrons=n_free_electrons, ccd=self.ccd, dwell_time=1,
         )
         net_electrons_slow = self.trap_manager_slow.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons,
-            ccd=self.ccd,
-            dwell_time=1,
+            n_free_electrons=n_free_electrons, ccd=self.ccd, dwell_time=1,
         )
 
         assert self.trap_manager_fast.watermarks == pytest.approx(
@@ -1467,19 +1474,13 @@ class TestElectronsReleasedAndCapturedIncludingSlowTraps:
         self.trap_manager_slow.watermarks = deepcopy(watermarks)
 
         net_electrons_instant = self.trap_manager_instant.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons,
-            ccd=self.ccd,
-            dwell_time=1,
+            n_free_electrons=n_free_electrons, ccd=self.ccd, dwell_time=1,
         )
         net_electrons_fast = self.trap_manager_fast.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons,
-            ccd=self.ccd,
-            dwell_time=1,
+            n_free_electrons=n_free_electrons, ccd=self.ccd, dwell_time=1,
         )
         net_electrons_slow = self.trap_manager_slow.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons,
-            ccd=self.ccd,
-            dwell_time=1,
+            n_free_electrons=n_free_electrons, ccd=self.ccd, dwell_time=1,
         )
 
         # Fast traps reproduce old-style behaviour
@@ -1511,19 +1512,13 @@ class TestElectronsReleasedAndCapturedIncludingSlowTraps:
         self.trap_manager_slow.watermarks = deepcopy(watermarks)
 
         net_electrons_instant = self.trap_manager_instant.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons,
-            ccd=self.ccd,
-            dwell_time=1,
+            n_free_electrons=n_free_electrons, ccd=self.ccd, dwell_time=1,
         )
         net_electrons_fast = self.trap_manager_fast.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons,
-            ccd=self.ccd,
-            dwell_time=1,
+            n_free_electrons=n_free_electrons, ccd=self.ccd, dwell_time=1,
         )
         net_electrons_slow = self.trap_manager_slow.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons,
-            ccd=self.ccd,
-            dwell_time=1,
+            n_free_electrons=n_free_electrons, ccd=self.ccd, dwell_time=1,
         )
 
         # Fast traps reproduce old-style behaviour

@@ -62,7 +62,7 @@ class TestCCD:
         assert electron_fractional_height == 0.0
 
 
-#class TestCCDComplex:
+# class TestCCDComplex:
 #    def test__electron_fractional_height_from_electrons__gives_correct_value(self,):
 #
 #        parallel_ccd = ac.CCDComplex(
@@ -169,10 +169,10 @@ class TestMultiPhase:
             fraction_of_traps=[0.5, 0.2, 0.2, 0.1],
         )
 
-        ccd_phase_0 = ac.CCDPhase(ccd,0)
-        ccd_phase_1 = ac.CCDPhase(ccd,1)
-        ccd_phase_2 = ac.CCDPhase(ccd,2)
-        ccd_phase_3 = ac.CCDPhase(ccd,3)
+        ccd_phase_0 = ac.CCDPhase(ccd, 0)
+        ccd_phase_1 = ac.CCDPhase(ccd, 1)
+        ccd_phase_2 = ac.CCDPhase(ccd, 2)
+        ccd_phase_3 = ac.CCDPhase(ccd, 3)
 
         assert ccd_phase_0.well_notch_depth == 0.01
         assert ccd_phase_0.full_well_depth == 84700

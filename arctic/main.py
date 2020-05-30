@@ -16,7 +16,7 @@ import os
 from copy import deepcopy
 
 from arctic.roe import ROE
-from arctic.ccd import ( CCD, CCDPhase )
+from arctic.ccd import CCD, CCDPhase
 from arctic.traps import (
     TrapLifetimeContinuum,
     TrapLogNormalLifetimeContinuum,
@@ -228,12 +228,12 @@ def _clock_charge_in_one_direction(
         traps = [
             traps
         ]  # If only a single trap species is used, still make sure it is an array
-    phases_with_traps = [i for i,x in enumerate(ccd.fraction_of_traps) if x>0]
-    steps_with_nonzero_dwell_time = [i for i,x in enumerate(roe.dwell_times) if x>0]
+    phases_with_traps = [i for i, x in enumerate(ccd.fraction_of_traps) if x > 0]
+    steps_with_nonzero_dwell_time = [i for i, x in enumerate(roe.dwell_times) if x > 0]
 
     # Calculate the number of times that the effect of each pixel-to-pixel transfer can be replicated
     express_matrix = express_matrix_from_rows_and_express(
-        #dtype=int,
+        # dtype=int,
         rows=window_row,
         express=express,
         offset=offset,
@@ -247,10 +247,10 @@ def _clock_charge_in_one_direction(
     # This is another way to achieve multi-step clocking, which omits a nested for loop and may be faster, but is less clear.
     #
     ## Prepare the image and express for multi-step clocking
-    #n_steps_in_clock_cycle = len(roe.dwell_times)
-    #assert n_steps_in_clock_cycle >= len(ccd.phase_fractional_widths)
+    # n_steps_in_clock_cycle = len(roe.dwell_times)
+    # assert n_steps_in_clock_cycle >= len(ccd.phase_fractional_widths)
     ##assert np.amax(ccd.phase_fractional_widths) <= 1
-    #if n_steps_in_clock_cycle > 1:
+    # if n_steps_in_clock_cycle > 1:
     #    new_image = np.zeros((rows * n_steps_in_clock_cycle, columns))
     #    new_image[ccd.integration_phase :: n_steps_in_clock_cycle] = image
     #    image = new_image
@@ -261,7 +261,6 @@ def _clock_charge_in_one_direction(
     #    window_row = range(n_rows_to_clock)
     #    window_column = range(n_columns)
     #    express_matrix = np.repeat(express_matrix, n_steps_in_clock_cycle, axis=1)
-
 
     # Set up an array of trap managers able to monitor the occupancy of (all types of) traps
     trap_managers = concatenate_trap_managers(traps, n_rows, ccd.fraction_of_traps)
@@ -278,15 +277,14 @@ def _clock_charge_in_one_direction(
                     break
             when_to_store_traps[express_index, row_index] = True
 
-    
     # Expand image temporarily, if charge released from traps ever migrates to a different charge packet,
     # at any time during the clocking sequence
     n_rows_zero_padding = roe.max_referred_to_pixel - roe.min_referred_to_pixel
     if n_rows_zero_padding > 0:
         image = np.concatenate(
-            (image, np.zeros((n_rows_zero_padding, n_columns), dtype=image.dtype)), axis=0
-        ) 
-
+            (image, np.zeros((n_rows_zero_padding, n_columns), dtype=image.dtype)),
+            axis=0,
+        )
 
     # Read out one column of pixels through one (column of) traps
     for column_index in range(len(window_column)):
@@ -300,67 +298,97 @@ def _clock_charge_in_one_direction(
 
             # Each pixel
             for row_index in range(len(window_row)):
-                
+
                 express_multiplier = express_matrix[express_index, row_index]
                 if express_multiplier == 0:
                     continue
 
                 for clocking_step in steps_with_nonzero_dwell_time:
-                    
+
                     for phase in phases_with_traps:
 
                         # Extract initial number of electrons from the relevant charge cloud
                         potential = roe.clock_sequence[clocking_step][phase]
-                        row_read = window_row[row_index] + potential['capture_from_which_pixel']
-                        n_free_electrons = image[row_read, window_column[column_index]] * potential['high']
+                        row_read = (
+                            window_row[row_index]
+                            + potential["capture_from_which_pixel"]
+                        )
+                        n_free_electrons = (
+                            image[row_read, window_column[column_index]]
+                            * potential["high"]
+                        )
 
                         # Allow electrons to be released from and captured by charge traps
                         n_electrons_released_and_captured = 0
                         n_electrons_trapped_before = 0
                         n_electrons_trapped_after = 0
                         for trap_manager in trap_managers[phase]:
-                            n_electrons_trapped_before += trap_manager.n_trapped_electrons_from_watermarks(trap_manager.watermarks)
+                            n_electrons_trapped_before += trap_manager.n_trapped_electrons_from_watermarks(
+                                trap_manager.watermarks
+                            )
                             n_electrons_released_and_captured += trap_manager.n_electrons_released_and_captured(
                                 n_free_electrons=n_free_electrons,
                                 dwell_time=roe.dwell_times[clocking_step],
-                                ccd=CCDPhase(ccd,phase),
+                                ccd=CCDPhase(ccd, phase),
                                 express_multiplier=express_multiplier,
-                                #ccd=ccd.extract_phase(phase),
-                                #fractional_width=ccd.phase_fractional_widths[phase],
+                                # ccd=ccd.extract_phase(phase),
+                                # fractional_width=ccd.phase_fractional_widths[phase],
                             )
-                            n_electrons_trapped_after += trap_manager.n_trapped_electrons_from_watermarks(trap_manager.watermarks)
+                            n_electrons_trapped_after += trap_manager.n_trapped_electrons_from_watermarks(
+                                trap_manager.watermarks
+                            )
 
                         # Return the released electrons back to the relevant charge cloud
-                        
-                        row_write = window_row[row_index] + potential['release_to_which_pixel']
+
+                        row_write = (
+                            window_row[row_index] + potential["release_to_which_pixel"]
+                        )
                         image[row_write, window_column[column_index]] += (
                             n_electrons_released_and_captured * express_multiplier
                         )
-                        print(row_index,'write row',row_write,'step',clocking_step,'phase',phase,
-                              'n_ei',n_free_electrons,
-                              'n_tb',n_electrons_trapped_before,
-                              'n_ta',n_electrons_trapped_after,
-                              'exp',express_multiplier,
-                              'diff',(n_electrons_trapped_before-n_electrons_trapped_after),
-                              'n_ef',image[row_write, window_column[column_index]])
+                        print(
+                            row_index,
+                            "write row",
+                            row_write,
+                            "step",
+                            clocking_step,
+                            "phase",
+                            phase,
+                            "n_ei",
+                            n_free_electrons,
+                            "n_tb",
+                            n_electrons_trapped_before,
+                            "n_ta",
+                            n_electrons_trapped_after,
+                            "exp",
+                            express_multiplier,
+                            "diff",
+                            (n_electrons_trapped_before - n_electrons_trapped_after),
+                            "n_ef",
+                            image[row_write, window_column[column_index]],
+                        )
 
                 # Save trap occupancy at the end of one express
                 if when_to_store_traps[express_index, row_index]:
                     stored_trap_managers = trap_managers
-                    print('saving at', express_index, row_index)
+                    print("saving at", express_index, row_index)
 
         # Reset watermarks, effectively setting trap occupancy to zero
-        if roe.empty_traps_between_columns: 
-            [inner.empty_all_traps() for outer in stored_trap_managers for inner in outer]
+        if roe.empty_traps_between_columns:
+            [
+                inner.empty_all_traps()
+                for outer in stored_trap_managers
+                for inner in outer
+            ]
         else:
             stored_trap_managers = deepcopy(trap_managers)
 
     # Recombine the image for multi-phase clocking
-    #if n_simple_phases > 1:
+    # if n_simple_phases > 1:
     #    image = image.reshape((int(rows / n_simple_phases), n_simple_phases, columns)).sum(axis=1)
     # Unexpand image
     if n_rows_zero_padding > 0:
-        image = image[ 0 : - n_rows_zero_padding, :]
+        image = image[0:-n_rows_zero_padding, :]
 
     return image
 

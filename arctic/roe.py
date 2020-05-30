@@ -7,6 +7,7 @@
 import numpy as np
 from copy import deepcopy
 
+
 class ROE(object):
     def __init__(
         self,
@@ -14,7 +15,7 @@ class ROE(object):
         charge_injection=False,
         empty_traps_at_start=True,
         empty_traps_between_columns=True,
-        integration_step=None, # Why should this matter?
+        integration_step=None,  # Why should this matter?
     ):
         """
         The parameters for the clocking of electrons (in an n-type CCD; the algorithm 
@@ -82,34 +83,37 @@ class ROE(object):
             during the clock sequence.
                         
         """
-       
+
         # Check input number of dwell times as an indication of the desired
         # number of steps in the clocking sequence
         if not isinstance(dwell_times, list):
             dwell_times = [dwell_times]
-        self.n_steps = len(dwell_times) 
+        self.n_steps = len(dwell_times)
         self.dwell_times = dwell_times
 
         self.charge_injection = charge_injection
         self.empty_traps_at_start = empty_traps_at_start
         self.empty_traps_between_columns = empty_traps_between_columns
-       
-        self.clock_sequence = self._generate_clock_sequence(self.n_steps, integration_step=integration_step)
+
+        self.clock_sequence = self._generate_clock_sequence(
+            self.n_steps, integration_step=integration_step
+        )
         self.n_phases = len(self.clock_sequence[0])
         self.integration_step = integration_step
-        
+
         # Record which range of charge clouds are accessed during the clocking sequence
-        referred_to_pixels=[0]
+        referred_to_pixels = [0]
         for step in range(self.n_steps):
             for phase in range(self.n_phases):
-                referred_to_pixels.extend([
-                    self.clock_sequence[step][phase]['capture_from_which_pixel'],
-                    self.clock_sequence[step][phase]['release_to_which_pixel']
-                ])
+                referred_to_pixels.extend(
+                    [
+                        self.clock_sequence[step][phase]["capture_from_which_pixel"],
+                        self.clock_sequence[step][phase]["release_to_which_pixel"],
+                    ]
+                )
         self.min_referred_to_pixel = min(referred_to_pixels)
         self.max_referred_to_pixel = max(referred_to_pixels)
-        
-        
+
     def _generate_clock_sequence(self, n_steps, integration_step=None):
 
         """ 
@@ -119,37 +123,42 @@ class ROE(object):
         between these phases). 
         """
 
-        # The number of steps need not be the same as the number of phases 
+        # The number of steps need not be the same as the number of phases
         # in the CCD, but is for a simple scheme.
         n_phases = n_steps
-        
+
         clock_sequence = []
         for step in range(n_steps):
             potentials = []
             for phase in range(n_phases):
-                high_phase = step #n_phases - phase
-                high = (phase == high_phase)
+                high_phase = step  # n_phases - phase
+                high = phase == high_phase
                 adjacent_phases_high = [high_phase]
                 capture_from_which_pixel = 0
-                n_steps_around_into_same_pixel = n_phases // 2 # 1 for 3 or 4 phase devices
-                if phase > ( step + n_steps_around_into_same_pixel):
+                n_steps_around_into_same_pixel = (
+                    n_phases // 2
+                )  # 1 for 3 or 4 phase devices
+                if phase > (step + n_steps_around_into_same_pixel):
                     release_to_which_pixel = -1
-                elif phase < (step -n_steps_around_into_same_pixel):
-                    release_to_which_pixel = 1 # Release into charge cloud following (for normal readout)
+                elif phase < (step - n_steps_around_into_same_pixel):
+                    release_to_which_pixel = (
+                        1  # Release into charge cloud following (for normal readout)
+                    )
                 else:
-                    release_to_which_pixel = 0 # Release into same charge cloud
-                potential={'high':high,
-                           'adjacent_phases_high':adjacent_phases_high,
-                           'capture_from_which_pixel':capture_from_which_pixel,
-                           'release_to_which_pixel':release_to_which_pixel}
+                    release_to_which_pixel = 0  # Release into same charge cloud
+                potential = {
+                    "high": high,
+                    "adjacent_phases_high": adjacent_phases_high,
+                    "capture_from_which_pixel": capture_from_which_pixel,
+                    "release_to_which_pixel": release_to_which_pixel,
+                }
                 potentials.append(potential)
             clock_sequence.append(potentials)
-            
+
         return clock_sequence
 
 
 class ROETrapPumping(ROE):
-        
     def _generate_clock_sequence(self, n_steps, integration_step=0):
 
         """ 
@@ -161,41 +170,49 @@ class ROETrapPumping(ROE):
         always held high. The starting 
         """
 
-        # The number of steps need not be the same as the number of phases 
+        # The number of steps need not be the same as the number of phases
         # in the CCD, but is for a simple scheme.
-        assert ( n_steps % 2 ) == 0, "Expected n_steps to be even for trap pumping sequence"
+        assert (
+            n_steps % 2
+        ) == 0, "Expected n_steps to be even for trap pumping sequence"
         n_phases = n_steps / 2
-        
+
         clock_sequence = []
         for step in range(n_steps):
             potentials = []
             for phase in range(n_phases):
-                if step <= ( n_phases / 2 ): 
-                    high_phase = ( integration_step + step ) % n_phases
+                if step <= (n_phases / 2):
+                    high_phase = (integration_step + step) % n_phases
                 else:
-                    high_phase = ( integration_step - step ) % n_phases
-                print(step,high_phase)
-                high = (phase == high_phase)
+                    high_phase = (integration_step - step) % n_phases
+                print(step, high_phase)
+                high = phase == high_phase
                 adjacent_phases_high = [phase]
                 capture_from_which_pixel = 0
-                n_steps_around_into_same_pixel = n_phases // 2 # 1 for 3 or 4 phase devices
-                if phase > ( step + n_steps_around_into_same_pixel):
+                n_steps_around_into_same_pixel = (
+                    n_phases // 2
+                )  # 1 for 3 or 4 phase devices
+                if phase > (step + n_steps_around_into_same_pixel):
                     release_to_which_pixel = -1
-                elif phase < (step -n_steps_around_into_same_pixel):
-                    release_to_which_pixel = 1 # Release into charge cloud following (for normal readout)
+                elif phase < (step - n_steps_around_into_same_pixel):
+                    release_to_which_pixel = (
+                        1  # Release into charge cloud following (for normal readout)
+                    )
                 else:
-                    release_to_which_pixel = 0 # Release into same charge cloud
-                potential={'high':high,
-                           'adjacent_phases_high':adjacent_phases_high,
-                           'capture_from_which_pixel':capture_from_which_pixel,
-                           'release_to_which_pixel':release_to_which_pixel}
+                    release_to_which_pixel = 0  # Release into same charge cloud
+                potential = {
+                    "high": high,
+                    "adjacent_phases_high": adjacent_phases_high,
+                    "capture_from_which_pixel": capture_from_which_pixel,
+                    "release_to_which_pixel": release_to_which_pixel,
+                }
                 potentials.append(potential)
-                #potentials.append(ROEPotential(
+                # potentials.append(ROEPotential(
                 #    high=high,
                 #    adjacent_phases_high=adjacent_phases_high,
                 #    capture_from_which_pixel=capture_from_which_pixel,
                 #    release_to_which_pixel=release_to_which_pixel,
-                #))
+                # ))
             clock_sequence.append(potentials)
-            
+
         return clock_sequence

@@ -7,9 +7,12 @@ from arctic.traps import (
     TrapInstantCapture,
 )
 
-def concatenate_trap_managers(traps, n_rows, ccd=None):
+def concatenate_trap_managers(traps, n_pixels, fraction_of_traps=[1]):
+    #class TrapManagersss(list):
+    #    def __init__(self, traps, n_pixels, fraction_of_traps=[1]):
+    #    """
     #
-    # DEFINE THIS AS A CLASS THAT INHERITS EVERYTHING FROM A LIST!
+    # DEFINE THIS AS A CLASS THAT INHERITS EVERYTHING FROM A LIST?
     #
     """
     Set up a list of trap managers able to monitor the occupancy of (all types of) traps.
@@ -21,33 +24,33 @@ def concatenate_trap_managers(traps, n_rows, ccd=None):
     for trap_group in traps:
         if trap_group[0].discrete:
             for trap in trap_group:
-                trap_managers_one_phase.append(TrapManagerDiscrete(traps=trap, rows=n_rows))               
+                trap_managers_one_phase.append(TrapManagerDiscrete(traps=trap, n_pixels=n_pixels))               
         # Use a non-default trap manager if required for the input trap species
         elif isinstance(
             trap_group[0], (TrapLifetimeContinuum, TrapLogNormalLifetimeContinuum),
         ):
-            trap_managers_one_phase.append(TrapManagerTrackTime(traps=trap_group, rows=n_rows))
+            trap_managers_one_phase.append(TrapManagerTrackTime(traps=trap_group, n_pixels=n_pixels))
         elif isinstance(trap_group[0], TrapInstantCapture):
-            trap_managers_one_phase.append(TrapManagerInstantCapture(traps=trap_group, rows=n_rows))
+            trap_managers_one_phase.append(TrapManagerInstantCapture(traps=trap_group, n_pixels=n_pixels))
         else:
-            trap_managers_one_phase.append(TrapManager(traps=trap_group, rows=n_rows))
+            trap_managers_one_phase.append(TrapManager(traps=trap_group, n_pixels=n_pixels))
 
     # Replicate trap managers to keep track of traps in different phases separately
     trap_managers = []
-    for i in range(ccd.n_phases): 
+    for i in range(len(fraction_of_traps)): 
         trap_managers_this_phase = deepcopy(trap_managers_one_phase)
         for j in range(len(trap_managers_one_phase)): 
             #
             # Caution; next line makes densities differ from those in manager.traps.density - should add setter and getter to trap_manager
             #
-            trap_managers_this_phase[j].densities *= ccd.fraction_of_traps[i]
+            trap_managers_this_phase[j].n_traps_per_pixel *= fraction_of_traps[i]
         trap_managers.append(trap_managers_this_phase)
     
     return trap_managers
 
 
 class TrapManager(object):
-    def __init__(self, traps, rows):
+    def __init__(self, traps, n_pixels):
         """The manager for potentially multiple trap species that are able to use 
         watermarks in the same way as each other.
 
@@ -55,59 +58,15 @@ class TrapManager(object):
         ----------
         traps : [Trap]
             A list of one or more trap objects.
-        rows :int
-            The number of rows in the image. i.e. the maximum number of
-            possible electron trap/release events.
+        n_pixels :int
+            The maximum number of charge capture events for which the trap manager
+            can account. This is the number of pixels (or pixel-to-pixel transfers)
+            in an image, 
+            number of pixel-to-pixel transfers for which the  in the image. i.e. the maximum number of
+            possib trap/release events.
     
         Attributes
         ----------
-        watermarks : np.ndarray
-            The watermarks. See initial_watermarks_from_rows_and_total_traps().
-        densities : np.ndarray
-            The densities of all the trap species.
-        capture_rates, emission_rates, total_rates : np.ndarray
-            The rates of capture, emission, and their sum for all the traps.
-        """
-        self.traps = traps
-        self.rows = rows
-
-        # Set up the watermarks
-        self.watermarks = self.initial_watermarks_from_rows_and_total_traps()
-
-        # The value for a filled watermark level, here 1 as a fill fraction
-        self.filled_watermark_value = 1
-
-        # Trap densities
-        self.densities = np.array([trap.density for trap in self.traps], dtype=float)
-
-        # Trap rates
-        self.capture_rates = np.array([trap.capture_rate for trap in self.traps])
-        self.emission_rates = np.array([trap.emission_rate for trap in self.traps])
-        self.total_rates = self.capture_rates + self.emission_rates
-        
-        # Are they surface traps?
-        self.surface = self.traps[0].surface
-
-    @property
-    def delta_ellipticity(self):
-        return sum([trap.delta_ellipticity for trap in self.traps])
-
-    def n_watermarks_per_transfer(self):
-        return 2
-
-    def initial_watermarks_from_rows_and_total_traps(self):
-        """ Initialise the watermark array of trap states.
-
-        Parameters
-        ----------
-        rows :int
-            The number of rows in the image. i.e. the maximum number of
-            possible electron trap/release events.
-        total_traps : int
-            The number of traps being modelled.
-
-        Returns
-        -------
         watermarks : np.ndarray
             Array of watermark fractional volumes and fill fractions to describe 
             the trap states. Lists each (active) watermark fractional volume and 
@@ -117,11 +76,55 @@ class TrapManager(object):
             [[volume, fill, fill, ...],
              [volume, fill, fill, ...],
              ...                       ]
+        n_traps_per_pixel : np.ndarray
+            The densities of all the trap species.
+        capture_rates, emission_rates, total_rates : np.ndarray
+            The rates of capture, emission, and their sum for all the traps.
         """
-        n_rows = self.rows
-        total_traps = len(self.traps)
-        n_watermarks_per_transfer = self.n_watermarks_per_transfer()
-        return np.zeros((n_rows * n_watermarks_per_transfer, 1 + total_traps), dtype=float)
+        self.traps = traps
+        self._n_pixels = n_pixels
+
+        # Set up the watermarks
+        self.watermarks = np.zeros((self.n_pixels * self.n_watermarks_per_transfer(), 1 + self.n_trap_species), dtype=float)
+        # The value for a filled watermark level, here 1 as a fill fraction
+        self.filled_watermark_value = 1
+
+        # Trap rates
+        self.capture_rates = np.array([trap.capture_rate for trap in traps])
+        self.emission_rates = np.array([trap.emission_rate for trap in traps])
+        self.total_rates = self.capture_rates + self.emission_rates
+        
+        # Are they surface traps?
+        self.surface = np.array([trap.surface for trap in traps], dtype=bool)
+
+    # Total number of trap species within this trap manager
+    @property
+    def n_trap_species(self):
+        return len(self.traps)
+
+    # Density of each trap species
+    @property
+    def n_pixels(self):
+        return self._n_pixels
+
+    # Density of each trap species
+    @property
+    def n_traps_per_pixel(self):
+        return np.array([trap.density for trap in self.traps], dtype=float)
+
+    @n_traps_per_pixel.setter
+    def n_traps_per_pixel(self, values):
+        if len(values) != len(self.traps):
+            raise ValueError(f'{len(value)} trap densities supplied, for {len(self.traps)} species of traps')
+        for i,value in enumerate(values):
+            self.traps[i].density = float(value)
+
+    @property
+    def delta_ellipticity(self):
+        return sum([trap.delta_ellipticity for trap in self.traps])
+
+    def n_watermarks_per_transfer(self):
+        return int(2)
         
     def fill_probabilities_from_dwell_time(self, dwell_time):
         """ The probabilities of being full after release and/or capture.
@@ -171,10 +174,10 @@ class TrapManager(object):
         Parameters
         ----------
         watermarks : np.ndarray
-            The watermarks. See initial_watermarks_from_rows_and_total_traps().
+            The watermarks. See initial_watermarks_from_n_pixels_and_total_traps().
         """
         return (
-            np.sum((watermarks[:, 0] * watermarks[:, 1:].T).T * self.densities)
+            np.sum((watermarks[:, 0] * watermarks[:, 1:].T).T * self.n_traps_per_pixel)
         )
 
     def empty_all_traps(self):
@@ -192,7 +195,7 @@ class TrapManager(object):
         cloud_fractional_volume : float
             The fractional volume of the electron cloud in the pixel.
         watermarks : np.ndarray
-            The initial watermarks. See initial_watermarks_from_rows_and_total_traps().
+            The initial watermarks. See initial_watermarks_from_n_pixels_and_total_traps().
         max_watermark_index : int
             The index of the highest existing watermark.
             
@@ -218,7 +221,7 @@ class TrapManager(object):
         Parameters
         ----------
         watermarks : np.ndarray
-            The initial watermarks. See initial_watermarks_from_rows_and_total_traps().
+            The initial watermarks. See initial_watermarks_from_n_pixels_and_total_traps().
         cloud_fractional_volume : float
             The fractional volume of the electron cloud in the pixel.
         watermark_index_above_cloud : int
@@ -227,7 +230,7 @@ class TrapManager(object):
         Returns
         -------
         watermarks : np.ndarray
-            The updated watermarks. See initial_watermarks_from_rows_and_total_traps().
+            The updated watermarks. See initial_watermarks_from_n_pixels_and_total_traps().
         """
         # The volume and cumulative volume of the watermark around the cloud volume
         watermark_fractional_volume = watermarks[watermark_index_above_cloud, 0]
@@ -268,7 +271,7 @@ class TrapManager(object):
         ----------
         watermarks : np.ndarray
             The current watermarks after attempted capture. See 
-            initial_watermarks_from_rows_and_total_traps().
+            initial_watermarks_from_n_pixels_and_total_traps().
         watermarks_initial : np.ndarray
             The initial watermarks before capture, but with updated fractional 
             volumes to match the current watermarks.
@@ -278,9 +281,15 @@ class TrapManager(object):
         Returns
         -------
         watermarks : np.ndarray
-            The updated watermarks. See initial_watermarks_from_rows_and_total_traps().
+            The updated watermarks. See initial_watermarks_from_n_pixels_and_total_traps().
         """
         # Matching watermark fractional volumes
+        np.set_printoptions(suppress=True,linewidth=0)
+        print('wi',watermarks_initial[0:10, 0])
+        print('w ',watermarks[0:10, 0])
+        if not (watermarks_initial[:, 0] == watermarks[:, 0]).all():
+            print('wi',watermarks_initial[:, 0])
+            print('w ',watermarks[:, 0])
         assert (watermarks_initial[:, 0] == watermarks[:, 0]).all()
 
         # Select watermark fill fractions that increased
@@ -300,12 +309,12 @@ class TrapManager(object):
         Parameters
         ----------
         watermarks : np.ndarray
-            The current watermarks. See initial_watermarks_from_rows_and_total_traps().
+            The current watermarks. See initial_watermarks_from_n_pixels_and_total_traps().
 
         Returns
         -------
         watermarks : np.ndarray
-            The updated watermarks. See initial_watermarks_from_rows_and_total_traps().
+            The updated watermarks. See initial_watermarks_from_n_pixels_and_total_traps().
         """
         # Find the first watermark that is not completely filled
         watermark_index_not_filled = np.argmax(
@@ -361,7 +370,7 @@ class TrapManager(object):
         Updates
         -------
         watermarks : np.ndarray
-            The updated watermarks. See initial_watermarks_from_rows_and_total_traps().
+            The updated watermarks. See initial_watermarks_from_n_pixels_and_total_traps().
         """
         # Initial watermarks and number of electrons in traps
         watermarks_initial = deepcopy(self.watermarks)
@@ -370,7 +379,7 @@ class TrapManager(object):
         )
 
         # The number of traps for each species
-        densities = self.densities
+        n_traps_per_pixel = self.n_traps_per_pixel
 
         # Probabilities of being full after release and/or capture
         (
@@ -552,7 +561,7 @@ class TrapManagerInstantCapture(TrapManager):
     """ For the old C++ style release-then-instant-capture algorithm. """
 
     def n_watermarks_per_transfer(self):
-        return 1
+        return int(1)
 
     def n_electrons_released(
         self, dwell_time=1, express_multiplier=1
@@ -576,7 +585,7 @@ class TrapManagerInstantCapture(TrapManager):
         Updates
         -------
         watermarks : np.ndarray
-            The updated watermarks. See initial_watermarks_from_rows_and_total_traps().
+            The updated watermarks. See initial_watermarks_from_n_pixels_and_total_traps().
         """
         # Initial watermarks and number of electrons in traps
         watermarks_initial = deepcopy(self.watermarks)
@@ -585,7 +594,7 @@ class TrapManagerInstantCapture(TrapManager):
         )
 
         # The number of traps for each species
-        densities = self.densities
+        n_traps_per_pixel = self.n_traps_per_pixel
 
         # Probabilities of being full after release and/or capture
         (
@@ -635,7 +644,7 @@ class TrapManagerInstantCapture(TrapManager):
         Updates
         -------
         watermarks : np.ndarray
-            The updated watermarks. See initial_watermarks_from_rows_and_total_traps().
+            The updated watermarks. See initial_watermarks_from_n_pixels_and_total_traps().
         """
         # Initial watermarks and number of electrons in traps
         watermarks_initial = deepcopy(self.watermarks)
@@ -644,7 +653,7 @@ class TrapManagerInstantCapture(TrapManager):
         )
 
         # The number of traps for each species
-        densities = self.densities
+        n_traps_per_pixel = self.n_traps_per_pixel
 
         # Find the highest active watermark
         max_watermark_index = np.argmax(self.watermarks[:, 0] == 0) - 1
@@ -819,7 +828,7 @@ class TrapManagerInstantCapture(TrapManager):
         Updates
         -------
         watermarks : np.ndarray
-            The updated watermarks. See initial_watermarks_from_rows_and_total_traps().
+            The updated watermarks. See initial_watermarks_from_n_pixels_and_total_traps().
         """
         # Release
         # Initial watermarks and number of electrons in traps
@@ -829,7 +838,7 @@ class TrapManagerInstantCapture(TrapManager):
         )
 
         # The number of traps for each species
-        densities = self.densities
+        n_traps_per_pixel = self.n_traps_per_pixel
 
         # Find the highest active watermark
         max_watermark_index = np.argmax(self.watermarks[:, 0] == 0) - 1
@@ -858,7 +867,7 @@ class TrapManagerInstantCapture(TrapManager):
         )
 
         # The number of traps for each species
-        densities = self.densities
+        n_traps_per_pixel = self.n_traps_per_pixel
 
         # Find the highest active watermark
         max_watermark_index = np.argmax(self.watermarks[:, 0] == 0) - 1
@@ -1006,8 +1015,8 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
              ...                        ]
     """
 
-    def __init__(self, traps, rows):
-        super(TrapManagerTrackTime, self).__init__(traps=traps, rows=rows)
+    def __init__(self, traps, n_pixels):
+        super(TrapManagerTrackTime, self).__init__(traps=traps, n_pixels=n_pixels)
 
         # The value for a filled watermark level, here 0 as an elapsed time
         self.filled_watermark_value = 0
@@ -1018,7 +1027,7 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
         Parameters
         ----------
         watermarks : np.ndarray
-            The watermarks. See initial_watermarks_from_rows_and_total_traps().
+            The watermarks. See initial_watermarks_from_n_pixels_and_total_traps().
         """
         watermarks = deepcopy(watermarks)
 
@@ -1037,7 +1046,7 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
         Parameters
         ----------
         watermarks : np.ndarray
-            The watermarks. See initial_watermarks_from_rows_and_total_traps().
+            The watermarks. See initial_watermarks_from_n_pixels_and_total_traps().
         """
         watermarks = deepcopy(watermarks)
 
@@ -1056,7 +1065,7 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
         Parameters
         ----------
         watermarks : np.ndarray
-            The watermarks. See initial_watermarks_from_rows_and_total_traps().
+            The watermarks. See initial_watermarks_from_n_pixels_and_total_traps().
         """
         # Convert to fill fractions
         watermarks = self.watermarks_converted_to_fill_fractions_from_elapsed_times(
@@ -1064,7 +1073,7 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
         )
 
         return (
-            np.sum((watermarks[:, 0] * watermarks[:, 1:].T).T * self.densities)
+            np.sum((watermarks[:, 0] * watermarks[:, 1:].T).T * self.n_traps_per_pixel)
         )
 
     def updated_watermarks_from_capture_not_enough(
@@ -1078,7 +1087,7 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
         ----------
         watermarks : np.ndarray
             The current watermarks after attempted capture. See 
-            initial_watermarks_from_rows_and_total_traps().
+            initial_watermarks_from_n_pixels_and_total_traps().
         watermarks_initial : np.ndarray
             The initial watermarks before capture, but with updated fractional 
             volumes to match the current watermarks.
@@ -1088,7 +1097,7 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
         Returns
         -------
         watermarks : np.ndarray
-            The updated watermarks. See initial_watermarks_from_rows_and_total_traps().
+            The updated watermarks. See initial_watermarks_from_n_pixels_and_total_traps().
         """
         # Convert to fill fractions
         for level in range(np.argmax(watermarks[:, 0] == 0)):
@@ -1145,7 +1154,7 @@ class TrapManagerDiscrete(TrapManager):
     rather than a sea of traps with uniform density
     """
     
-    def initial_watermarks_from_rows_and_total_traps(self):
+    def initial_watermarks_from_n_pixels_and_total_traps(self):
         """ Initialise the watermark array of trap states.
 
         Returns
@@ -1155,9 +1164,9 @@ class TrapManagerDiscrete(TrapManager):
         hence the number of electrons it holds when it is at maximum occupancy).
         """
         
-        n_pixels = self.rows
+        n_pixels = self.n_pixels
         n_traps_per_trap = self.traps.discrete
-        n_traps = self.traps.density * self.rows * n_traps_per_trap
+        n_traps = self.traps.density * n_pixels * n_traps_per_trap
 
         # Make sure that n_traps is an integer
         if is_integer(n_traps_per_trap):

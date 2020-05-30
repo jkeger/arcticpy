@@ -159,6 +159,41 @@ class CCD(object):
             if value is None: value = self.full_well_depth
             self._well_bloom_level = [value] * self.n_phases
 
+    def cumulative_n_traps_from_n_electrons(self, n_electrons):
+        #
+        # RJM: this is not currently used. But it could be....
+        #
+
+        well_depth = self.ccd.full_well_depth
+        if self.surface:
+            alpha = self.ccd.blooming_level
+            beta = 1
+            # Let surface traps soak up everything they can, as a cheap way of
+            # ensuring that (at least with instantaneous trapping), no pixel in
+            # an output image will ever contain more electrons than the full
+            # well depth.
+            extra_traps = min(n_electrons - well_depth, 0)
+        else:
+            alpha = self.ccd.well_notch_depth
+            beta = self.ccd.well_fill_power
+            extra_traps = 0
+
+        n_electrons_available = n_electrons - alpha
+        n_traps = (
+            self.density
+            * util.set_min_max((n_electrons_available) / (well_depth - alpha), 0, 1)
+            ** beta
+        )
+        n_traps += extra_traps
+
+        # Make sure that the effective number of traps available cannot exceed
+        # the number of electrons. Adjusting this here is algorithmically much
+        # easier than catching lots of excpetions when there are insufficient
+        # electrons to fill traps during the capture process.
+        n_traps = min(n_traps, n_electrons_available)
+
+        return n_traps
+
     # Returns a (self-contained) function describing the well-filling model in a single phase
     def cloud_fractional_volume_from_n_electrons_and_phase(self, n_electrons, phase=0, surface=False):
         ccd_phase = self.cloud_fractional_volume_from_n_electrons_in_phase(phase)
@@ -186,7 +221,18 @@ class CCD(object):
         behaviour also runs much faster.
         """
         def cloud_fractional_volume_from_n_electrons(n_electrons, surface=False):
-        
+            """
+            Inputs
+            ------
+            n_electrons : float
+                The size of a charge cloud in a pixel, in units of the number of 
+                electrons.
+           
+            Returns
+            -------
+            volume : float
+                The fraction of traps of this species exposed.
+            """
             fraction_of_traps = self.fraction_of_traps[phase]
             full_well_depth = self.full_well_depth[phase]
             well_fill_power = self.well_fill_power[phase]

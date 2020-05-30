@@ -90,19 +90,19 @@ class TestSpecies:
         serial_1_trap = ac.Trap(density=0.2, release_timescale=2.0)
         serial_2_trap = ac.Trap(density=0.7, release_timescale=7.0)
 
-        trap_manager = ac.TrapManager(traps=[parallel_1_trap], rows=1)
+        trap_manager = ac.TrapManager(traps=[parallel_1_trap], n_pixels=1)
         assert trap_manager.delta_ellipticity == parallel_1_trap.delta_ellipticity
 
-        trap_manager = ac.TrapManager(traps=[parallel_1_trap, parallel_2_trap], rows=1)
+        trap_manager = ac.TrapManager(traps=[parallel_1_trap, parallel_2_trap], n_pixels=1)
         assert (
             trap_manager.delta_ellipticity
             == parallel_1_trap.delta_ellipticity + parallel_2_trap.delta_ellipticity
         )
 
-        trap_manager = ac.TrapManager(traps=[serial_1_trap], rows=1)
+        trap_manager = ac.TrapManager(traps=[serial_1_trap], n_pixels=1)
         assert trap_manager.delta_ellipticity == serial_1_trap.delta_ellipticity
 
-        trap_manager = ac.TrapManager(traps=[serial_1_trap, serial_2_trap], rows=1)
+        trap_manager = ac.TrapManager(traps=[serial_1_trap, serial_2_trap], n_pixels=1)
         assert (
             trap_manager.delta_ellipticity
             == serial_1_trap.delta_ellipticity + serial_2_trap.delta_ellipticity
@@ -110,7 +110,7 @@ class TestSpecies:
 
         trap_manager = ac.TrapManager(
             traps=[parallel_1_trap, parallel_2_trap, serial_1_trap, serial_2_trap],
-            rows=1,
+            n_pixels=1,
         )
 
         assert trap_manager.delta_ellipticity == pytest.approx(
@@ -231,7 +231,7 @@ class TestParallelDensityVary:
 class TestTrapManagerUtilities:
     def test__n_trapped_electrons_from_watermarks(self):
         trap = ac.Trap(density=10, release_timescale=1)
-        trap_manager = ac.TrapManager(traps=[trap], rows=6)
+        trap_manager = ac.TrapManager(traps=[trap], n_pixels=6)
 
         assert (
             trap_manager.n_trapped_electrons_from_watermarks(
@@ -248,39 +248,36 @@ class TestTrapManagerUtilities:
             watermarks=watermarks
         ) == ((0.5 * 0.8 + 0.2 * 0.4 + 0.1 * 0.3) * trap.density)
 
-        watermarks = np.array(
-            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0], [0, 0]]
-        )
-
-        assert trap_manager.n_trapped_electrons_from_watermarks(
-            watermarks=watermarks, fractional_width=0.5
-        ) == ((0.5 * 0.8 + 0.2 * 0.4 + 0.1 * 0.3) * trap.density * 0.5)
+#        watermarks = np.array(
+#            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0], [0, 0]]
+#        )
+#
+#        assert trap_manager.n_trapped_electrons_from_watermarks(
+#            watermarks=watermarks, fractional_width=0.5
+#        ) == ((0.5 * 0.8 + 0.2 * 0.4 + 0.1 * 0.3) * trap.density * 0.5)
 
 
 class TestInitialWatermarks:
-    def test__initial_watermark_array__uses_rows_and_total_traps_to_set_size(self,):
+    def test__initial_watermark_array__uses_n_pixels_and_total_traps_to_set_size(self,):
 
-        # 1 trap species, 3 rows of image pixels
-        trap_manager = ac.TrapManager(traps=[ac.Trap()], rows=3)
-        watermarks = trap_manager.initial_watermarks_from_rows_and_total_traps()
-        assert (watermarks == np.zeros(shape=(6, 2))).all()
+        # 1 trap species, 3 n_pixels of image pixels
+        trap_manager = ac.TrapManager(traps=[ac.Trap()], n_pixels=3)
+        assert (trap_manager.watermarks == np.zeros(shape=(6, 2))).all()
 
-        # 5 trap species, 3 rows of image pixels
-        trap_manager = ac.TrapManager(traps=[ac.Trap(),ac.Trap(),ac.Trap(),ac.Trap(),ac.Trap()], rows=3)
-        watermarks = trap_manager.initial_watermarks_from_rows_and_total_traps()
-        assert (watermarks == np.zeros(shape=(6, 6))).all()
+        # 5 trap species, 3 n_pixels of image pixels
+        trap_manager = ac.TrapManager(traps=[ac.Trap(),ac.Trap(),ac.Trap(),ac.Trap(),ac.Trap()], n_pixels=3)
+        assert (trap_manager.watermarks == np.zeros(shape=(6, 6))).all()
 
-        # 2 trap species, 5 rows of image pixels
-        trap_manager = ac.TrapManager(traps=[ac.Trap(),ac.Trap()], rows=5)
-        watermarks = trap_manager.initial_watermarks_from_rows_and_total_traps()
-        assert (watermarks == np.zeros(shape=(10, 3))).all()
+        # 2 trap species, 5 n_pixels of image pixels
+        trap_manager = ac.TrapManager(traps=[ac.Trap(),ac.Trap()], n_pixels=5)
+        assert (trap_manager.watermarks == np.zeros(shape=(10, 3))).all()
 
 
 class TestElectronsReleasedAndCapturedInstantCapture:
     def test__empty_release(self):
 
         traps = [ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))]
-        trap_manager = ac.TrapManagerInstantCapture(traps=traps, rows=6)
+        trap_manager = ac.TrapManagerInstantCapture(traps=traps, n_pixels=6)
 
         n_electrons_released = trap_manager.n_electrons_released()
 
@@ -292,7 +289,7 @@ class TestElectronsReleasedAndCapturedInstantCapture:
     def test__single_trap_release(self):
 
         traps = [ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))]
-        trap_manager = ac.TrapManagerInstantCapture(traps=traps, rows=6)
+        trap_manager = ac.TrapManagerInstantCapture(traps=traps, n_pixels=6)
 
         trap_manager.watermarks = np.array(
             [[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]]
@@ -311,7 +308,7 @@ class TestElectronsReleasedAndCapturedInstantCapture:
             ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5)),
             ac.TrapInstantCapture(density=8, release_timescale=-1 / np.log(0.2)),
         ]
-        trap_manager = ac.TrapManagerInstantCapture(traps=traps, rows=6)
+        trap_manager = ac.TrapManagerInstantCapture(traps=traps, n_pixels=6)
 
         trap_manager.watermarks = np.array(
             [
@@ -342,11 +339,11 @@ class TestElectronsReleasedAndCapturedInstantCapture:
 
     def test__single_trap_release__change_time(self):
 
-        # Half the time, half the liftime --> same result
+        # Half the time, half the lifetime --> same result
         traps = [
             ac.TrapInstantCapture(density=10, release_timescale=-0.5 / np.log(0.5))
         ]
-        trap_manager = ac.TrapManagerInstantCapture(traps=traps, rows=6)
+        trap_manager = ac.TrapManagerInstantCapture(traps=traps, n_pixels=6)
 
         trap_manager.watermarks = np.array(
             [[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]]
@@ -359,29 +356,29 @@ class TestElectronsReleasedAndCapturedInstantCapture:
             np.array([[0.5, 0.4], [0.2, 0.2], [0.1, 0.1], [0, 0], [0, 0], [0, 0]])
         )
 
-    def test__single_trap_release__change_fractional_width(self):
-
-        # Half the time, double the density --> same result
-        traps = [ac.TrapInstantCapture(density=20, release_timescale=-1 / np.log(0.5))] #1.4426950408889634
-        trap_manager = ac.TrapManagerInstantCapture(traps=traps, rows=6)
-
-        trap_manager.watermarks = np.array(
-            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]]
-        )
-
-        n_electrons_released = trap_manager.n_electrons_released(fractional_width=0.5)
-
-        assert n_electrons_released == pytest.approx(2.5)
-        assert trap_manager.watermarks == pytest.approx(
-            np.array([[0.5, 0.4], [0.2, 0.2], [0.1, 0.1], [0, 0], [0, 0], [0, 0]])
-        )
+#    def test__single_trap_release__change_fractional_width(self):
+#
+#        # Half the time, double the density --> same result
+#        traps = [ac.TrapInstantCapture(density=20, release_timescale=-1 / np.log(0.5))] #1.4426950408889634
+#        trap_manager = ac.TrapManagerInstantCapture(traps=traps, n_pixels=6)
+#
+#        trap_manager.watermarks = np.array(
+#            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]]
+#        )
+#
+#        n_electrons_released = trap_manager.n_electrons_released(fractional_width=0.5)
+#
+#        assert n_electrons_released == pytest.approx(2.5)
+#        assert trap_manager.watermarks == pytest.approx(
+#            np.array([[0.5, 0.4], [0.2, 0.2], [0.1, 0.1], [0, 0], [0, 0], [0, 0]])
+#        )
 
     def test__first_capture(self):
 
         n_free_electrons = 2500  # --> cloud_fractional_volume = 0.5
 
         traps = [ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))]
-        trap_manager = ac.TrapManagerInstantCapture(traps=traps, rows=6)
+        trap_manager = ac.TrapManagerInstantCapture(traps=traps, n_pixels=6)
 
         ccd = ac.CCDPhase(ac.CCD(well_fill_power=0.5, full_well_depth=10000, well_notch_depth=1e-7),phase=0)        
 
@@ -402,7 +399,7 @@ class TestElectronsReleasedAndCapturedInstantCapture:
             ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5)),
             ac.TrapInstantCapture(density=8, release_timescale=-1 / np.log(0.2)),
         ]
-        trap_manager = ac.TrapManagerInstantCapture(traps=traps, rows=6)
+        trap_manager = ac.TrapManagerInstantCapture(traps=traps, n_pixels=6)
 
         trap_manager.watermarks = np.array(
             [
@@ -444,7 +441,7 @@ class TestElectronsReleasedAndCapturedInstantCapture:
         )
 
         traps = [ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))]
-        trap_manager = ac.TrapManagerInstantCapture(traps=traps, rows=6)
+        trap_manager = ac.TrapManagerInstantCapture(traps=traps, n_pixels=6)
 
         ccd = ac.CCDPhase(ac.CCD(well_fill_power=0.5, full_well_depth=10000, well_notch_depth=1e-7),phase=0)
 
@@ -467,7 +464,7 @@ class TestElectronsReleasedAndCapturedInstantCapture:
             ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5)),
             ac.TrapInstantCapture(density=8, release_timescale=-1 / np.log(0.2)),
         ]
-        trap_manager = ac.TrapManagerInstantCapture(traps=traps, rows=6)
+        trap_manager = ac.TrapManagerInstantCapture(traps=traps, n_pixels=6)
 
         trap_manager.watermarks = np.array(
             [
@@ -508,7 +505,7 @@ class TestElectronsReleasedAndCapturedInstantCapture:
             ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5)),
             ac.TrapInstantCapture(density=8, release_timescale=-1 / np.log(0.2)),
         ]
-        trap_manager_1 = ac.TrapManagerInstantCapture(traps=traps, rows=6)
+        trap_manager_1 = ac.TrapManagerInstantCapture(traps=traps, n_pixels=6)
         ccd = ac.CCDPhase(ac.CCD(well_fill_power=0.5, full_well_depth=10000, well_notch_depth=1e-7),phase=0)
 
         n_free_electrons = 3600  # --> cloud_fractional_volume = 0.6
@@ -565,7 +562,7 @@ class TestTrapManagerTrackTime:
     def test__watermarks_converted_to_fill_fractions_from_elapsed_times(self):
 
         trap = ac.TrapInstantCapture(density=10, release_timescale=2)
-        trap_manager = ac.TrapManagerTrackTime(traps=[trap], rows=6)
+        trap_manager = ac.TrapManagerTrackTime(traps=[trap], n_pixels=6)
         watermarks_fill = np.array(
             [[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]]
         )
@@ -601,8 +598,8 @@ class TestTrapManagerTrackTime:
     def test__n_trapped_electrons_from_watermarks_using_time(self):
 
         trap = ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))
-        trap_manager_fill = ac.TrapManagerInstantCapture(traps=[trap], rows=6)
-        trap_manager_time = ac.TrapManagerTrackTime(traps=[trap], rows=6)
+        trap_manager_fill = ac.TrapManagerInstantCapture(traps=[trap], n_pixels=6)
+        trap_manager_time = ac.TrapManagerTrackTime(traps=[trap], n_pixels=6)
 
         trap_manager_fill.watermarks = np.array(
             [[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]]
@@ -633,8 +630,8 @@ class TestTrapManagerTrackTime:
         ccd = ac.CCDPhase(ccd)
 
         trap = ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))
-        trap_manager_fill = ac.TrapManagerInstantCapture(traps=[trap], rows=6)
-        trap_manager_time = ac.TrapManagerTrackTime(traps=[trap], rows=6)
+        trap_manager_fill = ac.TrapManagerInstantCapture(traps=[trap], n_pixels=6)
+        trap_manager_time = ac.TrapManagerTrackTime(traps=[trap], n_pixels=6)
 
         trap_manager_fill.watermarks = np.array(
             [[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]]
@@ -671,8 +668,8 @@ class TestTrapManagerTrackTime:
 
         trap_1 = ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))
         trap_2 = ac.TrapInstantCapture(density=10, release_timescale=-2 / np.log(0.5))
-        trap_manager_fill = ac.TrapManagerInstantCapture(traps=[trap_1, trap_2], rows=6)
-        trap_manager_time = ac.TrapManagerTrackTime(traps=[trap_1, trap_2], rows=6)
+        trap_manager_fill = ac.TrapManagerInstantCapture(traps=[trap_1, trap_2], n_pixels=6)
+        trap_manager_time = ac.TrapManagerTrackTime(traps=[trap_1, trap_2], n_pixels=6)
 
         trap_manager_fill.watermarks = np.array(
             [
@@ -835,7 +832,7 @@ class TestTrapLifetimeContinuum:
 
         # Single trap
         trap = ac.TrapInstantCapture(density=10, release_timescale=1)
-        trap_manager_single = ac.TrapManagerTrackTime(traps=[trap], rows=6)
+        trap_manager_single = ac.TrapManagerTrackTime(traps=[trap], n_pixels=6)
         trap_manager_single.watermarks = np.array(
             [
                 [0.5, trap.time_elapsed_from_fill_fraction(0.8)],
@@ -864,7 +861,7 @@ class TestTrapLifetimeContinuum:
                 release_timescale_mu=median,
                 release_timescale_sigma=sigma,
             )
-            trap_manager_continuum = ac.TrapManagerTrackTime(traps=[trap], rows=6)
+            trap_manager_continuum = ac.TrapManagerTrackTime(traps=[trap], n_pixels=6)
             trap_manager_continuum.watermarks = np.array(
                 [
                     [0.5, trap.time_elapsed_from_fill_fraction(0.8)],
@@ -892,7 +889,7 @@ class TestTrapLifetimeContinuum:
 
         # Single trap
         trap = ac.TrapInstantCapture(density=10, release_timescale=1)
-        trap_manager_single = ac.TrapManagerTrackTime(traps=[trap], rows=6)
+        trap_manager_single = ac.TrapManagerTrackTime(traps=[trap], n_pixels=6)
         trap_manager_single.watermarks = np.array(
             [
                 [0.5, trap.time_elapsed_from_fill_fraction(0.8)],
@@ -921,7 +918,7 @@ class TestTrapLifetimeContinuum:
             release_timescale_mu=release_timescale_mu,
             release_timescale_sigma=release_timescale_sigma,
         )
-        trap_manager_narrow = ac.TrapManagerTrackTime(traps=[trap], rows=6)
+        trap_manager_narrow = ac.TrapManagerTrackTime(traps=[trap], n_pixels=6)
         trap_manager_narrow.watermarks = np.array(
             [
                 [0.5, trap.time_elapsed_from_fill_fraction(0.8)],
@@ -945,7 +942,7 @@ class TestTrapLifetimeContinuum:
             release_timescale_mu=release_timescale_mu,
             release_timescale_sigma=release_timescale_sigma,
         )
-        trap_manager_continuum = ac.TrapManagerTrackTime(traps=[trap], rows=6)
+        trap_manager_continuum = ac.TrapManagerTrackTime(traps=[trap], n_pixels=6)
         trap_manager_continuum.watermarks = np.array(
             [
                 [0.5, trap.time_elapsed_from_fill_fraction(0.8)],
@@ -1047,7 +1044,7 @@ class TestTrapLifetimeContinuum:
             release_timescale_mu=release_timescale,
             release_timescale_sigma=sigma,
         )
-        trap_manager_continuum = ac.TrapManagerTrackTime(traps=[trap_continuum], rows=6)
+        trap_manager_continuum = ac.TrapManagerTrackTime(traps=[trap_continuum], n_pixels=6)
         trap_manager_continuum.watermarks = np.array(
             [[0.5, t_elapsed], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0],]
         )
@@ -1069,7 +1066,7 @@ class TestTrapLifetimeContinuum:
             release_timescale_sigma=sigma,
         )
         trap_manager_continuum_split = ac.TrapManagerTrackTime(
-            traps=[trap_continuum_split_a, trap_continuum_split_b], rows=6
+            traps=[trap_continuum_split_a, trap_continuum_split_b], n_pixels=6
         )
         trap_manager_continuum_split.watermarks = np.array(
             [[0.5, t_elapsed, t_elapsed], [0] * 3, [0] * 3, [0] * 3, [0] * 3, [0] * 3,]
@@ -1088,7 +1085,7 @@ class TestTrapLifetimeContinuum:
             ac.TrapInstantCapture(density=density, release_timescale=release_timescale)
             for density, release_timescale in zip(densities_linear, lifetimes_linear)
         ]
-        trap_manager_linear = ac.TrapManagerTrackTime(traps=traps_linear, rows=6)
+        trap_manager_linear = ac.TrapManagerTrackTime(traps=traps_linear, n_pixels=6)
         trap_manager_linear.watermarks = np.array(
             [
                 np.append([0.5], [t_elapsed] * linear_sample),
@@ -1119,7 +1116,7 @@ class TestTrapLifetimeContinuum:
             ac.TrapInstantCapture(density=density, release_timescale=release_timescale)
             for density, release_timescale in zip(densities_log, lifetimes_log)
         ]
-        trap_manager_log = ac.TrapManagerTrackTime(traps=traps_log, rows=6)
+        trap_manager_log = ac.TrapManagerTrackTime(traps=traps_log, n_pixels=6)
         trap_manager_log.watermarks = np.array(
             [
                 np.append([0.5], [t_elapsed] * log_sample),
@@ -1272,7 +1269,7 @@ class TestElectronsReleasedAndCapturedIncludingSlowTraps:
     traps_instant = [
         ac.TrapInstantCapture(density=density, release_timescale=release_timescale)
     ]
-    trap_manager_instant = ac.TrapManagerInstantCapture(traps=traps_instant, rows=6)
+    trap_manager_instant = ac.TrapManagerInstantCapture(traps=traps_instant, n_pixels=6)
 
     # Fast capture
     traps_fast = [
@@ -1280,7 +1277,7 @@ class TestElectronsReleasedAndCapturedIncludingSlowTraps:
             density=density, release_timescale=release_timescale, capture_timescale=0
         )
     ]
-    trap_manager_fast = ac.TrapManager(traps=traps_fast, rows=3)
+    trap_manager_fast = ac.TrapManager(traps=traps_fast, n_pixels=3)
 
     # Slow capture
     traps_slow = [
@@ -1288,7 +1285,7 @@ class TestElectronsReleasedAndCapturedIncludingSlowTraps:
             density=density, release_timescale=release_timescale, capture_timescale=0.1
         )
     ]
-    trap_manager_slow = ac.TrapManager(traps=traps_slow, rows=3)
+    trap_manager_slow = ac.TrapManager(traps=traps_slow, n_pixels=3)
 
     def test__collapse_redundant_watermarks(self):
 

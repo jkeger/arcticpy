@@ -44,8 +44,9 @@ def express_matrix_from_rows_and_express(
     To reduce runtime, instead of calculating the effects of every 
     pixel-to-pixel transfer, it is possible to approximate readout by 
     processing each transfer once (Anderson et al. 2010) or a few times 
-    (Massey et al. 2014, section 2.1.5), then multiplying their effects.
-    This function computes the multiplicative factor, in a matrix that can
+    (Massey et al. 2014, section 2.1.5), then multiplying the effect of
+    that transfer by the number of transfers it represents. This function
+    computes the multiplicative factor, and returns it in a matrix that can 
     be easily looped over.
 
     Parameters
@@ -56,12 +57,14 @@ def express_matrix_from_rows_and_express(
     express : int
         Parameter determining balance between accuracy (high values or zero)  
         and speed (low values).
-            express = 0 (default, slow) --> compute every pixel-to-pixel transfer
+            express = 0 (default, alias for express = n_pixels)
             express = 1 (fastest) --> compute the effect of each transfer once
             express = 2 --> compute n times the effect of those transfers that 
                       happen many times. After a few transfers (and e.g. eroded 
                       leading edges), the incremental effect of subsequent 
                       transfers can change.
+            express = n_pixels (slowest) --> compute every pixel-to-pixel transfer
+        Runtime scales as O(express^2).
     
     Optional parameters
     -------------------
@@ -94,8 +97,7 @@ def express_matrix_from_rows_and_express(
         because the first pixel that a charge cloud finds itself in is
         guaranteed to start with empty traps; whereas every other pixel's traps
         may  have been filled by other charge.
-
-If set to  In most situations, this is a factor ~(E+3)/(E+1) slower to run. 
+        In most situations, this makes it a factor ~(E+3)/(E+1) slower to run. 
 
     Returns
     -------
@@ -231,7 +233,7 @@ def _clock_charge_in_one_direction(
 
     # Calculate the number of times that the effect of each pixel-to-pixel transfer can be replicated
     express_matrix = express_matrix_from_rows_and_express(
-        # dtype=int,
+        #dtype=int,
         rows=window_row,
         express=express,
         offset=offset,
@@ -262,7 +264,7 @@ def _clock_charge_in_one_direction(
 
 
     # Set up an array of trap managers able to monitor the occupancy of (all types of) traps
-    trap_managers = concatenate_trap_managers(traps, n_rows, ccd)
+    trap_managers = concatenate_trap_managers(traps, n_rows, ccd.fraction_of_traps)
 
     # Accounting for first transfer differently
     # Decide appropriate moments to store trap occupancy levels, so the next
@@ -314,7 +316,10 @@ def _clock_charge_in_one_direction(
 
                         # Allow electrons to be released from and captured by charge traps
                         n_electrons_released_and_captured = 0
+                        n_electrons_trapped_before = 0
+                        n_electrons_trapped_after = 0
                         for trap_manager in trap_managers[phase]:
+                            n_electrons_trapped_before += trap_manager.n_trapped_electrons_from_watermarks(trap_manager.watermarks)
                             n_electrons_released_and_captured += trap_manager.n_electrons_released_and_captured(
                                 n_free_electrons=n_free_electrons,
                                 dwell_time=roe.dwell_times[clocking_step],
@@ -323,13 +328,21 @@ def _clock_charge_in_one_direction(
                                 #ccd=ccd.extract_phase(phase),
                                 #fractional_width=ccd.phase_fractional_widths[phase],
                             )
+                            n_electrons_trapped_after += trap_manager.n_trapped_electrons_from_watermarks(trap_manager.watermarks)
 
                         # Return the released electrons back to the relevant charge cloud
+                        
                         row_write = window_row[row_index] + potential['release_to_which_pixel']
                         image[row_write, window_column[column_index]] += (
                             n_electrons_released_and_captured * express_multiplier
                         )
-                        #print('write row',row_write,'step',clocking_step,'phase',phase,'n_e',n_free_electrons)
+                        print(row_index,'write row',row_write,'step',clocking_step,'phase',phase,
+                              'n_ei',n_free_electrons,
+                              'n_tb',n_electrons_trapped_before,
+                              'n_ta',n_electrons_trapped_after,
+                              'exp',express_multiplier,
+                              'diff',(n_electrons_trapped_before-n_electrons_trapped_after),
+                              'n_ef',image[row_write, window_column[column_index]])
 
                 # Save trap occupancy at the end of one express
                 if when_to_store_traps[express_index, row_index]:

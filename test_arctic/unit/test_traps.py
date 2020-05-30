@@ -356,6 +356,9 @@ class TestElectronsReleasedAndCapturedInstantCapture:
             np.array([[0.5, 0.4], [0.2, 0.2], [0.1, 0.1], [0, 0], [0, 0], [0, 0]])
         )
 
+#
+# FRACTIONAL_WIDTH deprecated since it is redundant with full_well_depth
+#
 #    def test__single_trap_release__change_fractional_width(self):
 #
 #        # Half the time, double the density --> same result

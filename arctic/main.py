@@ -217,9 +217,9 @@ def _clock_charge_in_one_direction(
     """
 
     # Parse inputs
-    n_rows, n_columns = image.shape
+    n_rows_in_image, n_columns = image.shape
     window_row = (
-        range(n_rows) if window_row is None else window_row
+        range(n_rows_in_image) if window_row is None else window_row
     )  # list or range of which pixels to process in the redout direction
     window_column = (
         range(n_columns) if window_column is None else window_column
@@ -240,8 +240,10 @@ def _clock_charge_in_one_direction(
         charge_injection=roe.charge_injection,
         first_pixel_different=roe.empty_traps_at_start,
     )
-    (n_express, n_rows_to_clock) = express_matrix.shape
-    assert n_rows_to_clock == n_rows, "n_rows_to_clock != n_rows"
+    (n_express, n_rows) = express_matrix.shape
+    print(express_matrix)
+    print(n_rows,n_rows_in_image)
+    #assert n_rows_in_image == n_rows, "n_rows_to_clock != n_rows"
 
     #
     # This is another way to achieve multi-step clocking, which omits a nested for loop and may be faster, but is less clear.
@@ -346,26 +348,17 @@ def _clock_charge_in_one_direction(
                         image[row_write, window_column[column_index]] += (
                             n_electrons_released_and_captured * express_multiplier
                         )
-                        print(
-                            row_index,
-                            "write row",
-                            row_write,
-                            "step",
-                            clocking_step,
-                            "phase",
-                            phase,
-                            "n_ei",
-                            n_free_electrons,
-                            "n_tb",
-                            n_electrons_trapped_before,
-                            "n_ta",
-                            n_electrons_trapped_after,
-                            "exp",
-                            express_multiplier,
-                            "diff",
-                            (n_electrons_trapped_before - n_electrons_trapped_after),
-                            "n_ef",
-                            image[row_write, window_column[column_index]],
+                        print(roe.dwell_times[clocking_step],
+                            "write to",(row_write,column_index),
+                            "step",clocking_step,
+                            "phase",phase,
+                            "n_ei",n_free_electrons,
+                            "n_tb",n_electrons_trapped_before,
+                            "n_ta",n_electrons_trapped_after,
+                            "exp",express_multiplier,
+                            "diff",(n_electrons_trapped_before - n_electrons_trapped_after),
+                            "E",express_multiplier,
+                            "n_ef",image[row_write, window_column[column_index]],
                         )
 
                 # Save trap occupancy at the end of one express

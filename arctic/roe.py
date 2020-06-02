@@ -15,7 +15,7 @@ class ROE(object):
         charge_injection=False,
         empty_traps_at_start=True,
         empty_traps_between_columns=True,
-        integration_step=None,  # Why should this matter?
+        integration_step=0,  # Why should this matter?
     ):
         """
         The parameters for the clocking of electrons (in an n-type CCD; the algorithm 
@@ -114,7 +114,7 @@ class ROE(object):
         self.min_referred_to_pixel = min(referred_to_pixels)
         self.max_referred_to_pixel = max(referred_to_pixels)
 
-    def _generate_clock_sequence(self, n_steps, integration_step=None):
+    def _generate_clock_sequence(self, n_steps, integration_step=0):
 
         """ 
         For a basic readout sequence (involving one step always held high), a list of
@@ -170,36 +170,20 @@ class ROETrapPumping(ROE):
         always held high. The starting 
         """
 
-        # The number of steps need not be the same as the number of phases
-        # in the CCD, but is for a simple scheme.
-        assert (
-            n_steps % 2
-        ) == 0, "Expected n_steps to be even for trap pumping sequence"
-        n_phases = n_steps / 2
-
+        assert( n_steps == 6 ), "Have only coded for 3-phase so far"
+        assert(( n_steps % 2 ) == 0 ), "Expected n_steps to be even for trap pumping sequence"
+        n_phases = n_steps // 2 
+        
         clock_sequence = []
         for step in range(n_steps):
             potentials = []
             for phase in range(n_phases):
-                if step <= (n_phases / 2):
-                    high_phase = (integration_step + step) % n_phases
-                else:
-                    high_phase = (integration_step - step) % n_phases
-                print(step, high_phase)
+                step_prime = integration_step + abs( ( ( step + n_phases ) % n_steps ) - n_phases )# 0,1,2,3,2,1
+                high_phase = step_prime % n_phases
+                capture_from_which_pixel = ( step_prime + 1 - phase ) // 3
+                release_to_which_pixel = capture_from_which_pixel
                 high = phase == high_phase
-                adjacent_phases_high = [phase]
-                capture_from_which_pixel = 0
-                n_steps_around_into_same_pixel = (
-                    n_phases // 2
-                )  # 1 for 3 or 4 phase devices
-                if phase > (step + n_steps_around_into_same_pixel):
-                    release_to_which_pixel = -1
-                elif phase < (step - n_steps_around_into_same_pixel):
-                    release_to_which_pixel = (
-                        1  # Release into charge cloud following (for normal readout)
-                    )
-                else:
-                    release_to_which_pixel = 0  # Release into same charge cloud
+                adjacent_phases_high = [high_phase]
                 potential = {
                     "high": high,
                     "adjacent_phases_high": adjacent_phases_high,
@@ -207,12 +191,7 @@ class ROETrapPumping(ROE):
                     "release_to_which_pixel": release_to_which_pixel,
                 }
                 potentials.append(potential)
-                # potentials.append(ROEPotential(
-                #    high=high,
-                #    adjacent_phases_high=adjacent_phases_high,
-                #    capture_from_which_pixel=capture_from_which_pixel,
-                #    release_to_which_pixel=release_to_which_pixel,
-                # ))
+                #print(step,step_prime,phase,high_phase,capture_from_which_pixel)
             clock_sequence.append(potentials)
 
         return clock_sequence

@@ -7,14 +7,15 @@ import arctic as ac
 class TestGeneral:
     def test__express_matrix_from_rows(self):
 
-        express_multiplier = ac.express_matrix_from_rows_and_express(
-            rows=12, express=1, first_pixel_different=False, dtype=int
+        roe = ac.ROE( empty_traps_at_start=False )
+        express_multiplier = roe.express_matrix_from_rows_and_express(
+            rows=12, express=1, dtype=int
         )
 
         assert express_multiplier == pytest.approx(np.array([np.arange(1, 13)]))
 
-        express_multiplier = ac.express_matrix_from_rows_and_express(
-            rows=12, express=4, first_pixel_different=False, dtype=int
+        express_multiplier = roe.express_matrix_from_rows_and_express(
+            rows=12, express=4, dtype=int
         )
 
         assert express_multiplier == pytest.approx(
@@ -28,29 +29,30 @@ class TestGeneral:
             )
         )
 
-        express_multiplier = ac.express_matrix_from_rows_and_express(
-            rows=12, express=12, first_pixel_different=False
+        express_multiplier = roe.express_matrix_from_rows_and_express(
+            rows=12, express=12
         )
 
         assert express_multiplier == pytest.approx(np.triu(np.ones((12, 12))))
 
-        express_multiplier = ac.express_matrix_from_rows_and_express(
-            rows=12, express=12, first_pixel_different=True
+        roe = ac.ROE( empty_traps_at_start=True )
+        express_multiplier = roe.express_matrix_from_rows_and_express(
+            rows=12, express=12
         )
 
-        # assert express_multiplier == pytest.approx(np.flipup(np.triu(np.ones((12, 12)))))
+        assert express_multiplier == pytest.approx(np.flipud(np.triu(np.ones((12, 12)))))
 
         for rows in [5, 7, 17]:
             for express in [0, 1, 2, 7]:
                 for offset in [0, 1, 13]:
                     for dtype in [int, float]:
                         for first_pixel_different in [True, False]:
-                            express_multiplier = ac.express_matrix_from_rows_and_express(
+                            roe = ac.ROE( empty_traps_at_start=first_pixel_different )
+                            express_multiplier = roe.express_matrix_from_rows_and_express(
                                 rows=rows,
                                 express=express,
                                 offset=offset,
-                                dtype=dtype,
-                                first_pixel_different=first_pixel_different,
+                                dtype=dtype
                             )
                             assert np.sum(express_multiplier, axis=0) == pytest.approx(
                                 np.arange(1, rows + 1) + offset

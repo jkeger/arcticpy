@@ -93,10 +93,10 @@ class TrapManager(object):
         self.traps = traps
         self._n_pixels = n_pixels
 
-        # Set up the watermarks
+        # Set up the watermark array
         self.watermarks = np.zeros(
-            (self.n_pixels * self.n_watermarks_per_transfer(), 1 + self.n_trap_species),
-            dtype=float,
+            ( 1 + ( self.n_pixels * self.n_watermarks_per_transfer() ), 1 + self.n_trap_species),
+            dtype=float, # first +1 is to ensure there is always at least one zero; second is for volume column
         )
         # The value for a filled watermark level, here 1 as a fill fraction
         self.filled_watermark_value = 1
@@ -587,7 +587,8 @@ class TrapManagerInstantCapture(TrapManager):
             fill_probabilities_from_full,
             fill_probabilities_from_release,
         ) = self.fill_probabilities_from_dwell_time(dwell_time=dwell_time)
-
+        
+        #print(fill_probabilities_from_release)
         # Update the fill fractions
         return watermark_values * fill_probabilities_from_release
 
@@ -619,12 +620,16 @@ class TrapManagerInstantCapture(TrapManager):
             The updated watermarks. See initial_watermarks_from_n_pixels_and_total_traps().
         """
         # Release
+        #print(np.argmax(self.watermarks[:, 0] == 0) - 1)
         n_electrons_released = self.n_electrons_released( dwell_time = dwell_time )
         n_free_electrons += n_electrons_released
+        #print(self.watermarks)
         
         # Capture
         n_electrons_captured = self.n_electrons_captured( n_free_electrons, ccd, express_multiplier=express_multiplier )
-        print('r:',n_electrons_released,'c:',n_electrons_captured)
+        #print(self.watermarks)
+        #print(np.argmax(self.watermarks[:, 0] == 0) - 1,'r:',n_electrons_released,'c:',n_electrons_captured)
+        #print(self.watermarks)
         
         return n_electrons_released - n_electrons_captured
 
@@ -654,9 +659,6 @@ class TrapManagerInstantCapture(TrapManager):
             watermarks=self.watermarks
         )
 
-        # The number of traps for each species
-        #n_traps_per_pixel = self.n_traps_per_pixel
-
         # Find the highest active watermark
         max_watermark_index = np.argmax(self.watermarks[:, 0] == 0) - 1
 
@@ -666,6 +668,7 @@ class TrapManagerInstantCapture(TrapManager):
         ] = self.update_watermark_values_for_release(
             self.watermarks[: max_watermark_index + 1, 1:], dwell_time,
         )
+        #print(max_watermark_index,self.watermarks[: max_watermark_index + 1, 1:])
 
         # Resulting numbers of electrons in traps
         n_trapped_electrons_final = self.n_trapped_electrons_from_watermarks(
@@ -674,6 +677,8 @@ class TrapManagerInstantCapture(TrapManager):
 
         # Total number of released electrons and updated free electrons
         n_electrons_released = n_trapped_electrons_initial - n_trapped_electrons_final
+        
+        #print('b:',n_trapped_electrons_initial,'a:',n_trapped_electrons_final,dwell_time)
 
         return n_trapped_electrons_initial - n_trapped_electrons_final
 
@@ -702,14 +707,15 @@ class TrapManagerInstantCapture(TrapManager):
         watermarks : np.ndarray
             The updated watermarks. See initial_watermarks_from_n_pixels_and_total_traps().
         """
-        # Initial watermarks and number of electrons in traps
+        # Save the initial watermarks and number of electrons in traps, in case there aren't enough
+        # free electrons to fill all the identified traps
         watermarks_initial = deepcopy(self.watermarks)
         n_trapped_electrons_initial = self.n_trapped_electrons_from_watermarks(
             watermarks=self.watermarks
         )
 
         # The number of traps for each species
-        n_traps_per_pixel = self.n_traps_per_pixel
+        #n_traps_per_pixel = self.n_traps_per_pixel
 
         # Find the highest active watermark
         max_watermark_index = np.argmax(self.watermarks[:, 0] == 0) - 1
@@ -728,14 +734,15 @@ class TrapManagerInstantCapture(TrapManager):
 
         # First capture: make the new watermark then can return immediately
         if max_watermark_index == -1 and n_free_electrons > 0:
+            
             # Update the watermark volume, duplicated for the initial watermarks
+            #print('xxx',np.argmax(self.watermarks[:, 0] == 0) - 1,self.watermarks)
             self.watermarks[0, 0] = cloud_fractional_volume
             watermarks_initial[0, 0] = self.watermarks[0, 0]
 
             # Update the fill fractions
             self.watermarks[0, 1:] = self.filled_watermark_value
-            # # Update the elapsed times
-            # self.watermarks[0, 1:] = 0
+            #print('xxx',np.argmax(self.watermarks[:, 0] == 0) - 1,self.watermarks)
 
             # Final number of electrons in traps
             n_trapped_electrons_final = self.n_trapped_electrons_from_watermarks(
@@ -746,6 +753,7 @@ class TrapManagerInstantCapture(TrapManager):
             if n_trapped_electrons_final == 0:
                 return 0.
             enough = n_free_electrons / n_trapped_electrons_final
+            #print('here',cloud_fractional_volume,n_trapped_electrons_final,enough,np.argmax(self.watermarks[:, 0] == 0) - 1)
             if enough < 1:
                 # For watermark fill fractions that increased, tweak them such that
                 #   the resulting increase instead matches the available electrons
@@ -916,6 +924,13 @@ class TrapManagerInstantCapture(TrapManager):
             if n_trapped_electrons_final == 0:
                 return n_electrons_released
             enough = n_free_electrons / n_trapped_electrons_final
+            #
+            #
+            #
+            #  RJM: NEED TO ADD EXPRESS MULTIPLIER TO ALL enoughS!!!!
+            #
+            #
+            #
             if enough < 1:
                 # For watermark fill fractions that increased, tweak them such that
                 #   the resulting increase instead matches the available electrons

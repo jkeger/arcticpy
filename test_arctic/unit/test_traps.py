@@ -266,17 +266,17 @@ class TestInitialWatermarks:
 
         # 1 trap species, 3 n_pixels of image pixels
         trap_manager = ac.TrapManager(traps=[ac.Trap()], n_pixels=3)
-        assert (trap_manager.watermarks == np.zeros(shape=(6, 2))).all()
+        assert (trap_manager.watermarks == np.zeros(shape=(7, 2))).all()
 
         # 5 trap species, 3 n_pixels of image pixels
         trap_manager = ac.TrapManager(
             traps=[ac.Trap(), ac.Trap(), ac.Trap(), ac.Trap(), ac.Trap()], n_pixels=3
         )
-        assert (trap_manager.watermarks == np.zeros(shape=(6, 6))).all()
+        assert (trap_manager.watermarks == np.zeros(shape=(7, 6))).all()
 
         # 2 trap species, 5 n_pixels of image pixels
         trap_manager = ac.TrapManager(traps=[ac.Trap(), ac.Trap()], n_pixels=5)
-        assert (trap_manager.watermarks == np.zeros(shape=(10, 3))).all()
+        assert (trap_manager.watermarks == np.zeros(shape=(11, 3))).all()
 
 
 class TestElectronsReleasedAndCapturedInstantCapture:
@@ -288,8 +288,9 @@ class TestElectronsReleasedAndCapturedInstantCapture:
         n_electrons_released = trap_manager.n_electrons_released()
 
         assert n_electrons_released == pytest.approx(0)
+        assert np.all(trap_manager.watermarks == 0)
         assert trap_manager.watermarks == pytest.approx(
-            np.array([[0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]])
+            np.array([[0., 0.], [0., 0.], [0., 0.], [0., 0.], [0., 0.], [0., 0.], [0., 0.]])
         )
 
     def test__single_trap_release(self):
@@ -298,14 +299,14 @@ class TestElectronsReleasedAndCapturedInstantCapture:
         trap_manager = ac.TrapManagerInstantCapture(traps=traps, n_pixels=6)
 
         trap_manager.watermarks = np.array(
-            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]]
+            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0], [0, 0]]
         )
 
         n_electrons_released = trap_manager.n_electrons_released()
 
         assert n_electrons_released == pytest.approx(2.5)
         assert trap_manager.watermarks == pytest.approx(
-            np.array([[0.5, 0.4], [0.2, 0.2], [0.1, 0.1], [0, 0], [0, 0], [0, 0]])
+            np.array([[0.5, 0.4], [0.2, 0.2], [0.1, 0.1], [0, 0], [0, 0], [0, 0], [0, 0]])
         )
 
     def test__multiple_traps_release(self):
@@ -324,6 +325,7 @@ class TestElectronsReleasedAndCapturedInstantCapture:
                 [0, 0, 0],
                 [0, 0, 0],
                 [0, 0, 0],
+                [0, 0, 0],
             ]
         )
 
@@ -339,7 +341,8 @@ class TestElectronsReleasedAndCapturedInstantCapture:
                     [0, 0, 0],
                     [0, 0, 0],
                     [0, 0, 0],
-                ]
+                    [0, 0, 0],
+               ]
             )
         )
 
@@ -400,7 +403,7 @@ class TestElectronsReleasedAndCapturedInstantCapture:
 
         assert n_electrons_captured == pytest.approx(5)
         assert trap_manager.watermarks == pytest.approx(
-            np.array([[0.5, 1], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]])
+            np.array([[0.5, 1], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]])
         )
 
     def test__multiple_traps_capture(self):
@@ -469,7 +472,7 @@ class TestElectronsReleasedAndCapturedInstantCapture:
 
         assert n_electrons_captured == pytest.approx(0.0025)
         assert trap_manager.watermarks == pytest.approx(
-            np.array([[4.9999e-4, 0.50001], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]])
+            np.array([[4.9999e-4, 0.50001], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]])
         )
 
     def test__not_enough__multiple_traps_capture(self):

@@ -5,58 +5,6 @@ import arctic as ac
 
 
 class TestGeneral:
-    def test__express_matrix_from_rows(self):
-
-        roe = ac.ROE( empty_traps_at_start=False )
-        express_multiplier = roe.express_matrix_from_rows_and_express(
-            rows=12, express=1, dtype=int
-        )
-
-        assert express_multiplier == pytest.approx(np.array([np.arange(1, 13)]))
-
-        express_multiplier = roe.express_matrix_from_rows_and_express(
-            rows=12, express=4, dtype=int
-        )
-
-        assert express_multiplier == pytest.approx(
-            np.array(
-                [
-                    [1, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
-                    [0, 0, 0, 1, 2, 3, 3, 3, 3, 3, 3, 3],
-                    [0, 0, 0, 0, 0, 0, 1, 2, 3, 3, 3, 3],
-                    [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3],
-                ]
-            )
-        )
-
-        express_multiplier = roe.express_matrix_from_rows_and_express(
-            rows=12, express=12
-        )
-
-        assert express_multiplier == pytest.approx(np.triu(np.ones((12, 12))))
-
-        roe = ac.ROE( empty_traps_at_start=True )
-        express_multiplier = roe.express_matrix_from_rows_and_express(
-            rows=12, express=12
-        )
-
-        assert express_multiplier == pytest.approx(np.flipud(np.triu(np.ones((12, 12)))))
-
-        for rows in [5, 7, 17]:
-            for express in [0, 1, 2, 7]:
-                for offset in [0, 1, 13]:
-                    for dtype in [int, float]:
-                        for first_pixel_different in [True, False]:
-                            roe = ac.ROE( empty_traps_at_start=first_pixel_different )
-                            express_multiplier = roe.express_matrix_from_rows_and_express(
-                                rows=rows,
-                                express=express,
-                                offset=offset,
-                                dtype=dtype
-                            )
-                            assert np.sum(express_multiplier, axis=0) == pytest.approx(
-                                np.arange(1, rows + 1) + offset
-                            )
 
     def test__add_cti__parallel_only__single_pixel__compare_cplusplus_version(self,):
         image = np.zeros((6, 2))
@@ -197,9 +145,9 @@ class TestAddCTIParallelOnly:
 
         image_difference = image_post_cti - image_pre_cti
 
-        assert (image_difference[:, 0:2] == 0.0).all()  # Most pixels unchanged
+        assert (image_difference[:, 0:2] == 0.0).all(), "Most pixels unchanged"
         assert (image_difference[:, 3:-1] == 0.0).all()
-        assert (image_difference[:, 2] < 0.0).all()  # charge line still loses charge
+        assert (image_difference[:, 2] < 0.0).all(), "charge line still loses charge"
 
     def test__square__double_density__more_captures_so_brighter_trails(self):
         image_pre_cti = np.zeros((5, 5))

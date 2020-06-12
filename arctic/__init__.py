@@ -1,5 +1,9 @@
 from arctic.main import add_cti, remove_cti
-from arctic.roe import ROE, ROETrapPumping
+from arctic.roe import (
+    ROE, 
+    ROETrapPumping, 
+    ROEChargeInjection, 
+)
 from arctic.ccd import CCD, CCDComplex, CCDPhase
 from arctic.traps import (
     Trap,

@@ -310,6 +310,24 @@ class CCDPhase(object):
         return volume
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 class CCDComplex(CCD):
     """ For a more complex esimate of the height reached by an electron cloud.
     """

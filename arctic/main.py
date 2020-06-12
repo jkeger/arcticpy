@@ -14,7 +14,11 @@ import numpy as np
 import os
 from copy import deepcopy
 
-from arctic.roe import ROE
+from arctic.roe import (
+    ROE, 
+    ROEChargeInjection, 
+    ROETrapPumping,
+)
 from arctic.ccd import CCD, CCDPhase
 from arctic.traps import (
     TrapLifetimeContinuum,
@@ -65,62 +69,45 @@ def _clock_charge_in_one_direction(
 
     # Parse inputs
     n_rows_in_image, n_columns = image.shape
-    window_row = (
-        range(n_rows_in_image) if window_row is None else window_row
-    )  # list or range of which pixels to process in the redout direction
-    window_column = (
-        range(n_columns) if window_column is None else window_column
-    )  # list or range of which pixels to process perpendicular to the readout direction
+    if window_row is None:
+        window_row = range(n_rows_in_image)
+    elif isinstance(window_row, int):
+        window_row = [ window_row ]
+    if window_column is None: 
+        window_column = range(n_columns)
     if not isinstance(traps[0], list):
-        traps = [
-            traps
-        ]  # If only a single trap species is used, still make sure it is an array
+        traps = [ traps ]  # If only a single trap species is used, still make sure it is an array
+    
+    # Decide in advance which steps need to be evaluated, and which can be skipped
     phases_with_traps = [i for i, x in enumerate(ccd.fraction_of_traps) if x > 0]
     n_phases_with_traps = len(phases_with_traps)
     steps_with_nonzero_dwell_time = [i for i, x in enumerate(roe.dwell_times) if x > 0]
     n_steps_with_nonzero_dwell_time = len(steps_with_nonzero_dwell_time)
 
     # Calculate the number of times that the effect of each pixel-to-pixel transfer can be replicated
-    print(window_row)
-    express_matrix = roe.express_matrix_from_rows_and_express(
-        # dtype=int,
+    express_matrix, when_to_store_traps = roe.express_matrix_from_pixels_and_express(
         window_row,
         express=express,
         offset=offset,
+        # dtype=int,
         #charge_injection=roe.charge_injection,
         #first_pixel_different=roe.empty_traps_at_start,
     )
     (n_express, n_rows) = express_matrix.shape
-    when_to_store_traps = roe.when_to_store_traps_from_express_matrix(express_matrix)
-    #assert n_rows_in_image == n_rows, "n_rows_to_clock != n_rows"
+    #when_to_store_traps = roe.when_to_store_traps_from_express_matrix(express_matrix)
 
-    #
-    # This is another way to achieve multi-step clocking, which omits a nested for loop and may be faster, but is less clear.
-    #
-    ## Prepare the image and express for multi-step clocking
-    # n_steps_in_clock_cycle = len(roe.dwell_times)
-    # assert n_steps_in_clock_cycle >= len(ccd.phase_fractional_widths)
-    ##assert np.amax(ccd.phase_fractional_widths) <= 1
-    # if n_steps_in_clock_cycle > 1:
-    #    new_image = np.zeros((rows * n_steps_in_clock_cycle, columns))
-    #    new_image[ccd.integration_phase :: n_steps_in_clock_cycle] = image
-    #    image = new_image
-    #    rows, columns = image.shape
-    #    print(
-    #        "Need to change window_row and window_column in case window is set; currently evaluating whole image"
-    #    )
-    #    window_row = range(n_rows_to_clock)
-    #    window_column = range(n_columns)
-    #    express_matrix = np.repeat(express_matrix, n_steps_in_clock_cycle, axis=1)
 
+    print(express_matrix)
+    print(window_row)
+    
     # Set up an array of trap managers able to monitor the occupancy of (all types of) traps
     max_n_transfers = n_rows * n_steps_with_nonzero_dwell_time
-    trap_managers = concatenate_trap_managers(traps, max_n_transfers, ccd.fraction_of_traps)
+    trap_managers = concatenate_trap_managers(traps, max_n_transfers, ccd)
     stored_trap_managers = trap_managers
 
-    # Expand image temporarily, if charge released from traps ever migrates to a different charge packet,
-    # at any time during the clocking sequence
-    n_rows_zero_padding = roe.max_referred_to_pixel - roe.min_referred_to_pixel
+    # Temporarily expand image, if charge released from traps ever migrates to 
+    # a different charge packet, at any time during the clocking sequence
+    n_rows_zero_padding = max(roe.pixels_accessed_during_clocking) - min(roe.pixels_accessed_during_clocking)
     if n_rows_zero_padding > 0:
         image = np.concatenate(
             (image, np.zeros((n_rows_zero_padding, n_columns), dtype=image.dtype)),
@@ -136,15 +123,19 @@ def _clock_charge_in_one_direction(
 
             # Reset trap occupancy levels
             trap_managers = deepcopy(stored_trap_managers)
+            checksum = np.sum(image[:, window_column[column_index]])
+            print('expressindex',express_index)
 
             # Each pixel
             for row_index in range(len(window_row)):
 
                 express_multiplier = express_matrix[express_index, row_index]
+                print('rowindex',express_index,row_index,express_multiplier)
                 if express_multiplier == 0:
                     continue
 
                 for clocking_step in steps_with_nonzero_dwell_time:
+                    n_electrons_trapped = 0
 
                     for phase in phases_with_traps:
 
@@ -178,6 +169,9 @@ def _clock_charge_in_one_direction(
                             n_electrons_trapped_after += trap_manager.n_trapped_electrons_from_watermarks(
                                 trap_manager.watermarks
                             )
+                            n_electrons_trapped += trap_manager.n_trapped_electrons_from_watermarks(
+                                trap_manager.watermarks
+                            )
 
                         # Return the released electrons back to the relevant charge cloud
 
@@ -196,16 +190,24 @@ def _clock_charge_in_one_direction(
                             "n_ta",n_electrons_trapped_after,
                             #"exp",express_multiplier,
                             "ch in image",(n_electrons_trapped_before - n_electrons_trapped_after),
-                            #"E",express_multiplier,
+                            "E",express_multiplier,
                             "n_ef",image[row_write, window_column[column_index]],
                         )
+                        print(np.sum(image)+n_electrons_trapped_after,np.sum(image)-9000,n_electrons_trapped_after)
 
                 # Save trap occupancy at the end of one express
                 if when_to_store_traps[express_index, row_index]:
                     stored_trap_managers = trap_managers
                     print("saving at", express_index, row_index)
 
+                print
+                print('Initial n_e in image:',checksum,
+                      'change:',np.sum(image[:, window_column[column_index]])-checksum,
+                      'n_e trapped:',n_electrons_trapped)
+                print
+
         # Reset watermarks, effectively setting trap occupancy to zero
+        #input("Press Enter to continue...")
         if roe.empty_traps_between_columns:
             [
                 inner.empty_all_traps()

@@ -63,13 +63,34 @@ class ROEAbstract(object):
             self, 
             dwell_times,
     ):
-
-        # Check input number of dwell times as an indication of the desired
-        # number of steps in the clocking sequence
-        if not isinstance(dwell_times, list):
-            dwell_times = [dwell_times]
+        """
+        Bare core methods that are shared by all types of ROE.
+        """
+        # Parse inputs
         self.dwell_times = dwell_times
-        self.n_steps = len(dwell_times)
+    
+    @property
+    def dwell_times(self):
+        """
+        A list of the time spent during each step in the clocking sequence
+        """
+        return self._dwell_times
+        
+    @dwell_times.setter
+    def dwell_times(self, value):
+        """
+        Check that 
+        """
+        if not isinstance(value, list):
+            value = [value]
+        self._dwell_times = value
+    
+    @property
+    def n_steps(self):
+        """
+        Number of steps in the clocking sequence
+        """
+        return len( self.dwell_times )
         
     def _generate_clock_sequence(self):
 
@@ -219,7 +240,6 @@ class ROEAbstract(object):
 
         return clock_sequence
 
-
     def _generate_pixels_accessed_during_clocking(self):
         """
         Returns a list of (the relative coordinates to) charge clouds that are 
@@ -326,25 +346,25 @@ class ROE(ROEAbstract):
         self.empty_traps_at_start = empty_traps_at_start
         self.empty_traps_between_columns = empty_traps_between_columns
         self.force_downstream_release = force_downstream_release
+                
+        # Link to generic methods
+        self.clock_sequence = self._generate_clock_sequence()
+        self.pixels_accessed_during_clocking = self._generate_pixels_accessed_during_clocking()
         
         # Define other variables that are used elsewhere but for which there is no choice with this class 
-        self.charge_injection = False
-        #Assumed number of CCD phases per pixel, implied by the number of steps in 
+    @property
+    def n_phases(self):
+        # Assumed number of CCD phases per pixel, implied by the number of steps in 
         #the supplied clocking sequence. For normal readout, the number of clocking 
         #steps should be the same as the number of CCD phases. This need not true
         #in general, so it is defined in a function rather than in __init__.
-        self.n_phases = self.n_steps
-                
-        # Link to general properties
-        self.clock_sequence = self._generate_clock_sequence()
-        self.pixels_accessed_during_clocking = self._generate_pixels_accessed_during_clocking()
+        return self.n_steps
 
     def express_matrix_from_pixels_and_express(self,
             rows,
             express=0,
             offset=0,
             dtype=float,
-            n_active_pixels=0,
         ):
         """ 
         To reduce runtime, instead of calculating the effects of every 
@@ -357,9 +377,10 @@ class ROE(ROEAbstract):
 
         Parameters
         ----------
-        rows : int or list or range
-            int:         The number of rows in an image.
-            list/range:  A subset of rows in the image to be processed, for speed.
+        pixels : int or list or range
+            int:         The number of rows in an image (should be called n_pixels).
+            list/range:  Rows in the image to be processed (can be a subset of the 
+                         entire image).
         express : int
             Parameter determining balance between accuracy (high values or zero)  
             and speed (low values).
@@ -383,12 +404,6 @@ class ROE(ROEAbstract):
             Consider all pixels to be offset by this number of pixels from the 
             readout register. Useful if working out the matrix for a postage stamp 
             image, or to account for prescan pixels whose data is not stored.
-        n_active_pixels : int
-            Used only in charge injection mode, this specifies the number of pixels
-            from the readout register to the farthest pixel. It is useful as a
-            keyword if the image supplied is not the entire area, either because it
-            is a postage stamp (whose final pixel is not the end of the image), or
-            excludes pre-/over-scan pixels.
 
         Returns
         -------
@@ -405,13 +420,8 @@ class ROE(ROEAbstract):
         # Default to very slow but accurate behaviour
         if express == 0:
             express = n_rows - offset
-        if self.charge_injection:
-            assert (
-                self.empty_traps_at_start == True
-            ), "Traps must be assumed initially empty in CIL mode (what else would they be filled with?)"
-            n_rows = max(n_rows, n_active_pixels)
-        elif self.empty_traps_at_start:
-            n_rows -= 1
+        if self.empty_traps_at_start:
+            n_rows += 1
 
         # Initialise an array
         express_matrix = np.zeros((express, n_rows), dtype=dtype)
@@ -421,37 +431,27 @@ class ROE(ROEAbstract):
         # if it's going to be an integer, ceil() rather than int() is required in case the number of rows is not an integer multiple of express
         if dtype == int:
             max_multiplier = math.ceil(max_multiplier)
-        if self.charge_injection:
-            if dtype == int:
-                for i in reversed(range(express)):
-                    express_matrix[i, :] = util.set_min_max(
-                        max_multiplier, 0, n_rows - sum(express_matrix[:, 0])
-                    )
-            else:
-                express_matrix[:] = max_multiplier
-            # if dtype == int:
-            #    express_matrix[0,:] -= sum(express_matrix[:,0]) - n_rows
-        else:
-            # This populates every row in the matrix with a range from 1 to n_rows
-            express_matrix[:] = np.arange(1, n_rows + 1)
-            # Offset each row to account for the pixels that have already been read out
-            for express_index in range(express):
-                express_matrix[express_index] -= express_index * max_multiplier
-            # Set all values to between 0 and max_multiplier
-            express_matrix[express_matrix < 0] = 0
-            express_matrix[express_matrix > max_multiplier] = max_multiplier
 
-            # Separate out the first transfer of every pixel, so that it can be different from subsequent transfers (it sees only empty traps)
-            if self.empty_traps_at_start:
-                # What we calculated before contained (intentionally) one transfer too few. Store it...
-                express_matrix_small = express_matrix
-                # ..then create a new matrix with one extra transfer for each pixel
-                n_rows += 1
-                express_matrix = np.flipud(np.identity(n_rows))
-                # Combine the two sets of transfers appropriately
-                for i in range(express):
-                    n_nonzero = sum(express_matrix_small[i, :] > 0)
-                    express_matrix[n_nonzero, 1:] += express_matrix_small[i, :]
+        # This populates every row in the matrix with a range from 1 to n_rows
+        express_matrix[:] = np.arange(1, n_rows + 1)
+        # Offset each row to account for the pixels that have already been read out
+        for express_index in range(express):
+            express_matrix[express_index] -= express_index * max_multiplier
+        # Set all values to between 0 and max_multiplier
+        express_matrix[express_matrix < 0] = 0
+        express_matrix[express_matrix > max_multiplier] = max_multiplier
+
+        # Separate out the first transfer of every pixel, so that it can be different from subsequent transfers (it sees only empty traps)
+        if self.empty_traps_at_start:
+            # What we calculated before contained (intentionally) one transfer too few. Store it...
+            express_matrix_small = express_matrix
+            # ..then create a new matrix with one extra transfer for each pixel
+            n_rows += 1
+            express_matrix = np.flipud(np.identity(n_rows))
+            # Combine the two sets of transfers appropriately
+            for i in range(express):
+                n_nonzero = sum(express_matrix_small[i, :] > 0)
+                express_matrix[n_nonzero, 1:] += express_matrix_small[i, :]
 
         # Extract the section of the array corresponding to the image (without the offset)
         n_rows -= offset
@@ -493,350 +493,91 @@ class ROE(ROEAbstract):
         """
         (n_express, n_rows) = express_matrix.shape
         when_to_store_traps = np.zeros((n_express, n_rows), dtype=bool)
-        if not self.empty_traps_at_start and not self.charge_injection:
+        if not self.empty_traps_at_start:
             for express_index in range(n_express - 1):
                 for row_index in range(n_rows - 1):
                     if express_matrix[express_index + 1, row_index + 1] > 0:
                         break
                 when_to_store_traps[express_index, row_index] = True
         return when_to_store_traps
-#
-#
-#    @property
-#    def force_downstream_release(self):
-#        return self._force_downstream_release
-#
-#
-#    @force_downstream_release.setter
-#    def force_downstream_release(self, value):
-#        assert type(value) == bool, "force_downstream_release must be True or False"                                                      
-#        self._force_downstream_release = value
-#
-#
-#    @property
-#    def n_phases(self):
-#        """
-#        Assumed number of CCD phases per pixel, implied by the number of steps in 
-#        the supplied clocking sequence. For normal readout, the number of clocking 
-#        steps should be the same as the number of CCD phases. This need not true
-#        in general, so it is defined in a function rather than in __init__.
-#        """
-#        return int(self.n_steps)
 
-
-    #@property
-    #def clock_sequence(self):
-    #    return self._clock_sequence
-    #    
-    #@clock_sequence.setter
-
-
-#    def pixels_accessed_during_clocking(self):
-#        """
-#        Record which range of charge clouds are accessed during the clocking sequence
-#        """
-#        referred_to_pixels = [0]
-#        for step in range(self.n_steps):
-#            for phase in range(self.n_phases):
-#                for x in self.clock_sequence[step][phase]["capture_from_which_pixel"]:
-#                    referred_to_pixels.append(x)
-#                for x in self.clock_sequence[step][phase]["release_to_which_pixel"]:
-#                    referred_to_pixels.append(x)
-#        referred_to_pixels = sorted( set( referred_to_pixels ) ) # sort and uniq
-#        return referred_to_pixels
-    
-
-#    def _generate_clock_sequence_logical(self):
-#
-#        """  
-#        
-#        DEPRECATED
-#        
-#        For a basic readout sequence (involving one step always held high), a list of
-#        steps describing the readout electronics at each stage of a clocking sequence,
-#        during a basic readout with a single phase always held high (and instant transfer
-#        between these phases). 
-#        """
-#
-#        # The number of steps need not be the same as the number of phases
-#        # in the CCD, but is for a simple scheme.
-#        n_steps = self.n_steps
-#        n_phases = self.n_phases
-#        integration_step = self.integration_step
-#
-#        clock_sequence = []
-#        for step in range(n_steps):
-#            potentials = []
-#            
-#            # Loop counter (0,1,2,3,2,1,... instead of 0,1,2,3,4,5,...) that is reelvant during trap pumping
-#            step_prime = integration_step + abs( ( ( step + n_phases ) % ( n_phases * 2 ) ) - n_phases ) # 0,1,2,3,2,1
-#            print('step_prime',step_prime)
-#            
-#            # Which phase has its potential held high (able to contain electrons) during this step?
-#            high_phase = step_prime % n_phases
-#            
-#            # Will there be a phase (e.g. half-way between one high phase and the next), from which 
-#            # some released electrons travel in one direction, and others in the opposite direction?
-#            split_release_phase = ( high_phase + n_phases / 2 ) % n_phases
-#            
-#            for phase in range(n_phases):
-#                
-#                # Where to capture from?
-#                capture_from_which_pixel = 0 + step_prime > n_phases
-#                release_fraction_to_pixel = np.ones( 1, dtype=float )
-#                if phase == high_phase:
-#                    release_to_which_pixel = capture_from_which_pixel
-#                elif phase == split_release_phase:
-#                    if phase > high_phase:
-#                        release_to_which_pixel = np.array([-1,0])
-#                    else:
-#                        release_to_which_pixel = np.array([0,1])
-#                    release_fraction_to_pixel = np.ones( 2, dtype=float )
-#                elif abs( phase - high_phase ) > split_release_phase:
-#                    release_to_which_pixel = -1
-#                elif phase < -split_release_phase:
-#                    release_to_which_pixel = -1
-#                    
-#                capture_from_which_pixel = np.array( [ ( step_prime + 1 - phase ) // n_phases ] )
-#                print(phase,capture_from_which_pixel)
-#                
-#                # How many pixels to split the release between?
-#                n_phases_for_release = 1 + ( phase == split_release_phase )
-#                
-#                # Where to release to?
-#                release_to_which_pixel = ( ( step_prime + 1 - phase ) // n_phases ) + np.arange( n_phases_for_release, dtype=int )
-#                
-#                # How much to release into each pixel?
-#                release_fraction_to_pixel = np.ones( n_phases_for_release, dtype=float ) / n_phases_for_release
-#                
-#                # Replace capture/release operations that include an upstream pixel, to instead act on the
-#                # downstream pixel (i.e. the same operation but on the next pixel in the loop)
-#                if self.force_downstream_release and ( phase > high_phase ):
-#                    capture_from_which_pixel += 1
-#                    release_to_which_pixel += 1
-#                
-#                # Compile dictionary of results
-#                potential = {
-#                    "high": phase == high_phase,
-#                    "adjacent_phases_high": [high_phase],
-#                    "capture_from_which_pixel": capture_from_which_pixel,
-#                    "release_to_which_pixel": release_to_which_pixel,
-#                    "release_fraction_to_pixel": release_fraction_to_pixel,
-#                }
-#                potentials.append(potential)
-#            clock_sequence.append(potentials)
-#
-##        clock_sequence = []
-##        for step in range(n_steps):
-##            potentials = []
-##            for phase in range(n_phases):
-##                high_phase = step  # n_phases - phase
-##                high = phase == high_phase
-##                adjacent_phases_high = [high_phase]
-##                capture_from_which_pixel = 0
-##                n_steps_around_into_same_pixel = (
-##                    n_phases // 2
-##                )  # 1 for 3 or 4 phase devices
-##                if phase > (step + n_steps_around_into_same_pixel):
-##                    release_to_which_pixel = -1
-##                elif phase < (step - n_steps_around_into_same_pixel):
-##                    release_to_which_pixel = (
-##                        1  # Release into charge cloud following (for normal readout)
-##                    )
-##                else:
-##                    release_to_which_pixel = 0  # Release into same charge cloud
-##                potential = {
-##                    "high": high,
-##                    "adjacent_phases_high": adjacent_phases_high,
-##                    "capture_from_which_pixel": np.array([capture_from_which_pixel]),
-##                    "release_to_which_pixel": np.array([release_to_which_pixel]),
-##                }
-##                potentials.append(potential)
-##            clock_sequence.append(potentials)
-#
-#        #self._clock_sequence_old = clock_sequence
-#        return clock_sequence
-#
-#  
-#    def ss_generate_clock_sequence_pupmp_blah(self):
-#        """  
-#        
-#        DEPRECATED
-#         
-#        
-#        A clocking sequence for trap pumping through n_steps/2 phases, with one phase
-#        always held high. The starting 
-#        """
-#
-#        n_steps = self.n_steps
-#        n_phases = self.n_phases
-#        integration_step = self.integration_step
-#        assert( n_steps == 6 ), "Have only coded for 3-phase so far!"
-#        assert(( n_steps % 2 ) == 0 ), "Expected n_steps to be even for trap pumping sequence"
-#        
-#        clock_sequence = []
-#        for step in range(n_steps):
-#            potentials = []
-#            for phase in range(n_phases):
-#                step_prime = integration_step + abs( ( ( step + n_phases ) % n_steps ) - n_phases )# 0,1,2,3,2,1
-#                high_phase = step_prime % n_phases
-#                capture_from_which_pixel = ( step_prime + 1 - phase ) // 3
-#                release_to_which_pixel = capture_from_which_pixel
-#                high = phase == high_phase
-#                adjacent_phases_high = [high_phase]
-#                potential = {
-#                    "high": high,
-#                    "operation": "n_electrons_from_release_and_capture",
-#                    "adjacent_phases_high": adjacent_phases_high,
-#                    "capture_from_which_pixel": capture_from_which_pixel,
-#                    "release_to_which_pixel": release_to_which_pixel,
-#                }
-#                potentials.append(potential)
-#                #print(step,step_prime,phase,high_phase,capture_from_which_pixel)
-#            clock_sequence.append(potentials)
-#
-#        return clock_sequence
-#
-#
-#
-#    #@property
-#    #def clock_sequence(self):
-#    #    return self._clock_sequence
-#    #
-#    #@clock_sequence.setter
-#    def _generate_clock_sequence_pump(self):
-#        """  
-#        
-#        DEPRECATED
-#        
-#        The state of the readout electronics at each step of a clocking sequence
-#        for basic CCD readout with the potential in a single phase held high. 
-#        Assumptions:
-#         * instant transfer between phases
-#         * electrons released from traps in 'low' phases travel instantly to the
-#           nearest 'high' phase (being exposed to no traps en route)
-#         * such electrons can/will be captured during the next
-#        
-#        For 3-phase CCDs, this produces the following steps  
-#        (see Open Euclid TN 033 0.2 "Serial trap pumping of CCD273 devices")
-#        
-#        Time            Pixel p-1              Pixel p            Pixel p+1
-#        Step       Phase2 Phase1 Phase0 Phase2 Phase1 Phase0 Phase2 Phase1 Phase0
-#        
-#        0                       +------+             +------+             +------+
-#          Capture from          |      |             |   p  |             |      |
-#          Release to            |      |  p-1     p  |   p  |             |      |
-#                  --------------+      +-------------+      +-------------+      |
-#        1                +------+             +------+             +------+
-#          Capture from   |      |             |   p  |             |      |
-#          Release to     |      |          p  |   p  |   p         |      |
-#                  -------+      +-------------+      +-------------+      +-------
-#        2         -------+             +------+             +------+
-#          Capture from   |             |   p  |             |      |
-#          Release to     |             |   p  |   p     p+1 |      |
-#                         +-------------+      +-------------+      +--------------
-#        3                       +------+             +------+             +------+
-#          Capture from          |      |             |  p+1 |             |      |
-#          Release to            |      |   p     p+1 |  p+1 |             |      |
-#                  --------------+      +-------------+      +-------------+      |
-#        4         -------+             +------+             +------+
-#          Capture from   |             |   p  |             |      |
-#          Release to     |             |   p  |   p     p+1 |      |
-#                         +-------------+      +-------------+      +--------------
-#        5                +------+             +------+             +------+
-#          Capture from   |      |             |   p  |             |      |
-#          Release to     |      |          p  |   p  |   p         |      |
-#                  -------+      +-------------+      +-------------+      +-------
-#        
-#        The first 3 steps are therefore the same as for the conceptual (but not
-#        the actual) implementation of the ROE clocking sequence for basic CCD  
-#        readout. That's OK because we shouldn't be running this on more than one
-#        pixel at a time.
-#        """
-#
-#        n_steps = self.n_steps
-#        n_phases = self.n_phases
-#        integration_step = self.integration_step
-#        
-#        clock_sequence = []
-#        for step in range(n_steps):
-#            potentials = []
-#            step_prime = integration_step + abs( ( ( step + n_phases ) % ( n_phases * 2 ) ) - n_phases )# 0,1,2,3,2,1
-#            high_phase = step_prime % n_phases
-#            if ( n_phases % 2 ) == 0:
-#                split_release_phase = ( high_phase + n_phases // 2 ) % n_phases
-#            else: 
-#                split_release_phase = None
-#            for phase in range(n_phases):
-#                #print(high_phase)
-#                capture_from_which_pixel = np.array( [ ( step_prime + 1 - phase ) // n_phases ] )
-#                
-#                
-#                high = phase == high_phase
-#                adjacent_phases_high = [high_phase]
-#                
-#                
-#                n_phases_for_release = 1 + ( phase == split_release_phase )
-#                #release_to_which_pixel = np.ones( n_phases_for_release, dtype=int ) * capture_from_which_pixel
-#                release_to_which_phase = ( phase + np.arange( n_phases_for_release, dtype=int ) ) % n_phases
-#                #release_fraction_to_pixel = np.ones( n_phases_for_release, dtype=float ) / n_phases_for_release
-#
-#
-#
-#                release_to_which_pixel = np.array(capture_from_which_pixel)
-#                print(release_to_which_pixel,np.ones( n_phases_for_release, dtype=int ) * capture_from_which_pixel)
-#                release_fraction_of_charge = np.array(1)
-#                #high = phase == high_phase
-#                #adjacent_phases_high = [high_phase]
-#                if phase == split_release_phase:
-#                    release_fraction_to_pixel = ( capture_from_which_pixel + np.arange(2) ) % n_phases
-#                    release_fraction_to_pixel = np.ones(2)/2
-#                else:
-#                    release_fraction_to_pixel = np.array(capture_from_which_pixel)
-#                    release_fraction_to_pixel = np.ones(1)
-#                potential = {
-#                    "high": high,
-#                    "adjacent_phases_high": adjacent_phases_high,
-#                    "capture_from_which_pixel": capture_from_which_pixel,
-#                    "release_to_which_pixel": release_to_which_pixel,
-#                    "release_to_which_phase": release_to_which_phase,
-#                    "release_fraction_to_pixel": release_fraction_to_pixel,
-#                }
-#                potentials.append(potential)
-#            clock_sequence.append(potentials)
-#
-#        #self._clock_sequence = clock_sequence
-#        return clock_sequence
 
 
 class ROEChargeInjection(ROE):
     def __init__( 
         self,
         dwell_times=[1], 
+        n_active_pixels=None,
         empty_traps_between_columns=True,
         force_downstream_release=True
     ):
         """  
+        n_active_pixels : int
+            The number of pixels between the charge injection structure and the 
+            readout register. If not set, it is assumed to be the number of pixels in 
+            the supplied image. However, this need not be the case if the image
+            supplied is a reduced portion of the entire image (to speed up runtime)
+            or charege injection and readout continued for more than the number
+            of pixels in the detector.
         """
         
         super().__init__(dwell_times=dwell_times)
         
         # Parse inputs
+        self.n_active_pixels = n_active_pixels
         self.empty_traps_between_columns = empty_traps_between_columns
         self.force_downstream_release = force_downstream_release
-        
-        # Define other variables that are used elsewhere but for which there is no choice with this class 
-        self.charge_injection = True
-        #Traps must be assumed initially empty in CIL mode (what else would they be filled with?)
-        self.empty_traps_at_start = True
-        #Assumed number of CCD phases per pixel. For normal readout, the number of clocking 
-        #steps should be the same as the number of CCD phases.
-        self.n_phases = self.n_steps
     
-        # Link to general properties
+        # Link to generic methods
         self.clock_sequence = self._generate_clock_sequence()
         self.pixels_accessed_during_clocking = self._generate_pixels_accessed_during_clocking()
 
+
+    def express_matrix_from_pixels_and_express(self,
+            pixels,
+            express=0,
+            dtype=float,
+            **kwargs # No other arguments are used, but may be passed by functions that call this for multiple types of ROE
+        ):
+        """ 
+        Returns
+        -------
+        express_matrix : [[float]]
+            The express multiplier values for each pixel-to-pixel transfer.
+        """
+
+        # Parse inputs
+        window = range(pixels) if isinstance(pixels, int) else pixels
+        n_pixels = max(window) + 1
+        n_active_pixels = n_pixels if self.n_active_pixels is None else self.n_active_pixels
+        
+        # Default to very slow but accurate behaviour
+        #if express == 0:
+        #    express = n_active_pixels
+        #express = min( express, n_active_pixels )
+        express = n_active_pixels if express == 0 else min( express, n_active_pixels )
+
+        # Compute the multiplier factors
+        express_matrix = np.zeros( ( express, n_pixels ), dtype=dtype)
+        max_multiplier = n_active_pixels / express
+        if dtype == int:
+            max_multiplier = math.ceil( max_multiplier )
+            for i in reversed(range(express)):
+                express_matrix[i, :] = util.set_min_max(
+                    max_multiplier, 0, n_active_pixels - sum( express_matrix[:, 0] )
+                )
+        else:
+            express_matrix[:] = max_multiplier
+        
+        return express_matrix, self.when_to_store_traps_from_express_matrix(express_matrix)
+
+
+    def when_to_store_traps_from_express_matrix(self, express_matrix):
+        """
+        The first pixel in each column will always encounter empty traps, after every 
+        pixel-to-pixel transfer. So never save any trap occupancy between transfers.
+        """
+        return np.zeros(express_matrix.shape, dtype=bool)
 
 
 
@@ -859,20 +600,40 @@ class ROETrapPumping(ROEAbstract):
         # Define other variables that are used elsewhere but for which there is no choice with this class 
         self.force_downstream_release = False
         self.empty_traps_between_columns = True
-        # Assume that there are twoce as many steps in the Trap Pumping readout sequence as there are phases in the CCD.
-        if ( self.n_steps % 2 ) == 1: raise Exception("n_steps must be even for a complete trap pumping sequence")
-        self.n_phases = self.n_steps // 2
-    
-        # Link to general properties
+        
+        # Link to generic methods
         self.clock_sequence = self._generate_clock_sequence()
         self.pixels_accessed_during_clocking = self._generate_pixels_accessed_during_clocking()
 
-
+    @property
+    def dwell_times(self):
+        """
+        A list of the time spent during each step in the clocking sequence
+        """
+        return self._dwell_times
+        
+    @dwell_times.setter
+    def dwell_times(self, value):
+        """
+        Check that 
+        """
+        if not isinstance(value, list):
+            value = [value]
+        self._dwell_times = value
+        # Assume that there are twice as many steps in the Trap Pumping readout sequence as there are phases in the CCD.
+        if ( self.n_steps % 2 ) == 1: raise Exception("n_steps must be even for a complete trap pumping sequence")
+  
+    @property
+    def n_phases(self):
+        # Assume that there are twice as many steps in the Trap Pumping readout sequence as there are phases in the CCD.
+        #if ( self.n_steps % 2 ) == 1: raise Exception("n_steps must be even for a complete trap pumping sequence")
+        return self.n_steps // 2  
+ 
     def express_matrix_from_pixels_and_express(self,
             pixels_with_traps,
             express=0,
             dtype=float,
-            **kwargs # No other arguments are used, but may be passed by functions that call this for different types of ROE
+            **kwargs # No other arguments are used, but may be passed by functions that call this for multiple types of ROE
         ):
         """ 
         To reduce runtime, instead of calculating the effects of every 
@@ -917,38 +678,39 @@ class ROETrapPumping(ROEAbstract):
         # Parse inputs
         if isinstance(pixels_with_traps, int): pixels_with_traps = [ pixels_with_traps ]
         n_pixels_with_traps = len( pixels_with_traps )
-        n_rows_in_image = max( pixels_with_traps ) + 1
         
         # Default to very slow but accurate behaviour
         if express == 0:
             express = self.n_pumps
-        if self.empty_traps_at_start: express += 1
-        express = min( [ express, self.n_pumps ] ) 
+        express = min( express, self.n_pumps ) 
 
         # Decide for how many effective pumps each implementation of a single pump will count
-        express_multipliers = [ self.n_pumps / express ] * express
         # Treat first pump differently
-        if self.empty_traps_at_start and self.n_pumps > 1 and express > 1 :
+        if self.empty_traps_at_start and self.n_pumps > 1 and express < self.n_pumps :
             express_multipliers = [1.]
-            max_multiplier = ( self.n_pumps - 1 ) / ( express - 1 )
-            express_multipliers.extend( [max_multiplier] * ( express - 1 ) )
+            express_multipliers.extend( [ ( self.n_pumps - 1 ) / express ] * express )
+        else:
+            express_multipliers = [ self.n_pumps / express ] * express
+        n_express = len(express_multipliers)
+        
         # Make sure all values are integers, but still add up to the desired number of pumps
         if dtype == int:
             express_multipliers = list( map( int, np.round( express_multipliers ) ) )
             express_multipliers[-1] += self.n_pumps - sum( express_multipliers )
         
         # Initialise an array
-        express_matrix = np.zeros((express * n_pixels_with_traps, n_pixels_with_traps), dtype=dtype)
-        when_to_store_traps = np.zeros((express * n_pixels_with_traps, n_pixels_with_traps), dtype=bool)
+        express_matrix = np.zeros(( n_express * n_pixels_with_traps, n_pixels_with_traps), dtype=dtype)
+        when_to_store_traps = np.zeros(( n_express * n_pixels_with_traps, n_pixels_with_traps), dtype=bool)
         
         # Insert multipliers into final array
         for j in range(n_pixels_with_traps):
-            for i in range(express):
-                express_matrix[ j * express + i, j ] = express_multipliers[ i ]
+            for i in range(n_express):
+                express_matrix[ j * n_express + i, j ] = express_multipliers[ i ]
                 # Save trap occupancy between pumps of same trap
-                when_to_store_traps[ j * express + i, j ] = True
-            # Don't save trap occupancy after final pump
-            when_to_store_traps[ ( j + 1 ) * express - 1, j ] = False
+                when_to_store_traps[ j * n_express + i, j ] = True
+            # Actually, don't save trap occupancy after the final pump of a particular trap, 
+            # because we will be about to move on to the next trap (or have reached the end).
+            when_to_store_traps[ ( j + 1 ) * n_express - 1, j ] = False
 
         return express_matrix, when_to_store_traps
 

@@ -68,40 +68,33 @@ def _clock_charge_in_one_direction(
     """
 
     # Parse inputs
-    n_rows_in_image, n_columns = image.shape
+    n_rows_in_image, n_columns_in_image = image.shape
+    print(window_row,n_rows_in_image,range(n_rows_in_image))
     if window_row is None:
         window_row = range(n_rows_in_image)
     elif isinstance(window_row, int):
         window_row = [ window_row ]
+    print(window_row)
     if window_column is None: 
-        window_column = range(n_columns)
-    if not isinstance(traps[0], list):
-        traps = [ traps ]  # If only a single trap species is used, still make sure it is an array
-    
-    # Decide in advance which steps need to be evaluated, and which can be skipped
-    phases_with_traps = [i for i, x in enumerate(ccd.fraction_of_traps) if x > 0]
-    n_phases_with_traps = len(phases_with_traps)
-    steps_with_nonzero_dwell_time = [i for i, x in enumerate(roe.dwell_times) if x > 0]
-    n_steps_with_nonzero_dwell_time = len(steps_with_nonzero_dwell_time)
+        window_column = range(n_columns_in_image)
 
     # Calculate the number of times that the effect of each pixel-to-pixel transfer can be replicated
     express_matrix, when_to_store_traps = roe.express_matrix_from_pixels_and_express(
         window_row,
         express=express,
         offset=offset,
-        # dtype=int,
-        #charge_injection=roe.charge_injection,
-        #first_pixel_different=roe.empty_traps_at_start,
     )
-    (n_express, n_rows) = express_matrix.shape
-    #when_to_store_traps = roe.when_to_store_traps_from_express_matrix(express_matrix)
-
-
-    print(express_matrix)
-    print(window_row)
+    (n_express, n_rows_to_process) = express_matrix.shape
+    print(express_matrix,express_matrix.shape,image.shape)
+    
+    # Decide in advance which steps need to be evaluated, and which can be skipped
+    phases_with_traps = [i for i, x in enumerate(ccd.fraction_of_traps) if x > 0]
+    n_phases_with_traps = len(phases_with_traps)
+    steps_with_nonzero_dwell_time = [i for i, x in enumerate(roe.dwell_times) if x > 0]
+    n_steps_with_nonzero_dwell_time = len(steps_with_nonzero_dwell_time)
     
     # Set up an array of trap managers able to monitor the occupancy of (all types of) traps
-    max_n_transfers = n_rows * n_steps_with_nonzero_dwell_time
+    max_n_transfers = n_rows_to_process * n_steps_with_nonzero_dwell_time
     trap_managers = concatenate_trap_managers(traps, max_n_transfers, ccd)
     stored_trap_managers = trap_managers
 
@@ -110,7 +103,7 @@ def _clock_charge_in_one_direction(
     n_rows_zero_padding = max(roe.pixels_accessed_during_clocking) - min(roe.pixels_accessed_during_clocking)
     if n_rows_zero_padding > 0:
         image = np.concatenate(
-            (image, np.zeros((n_rows_zero_padding, n_columns), dtype=image.dtype)),
+            (image, np.zeros((n_rows_zero_padding, n_columns_in_image), dtype=image.dtype)),
             axis=0,
         )
 
@@ -129,8 +122,9 @@ def _clock_charge_in_one_direction(
             # Each pixel
             for row_index in range(len(window_row)):
 
+                print(window_row)
+                print('rowindex',express_index,row_index)
                 express_multiplier = express_matrix[express_index, row_index]
-                print('rowindex',express_index,row_index,express_multiplier)
                 if express_multiplier == 0:
                     continue
 
@@ -166,10 +160,10 @@ def _clock_charge_in_one_direction(
                                 # ccd=ccd.extract_phase(phase),
                                 # fractional_width=ccd.phase_fractional_widths[phase],
                             )
-                            n_electrons_trapped_after += trap_manager.n_trapped_electrons_from_watermarks(
+                            n_electrons_trapped += trap_manager.n_trapped_electrons_from_watermarks(
                                 trap_manager.watermarks
                             )
-                            n_electrons_trapped += trap_manager.n_trapped_electrons_from_watermarks(
+                            n_electrons_trapped_after += trap_manager.n_trapped_electrons_from_watermarks(
                                 trap_manager.watermarks
                             )
 
@@ -179,33 +173,33 @@ def _clock_charge_in_one_direction(
                             window_row[row_index] + potential["release_to_which_pixel"]
                         )
                         image[row_write, window_column[column_index]] += (
-                            n_electrons_released_and_captured * express_multiplier
+                            n_electrons_released_and_captured * potential["release_fraction_to_pixel"] * express_multiplier
                         )
-                        print(
-                            "write to",(row_write,column_index),
-                            "step",clocking_step,
-                            "phase",phase,
-                            #"n_ei",n_free_electrons,
-                            "n_tb",n_electrons_trapped_before,
-                            "n_ta",n_electrons_trapped_after,
-                            #"exp",express_multiplier,
-                            "ch in image",(n_electrons_trapped_before - n_electrons_trapped_after),
-                            "E",express_multiplier,
-                            "n_ef",image[row_write, window_column[column_index]],
-                        )
-                        print(np.sum(image)+n_electrons_trapped_after,np.sum(image)-9000,n_electrons_trapped_after)
+                        #print(
+                        #    "write to",(row_write,column_index),
+                        #    "step",clocking_step,
+                        #    "phase",phase,
+                        #    #"n_ei",n_free_electrons,
+                        #    "n_tb",n_electrons_trapped_before,
+                        #    "n_ta",n_electrons_trapped_after,
+                        #    #"exp",express_multiplier,
+                        #    "ch in image",(n_electrons_trapped_before - n_electrons_trapped_after),
+                        #    "E",express_multiplier,
+                        #    "n_ef",image[row_write, window_column[column_index]],
+                        #)
+                        #print(np.sum(image)+n_electrons_trapped_after,np.sum(image)-9000,n_electrons_trapped_after)
 
                 # Save trap occupancy at the end of one express
                 if when_to_store_traps[express_index, row_index]:
                     stored_trap_managers = trap_managers
-                    print("saving at", express_index, row_index)
-
-                print
-                print('Initial n_e in image:',checksum,
-                      'change:',np.sum(image[:, window_column[column_index]])-checksum,
-                      'n_e trapped:',n_electrons_trapped)
-                print
-
+                    #print("saving at", express_index, row_index)
+                #
+                #print
+                #print('Initial n_e in image:',checksum,
+                #      'change:',np.sum(image[:, window_column[column_index]])-checksum,
+                #      'n_e trapped:',n_electrons_trapped)
+                #print
+                #
         # Reset watermarks, effectively setting trap occupancy to zero
         #input("Press Enter to continue...")
         if roe.empty_traps_between_columns:
@@ -241,7 +235,6 @@ def add_cti(
     serial_traps=None,
     serial_offset=0,
     serial_window=None,
-    prefill_traps=True,
 ):
     """
     Add CTI trails to an image by trapping, releasing, and moving electrons 
@@ -254,10 +247,6 @@ def add_cti(
     parallel_express : int
         The factor by which pixel-to-pixel transfers are combined for 
         efficiency for parallel clocking.
-    parallel_charge_injection_mode : bool
-        If True, parallel clocking is performed in charge injection line 
-        mode, where each pixel is clocked and therefore trailed by traps 
-        over the entire CCD (as opposed to its distance from the CCD register).
     parallel_roe : ROE
         The object describing the clocking read-out electronics for parallel 
         clocking.
@@ -272,7 +261,9 @@ def add_cti(
         one or more traps for each type.
     parallel_offset : int
         The supplied image array is a postage stamp offset this number of 
-        pixels from the readout register
+        pixels from the readout register. This increases the number of
+        pixel-to-pixel transfers assumed if readout is normal (and has no
+        effect for other types of clocking).
     parallel_window : range() or list
         For speed, calculate only the effect on this subset of pixels. 
         Note that, because of edge effects, you should start the range several 
@@ -344,7 +335,6 @@ def remove_cti(
     serial_traps=None,
     serial_offset=0,
     serial_window=None,
-    prefill_traps=True,
 ):
     """
     Add CTI trails to an image by trapping, releasing, and moving electrons 
@@ -361,10 +351,6 @@ def remove_cti(
     parallel_express : int
         The factor by which pixel-to-pixel transfers are combined for 
         efficiency for parallel clocking.
-    parallel_charge_injection_mode : bool
-        If True, parallel clocking is performed in charge injection line 
-        mode, where each pixel is clocked and therefore trailed by traps 
-        over the entire CCD (as opposed to its distance from the CCD register).
     parallel_roe : ROE
         The object describing the clocking read-out electronics for parallel 
         clocking.
@@ -377,6 +363,15 @@ def remove_cti(
         different types of traps that will require different watermark 
         levels, pass a 2D list of lists, i.e. a list containing lists of 
         one or more traps for each type.
+    parallel_offset : int
+        The supplied image array is a postage stamp offset this number of 
+        pixels from the readout register. This increases the number of
+        pixel-to-pixel transfers assumed if readout is normal (and has no
+        effect for other types of clocking).
+    parallel_window : range() or list
+        For speed, calculate only the effect on this subset of pixels. 
+        Note that, because of edge effects, you should start the range several 
+        pixels before the actual region of interest.
     serial_* : *
         The same as the parallel_* objects described above but for serial 
         clocking instead.
@@ -407,7 +402,6 @@ def remove_cti(
             serial_traps=serial_traps,
             serial_offset=serial_offset,
             serial_window=serial_window,
-            prefill_traps=prefill_traps,
         )
 
         # Improved estimate of removed CTI

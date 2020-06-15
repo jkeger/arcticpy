@@ -30,6 +30,8 @@ def concatenate_trap_managers(traps, n_pixels, ccd=None):
     """
 
     #if ccd is None: ccd = ac.CCD()
+    if not isinstance(traps[0], list):
+        traps = [ traps ]  # If only a single trap species is supplied, still make sure it is an array
 
     # Set up list of traps in a single phase of the CCD
     trap_managers_one_phase = []

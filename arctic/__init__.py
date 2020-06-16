@@ -18,3 +18,4 @@ from arctic.trap_managers import (
     TrapManagerInstantCapture,
 )
 from arctic import util
+from arctic.util import profile

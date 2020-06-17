@@ -21,12 +21,13 @@ from arctic.roe import (
 )
 from arctic.ccd import CCD, CCDPhase
 from arctic.traps import (
+    Trap,
     TrapLifetimeContinuum,
     TrapLogNormalLifetimeContinuum,
     TrapInstantCapture,
 )
 from arctic.trap_managers import (
-    concatenate_trap_managers,
+    AllTrapManager,
     TrapManager,
     TrapManagerTrackTime,
     TrapManagerInstantCapture,
@@ -95,8 +96,10 @@ def _clock_charge_in_one_direction(
     
     # Set up an array of trap managers able to monitor the occupancy of (all types of) traps
     max_n_transfers = n_rows_to_process * n_steps_with_nonzero_dwell_time
-    trap_managers = concatenate_trap_managers(traps, max_n_transfers, ccd)
-    stored_trap_managers = trap_managers
+    #trap_managers = concatenate_trap_managers(traps, max_n_transfers, ccd)
+    trap_managers = AllTrapManager(traps, max_n_transfers, ccd)
+    #trap_managers.save()
+    #stored_trap_managers = trap_managers
 
     # Temporarily expand image, if charge released from traps ever migrates to 
     # a different charge packet, at any time during the clocking sequence
@@ -115,15 +118,26 @@ def _clock_charge_in_one_direction(
         for express_index in range(n_express):
 
             # Reset trap occupancy levels
-            trap_managers = deepcopy(stored_trap_managers)
+            #trap_managers = deepcopy(stored_trap_managers)
+            trap_managers.restore()
             checksum = np.sum(image[:, window_column[column_index]])
-            print('expressindex',express_index)
+            #print('expressindex',express_index)
 
             # Each pixel
             for row_index in range(len(window_row)):
 
-                print(window_row)
-                print('rowindex',express_index,row_index)
+                #if row_index == 20:
+                #    print("test")
+                #    print('nt',trap_managers.n_electrons_trapped())
+                #    trap_managers.save()
+                #    trap_managers.empty_all_traps()
+                #    print('nt',trap_managers.n_electrons_trapped())
+                #    trap_managers.restore()
+                #    print('nt',trap_managers.n_electrons_trapped())
+                    
+                
+                #print(window_row)
+                #print('rowindex',express_index,row_index)
                 express_multiplier = express_matrix[express_index, row_index]
                 if express_multiplier == 0:
                     continue
@@ -143,6 +157,7 @@ def _clock_charge_in_one_direction(
                             image[row_read, window_column[column_index]]
                             * potential["high"]
                         )
+
 
                         # Allow electrons to be released from and captured by charge traps
                         n_electrons_released_and_captured = 0
@@ -191,7 +206,8 @@ def _clock_charge_in_one_direction(
 
                 # Save trap occupancy at the end of one express
                 if when_to_store_traps[express_index, row_index]:
-                    stored_trap_managers = trap_managers
+                    trap_managers.save()
+                    #stored_trap_managers = trap_managers
                     #print("saving at", express_index, row_index)
                 #
                 #print
@@ -203,13 +219,15 @@ def _clock_charge_in_one_direction(
         # Reset watermarks, effectively setting trap occupancy to zero
         #input("Press Enter to continue...")
         if roe.empty_traps_between_columns:
-            [
-                inner.empty_all_traps()
-                for outer in stored_trap_managers
-                for inner in outer
-            ]
+            trap_managers.empty_all_traps()
+            #[
+            #    inner.empty_all_traps()
+            #    for outer in stored_trap_managers
+            #    for inner in outer
+            #]
         else:
-            stored_trap_managers = deepcopy(trap_managers)
+            trap_managers.save()
+            #stored_trap_managers = deepcopy(trap_managers)
 
     # Recombine the image for multi-phase clocking
     # if n_simple_phases > 1:

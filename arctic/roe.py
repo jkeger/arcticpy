@@ -1,6 +1,4 @@
-""" CTI python
-
-    Jacob Kegerreis (2019) jacob.kegerreis@durham.ac.uk
+""" arCTIc python
 
     Define the properties of readout electronics used to operate a CCD imaging detector.
     

@@ -271,7 +271,7 @@ class TrapManager(object):
         return int(2)
 
     # Returns a (self-contained) function describing the well-filling model in any phase
-    def fractional_of_exposed_traps(self, ccd, phase=0):
+    def n_traps_exposed_from_n_electrons(self, ccd, phase=0):
         return ccd.cloud_fractional_volume_from_n_electrons_in_phase(phase) # this is a function of n_electrons)
 
     def fill_probabilities_from_dwell_time(self, dwell_time):

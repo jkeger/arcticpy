@@ -184,6 +184,7 @@ class AllTrapManager(UserList):
         # self._n_electrons_trapped_previously -= self.n_electrons_trapped_currently
 
 
+
 class TrapManager(object):
     def __init__(self, traps, n_pixels, ccd=None):
         """
@@ -470,6 +471,7 @@ class TrapManager(object):
         ----------
         watermarks : np.ndarray
             The current watermarks. See initial_watermarks_from_n_pixels_and_total_traps().            
+            
         watermarks_copy : np.ndarray
             A copy of the watermarks array that should be edited in the same way 
             as watermarks.
@@ -480,9 +482,8 @@ class TrapManager(object):
             The updated watermarks. See initial_watermarks_from_n_pixels_and_total_traps().    
         watermarks_copy : np.ndarray
             The updated watermarks copy, if it was provided.
-        
         """
-        # Find the first watermark that is not completely filled
+
         # Number of trap species
         num_traps = len(watermarks[0, 1:])
 
@@ -1149,7 +1150,10 @@ class TrapManagerInstantCapture(TrapManager):
         ):
 
             # Create the new watermark at the cloud fractional volume
-            if cloud_fractional_volume > 0:
+            if (
+                cloud_fractional_volume > 0
+                and cloud_fractional_volume not in np.cumsum(self.watermarks[:, 0])
+            ):
 
                 # Update the watermark volumes, duplicated for the initial watermarks
                 self.watermarks = self.update_watermark_volumes_for_cloud_below_highest(
@@ -1183,7 +1187,9 @@ class TrapManagerInstantCapture(TrapManager):
         # self.watermarks[: watermark_index_above_cloud + 1, 1:] = 0
 
         # Collapse any redundant watermarks that are completely full
-        self.watermarks = self.collapse_redundant_watermarks(watermarks=self.watermarks)
+        self.watermarks, watermarks_initial = self.collapse_redundant_watermarks(
+            watermarks=self.watermarks, watermarks_copy=watermarks_initial
+        )
 
         # Final number of electrons in traps
         n_trapped_electrons_final = self.n_trapped_electrons_from_watermarks(

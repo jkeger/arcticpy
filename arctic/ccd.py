@@ -304,28 +304,10 @@ class CCDPhase(object):
         well_range = self.full_well_depth - empty
 
         volume = (util.set_min_max((n_electrons - empty) / well_range, 0, 1)) ** beta
-        
-        #volume = ( n_electrons > 500 ) 
-        
+
+        # volume = ( n_electrons > 500 )
+
         return volume
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 class CCDComplex(CCD):

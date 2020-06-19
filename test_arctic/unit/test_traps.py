@@ -290,7 +290,17 @@ class TestElectronsReleasedAndCapturedInstantCapture:
         assert n_electrons_released == pytest.approx(0)
         assert np.all(trap_manager.watermarks == 0)
         assert trap_manager.watermarks == pytest.approx(
-            np.array([[0., 0.], [0., 0.], [0., 0.], [0., 0.], [0., 0.], [0., 0.], [0., 0.]])
+            np.array(
+                [
+                    [0.0, 0.0],
+                    [0.0, 0.0],
+                    [0.0, 0.0],
+                    [0.0, 0.0],
+                    [0.0, 0.0],
+                    [0.0, 0.0],
+                    [0.0, 0.0],
+                ]
+            )
         )
 
     def test__single_trap_release(self):
@@ -306,7 +316,9 @@ class TestElectronsReleasedAndCapturedInstantCapture:
 
         assert n_electrons_released == pytest.approx(2.5)
         assert trap_manager.watermarks == pytest.approx(
-            np.array([[0.5, 0.4], [0.2, 0.2], [0.1, 0.1], [0, 0], [0, 0], [0, 0], [0, 0]])
+            np.array(
+                [[0.5, 0.4], [0.2, 0.2], [0.1, 0.1], [0, 0], [0, 0], [0, 0], [0, 0]]
+            )
         )
 
     def test__multiple_traps_release(self):
@@ -342,7 +354,7 @@ class TestElectronsReleasedAndCapturedInstantCapture:
                     [0, 0, 0],
                     [0, 0, 0],
                     [0, 0, 0],
-               ]
+                ]
             )
         )
 
@@ -472,7 +484,9 @@ class TestElectronsReleasedAndCapturedInstantCapture:
 
         assert n_electrons_captured == pytest.approx(0.0025)
         assert trap_manager.watermarks == pytest.approx(
-            np.array([[4.9999e-4, 0.50001], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]])
+            np.array(
+                [[4.9999e-4, 0.50001], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0], [0, 0]]
+            )
         )
 
     def test__not_enough__multiple_traps_capture(self):
@@ -1447,7 +1461,6 @@ class TestElectronsReleasedAndCapturedIncludingSlowTraps:
                 ]
             )
         )
-
 
     def test__first_slow_capture(self):
 

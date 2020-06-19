@@ -5,7 +5,6 @@ import arctic as ac
 
 
 class TestGeneral:
-
     def test__add_cti__parallel_only__single_pixel__compare_cplusplus_version(self,):
         image = np.zeros((6, 2))
         image[2, 1] = 1000

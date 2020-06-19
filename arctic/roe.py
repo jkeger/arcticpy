@@ -57,23 +57,22 @@ from copy import deepcopy
 
 
 class ROEAbstract(object):
-    def __init__( 
-            self, 
-            dwell_times,
+    def __init__(
+        self, dwell_times,
     ):
         """
         Bare core methods that are shared by all types of ROE.
         """
         # Parse inputs
         self.dwell_times = dwell_times
-    
+
     @property
     def dwell_times(self):
         """
         A list of the time spent during each step in the clocking sequence
         """
         return self._dwell_times
-        
+
     @dwell_times.setter
     def dwell_times(self, value):
         """
@@ -82,14 +81,14 @@ class ROEAbstract(object):
         if not isinstance(value, list):
             value = [value]
         self._dwell_times = value
-    
+
     @property
     def n_steps(self):
         """
         Number of steps in the clocking sequence
         """
-        return len( self.dwell_times )
-        
+        return len(self.dwell_times)
+
     def _generate_clock_sequence(self):
 
         """
@@ -186,45 +185,53 @@ class ROEAbstract(object):
 
         n_steps = self.n_steps
         n_phases = self.n_phases
-        integration_step = 0 #self.integration_step
-               
+        integration_step = 0  # self.integration_step
+
         clock_sequence = []
         for step in range(n_steps):
             potentials = []
-            
+
             # Loop counter (0,1,2,3,2,1,... instead of 0,1,2,3,4,5,...) that is reelvant during trap pumping
-            step_prime = integration_step + abs( ( ( step + n_phases ) % ( n_phases * 2 ) ) - n_phases ) # 0,1,2,3,2,1
-            
+            step_prime = integration_step + abs(
+                ((step + n_phases) % (n_phases * 2)) - n_phases
+            )  # 0,1,2,3,2,1
+
             # Which phase has its potential held high (able to contain electrons) during this step?
             high_phase = step_prime % n_phases
-            
-            # Will there be a phase (e.g. half-way between one high phase and the next), from which 
+
+            # Will there be a phase (e.g. half-way between one high phase and the next), from which
             # some released electrons travel in one direction, and others in the opposite direction?
-            if ( n_phases % 2 ) == 0:
-                split_release_phase = ( high_phase + n_phases // 2 ) % n_phases
-            else: 
+            if (n_phases % 2) == 0:
+                split_release_phase = (high_phase + n_phases // 2) % n_phases
+            else:
                 split_release_phase = None
-            
+
             for phase in range(n_phases):
-                
+
                 # Where to capture from?
-                capture_from_which_pixel = np.array( [ ( step_prime - phase + ( ( n_phases -1 ) // 2 ) ) // n_phases ] )
-                
+                capture_from_which_pixel = np.array(
+                    [(step_prime - phase + ((n_phases - 1) // 2)) // n_phases]
+                )
+
                 # How many pixels to split the release between?
-                n_phases_for_release = 1 + ( phase == split_release_phase )
-                
+                n_phases_for_release = 1 + (phase == split_release_phase)
+
                 # How much to release into each pixel?
-                release_fraction_to_pixel = np.ones( n_phases_for_release, dtype=float ) / n_phases_for_release
-                
+                release_fraction_to_pixel = (
+                    np.ones(n_phases_for_release, dtype=float) / n_phases_for_release
+                )
+
                 # Where to release to?
-                release_to_which_pixel = capture_from_which_pixel + np.arange( n_phases_for_release, dtype=int )
-                
+                release_to_which_pixel = capture_from_which_pixel + np.arange(
+                    n_phases_for_release, dtype=int
+                )
+
                 # Replace capture/release operations that include an upstream pixel, to instead act on the
                 # downstream pixel (i.e. the same operation but on the next pixel in the loop)
-                if self.force_downstream_release and ( phase > high_phase ):
+                if self.force_downstream_release and (phase > high_phase):
                     capture_from_which_pixel += 1
                     release_to_which_pixel += 1
-                
+
                 # Compile dictionary of results
                 potential = {
                     "high": phase == high_phase,
@@ -251,18 +258,16 @@ class ROEAbstract(object):
                     referred_to_pixels.append(x)
                 for x in self.clock_sequence[step][phase]["release_to_which_pixel"]:
                     referred_to_pixels.append(x)
-        return sorted( set( referred_to_pixels ) )
-   
-    
-    
+        return sorted(set(referred_to_pixels))
+
 
 class ROE(ROEAbstract):
-    def __init__( 
+    def __init__(
         self,
-        dwell_times=[1], 
+        dwell_times=[1],
         empty_traps_at_start=True,
         empty_traps_between_columns=True,
-        force_downstream_release=True
+        force_downstream_release=True,
     ):
         """
         Inputs:
@@ -337,33 +342,33 @@ class ROE(ROEAbstract):
             electrons are captured or to which electrons are released, at any point 
             during the clock sequence.
         """
-        
+
         super().__init__(dwell_times)
-        
+
         # Parse inputs
         self.empty_traps_at_start = empty_traps_at_start
         self.empty_traps_between_columns = empty_traps_between_columns
         self.force_downstream_release = force_downstream_release
-                
+
         # Link to generic methods
         self.clock_sequence = self._generate_clock_sequence()
-        self.pixels_accessed_during_clocking = self._generate_pixels_accessed_during_clocking()
-        
-        # Define other variables that are used elsewhere but for which there is no choice with this class 
+        self.pixels_accessed_during_clocking = (
+            self._generate_pixels_accessed_during_clocking()
+        )
+
+        # Define other variables that are used elsewhere but for which there is no choice with this class
+
     @property
     def n_phases(self):
-        # Assumed number of CCD phases per pixel, implied by the number of steps in 
-        #the supplied clocking sequence. For normal readout, the number of clocking 
-        #steps should be the same as the number of CCD phases. This need not true
-        #in general, so it is defined in a function rather than in __init__.
+        # Assumed number of CCD phases per pixel, implied by the number of steps in
+        # the supplied clocking sequence. For normal readout, the number of clocking
+        # steps should be the same as the number of CCD phases. This need not true
+        # in general, so it is defined in a function rather than in __init__.
         return self.n_steps
 
-    def express_matrix_from_pixels_and_express(self,
-            rows,
-            express=0,
-            offset=0,
-            dtype=float,
-        ):
+    def express_matrix_from_pixels_and_express(
+        self, rows, express=0, offset=0, dtype=float,
+    ):
         """ 
         To reduce runtime, instead of calculating the effects of every 
         pixel-to-pixel transfer, it is possible to approximate readout by 
@@ -409,7 +414,6 @@ class ROE(ROEAbstract):
             The express multiplier values for each pixel-to-pixel transfer.
         """
 
-
         # Parse inputs
         # Assumed number of rows in the (entire) image (even if given a postage stamp).
         #  with enough rows to contain the supposed image, including offset
@@ -439,7 +443,8 @@ class ROE(ROEAbstract):
         express_matrix[express_matrix < 0] = 0
         express_matrix[express_matrix > max_multiplier] = max_multiplier
 
-        # Separate out the first transfer of every pixel, so that it can be different from subsequent transfers (it sees only empty traps)
+        # Separate out the first transfer of every pixel, so that it can be different from subsequent 
+        # transfers (it sees only empty traps)
         if self.empty_traps_at_start:
             # What we calculated before contained (intentionally) one transfer too few. Store it...
             express_matrix_small = express_matrix
@@ -459,23 +464,30 @@ class ROE(ROEAbstract):
             np.sum(express_matrix, axis=1) > 0, :
         ]
 
-        # Adjust so that each computed transfer has equal effect (most useful if offset != 0). Could have got here directly.
+        # The effect of a given pixel-to-pixel transfer may be calculated several times. The first
+        # time it is calculated, it may be used to represent a single transfer (because the first
+        # transfer is physically different from the rest). After that, each calculation may count
+        # For different numbers of transfers; it should converge better if each coomputation counts
+        # for the same number. This is not essential and currently slow. Maybe could have computed
+        # the express matrix in a different way that achieved this end directly.
         if dtype is not int:
             for i in range((express_matrix.shape)[1]):
-                first_one = (np.where(express_matrix[:, i] == 1))[0]
-                express_matrix[first_one, i] = 0
-                nonzero = express_matrix[:, i] > 0
-                if sum(nonzero) > 0:
-                    express_matrix[nonzero, i] = sum(express_matrix[nonzero, i]) / sum(
-                        nonzero
-                    )
-                express_matrix[first_one, i] = 1
+                first_one = (np.where(express_matrix[:, i] == 1))[0] # First time this transfer is calculated
+                express_matrix[first_one, i] = 0 # Temporarily discount this evaluation
+                #nonzero = np.where(express_matrix[:, i] > 0)
+                #n_nonzero = len( nonzero )
+                #nonzero = express_matrix[:, i] > 0
+                #sum_of_nonzero = sum(nonzero)
+                nonzero = express_matrix[:, i].nonzero()[0]
+                n_nonzero = nonzero.size
+                if n_nonzero > 0:
+                    express_matrix[nonzero, i] = sum(express_matrix[nonzero, i]) / n_nonzero
+                express_matrix[first_one, i] = 1 # Restore the first evaluation, so it stays as counting once
 
-        # Can't yet compute the when_to_store matrix, in case we are dealing with multi-phase readout
-        #when_to_store_traps = 
-        
-        return express_matrix, self.when_to_store_traps_from_express_matrix(express_matrix)
-
+        return (
+            express_matrix,
+            self.when_to_store_traps_from_express_matrix(express_matrix),
+        )
 
     def when_to_store_traps_from_express_matrix(self, express_matrix):
         """
@@ -500,14 +512,13 @@ class ROE(ROEAbstract):
         return when_to_store_traps
 
 
-
 class ROEChargeInjection(ROE):
-    def __init__( 
+    def __init__(
         self,
-        dwell_times=[1], 
+        dwell_times=[1],
         n_active_pixels=None,
         empty_traps_between_columns=True,
-        force_downstream_release=True
+        force_downstream_release=True,
     ):
         """  
         n_active_pixels : int
@@ -518,25 +529,27 @@ class ROEChargeInjection(ROE):
             or charege injection and readout continued for more than the number
             of pixels in the detector.
         """
-        
+
         super().__init__(dwell_times=dwell_times)
-        
+
         # Parse inputs
         self.n_active_pixels = n_active_pixels
         self.empty_traps_between_columns = empty_traps_between_columns
         self.force_downstream_release = force_downstream_release
-    
+
         # Link to generic methods
         self.clock_sequence = self._generate_clock_sequence()
-        self.pixels_accessed_during_clocking = self._generate_pixels_accessed_during_clocking()
+        self.pixels_accessed_during_clocking = (
+            self._generate_pixels_accessed_during_clocking()
+        )
 
-
-    def express_matrix_from_pixels_and_express(self,
-            pixels,
-            express=0,
-            dtype=float,
-            **kwargs # No other arguments are used, but may be passed by functions that call this for multiple types of ROE
-        ):
+    def express_matrix_from_pixels_and_express(
+        self,
+        pixels,
+        express=0,
+        dtype=float,
+        **kwargs  # No other arguments are used, but may be passed by functions that call this for multiple types of ROE
+    ):
         """ 
         Returns
         -------
@@ -547,28 +560,32 @@ class ROEChargeInjection(ROE):
         # Parse inputs
         window = range(pixels) if isinstance(pixels, int) else pixels
         n_pixels = max(window) + 1
-        n_active_pixels = n_pixels if self.n_active_pixels is None else self.n_active_pixels
-        
+        n_active_pixels = (
+            n_pixels if self.n_active_pixels is None else self.n_active_pixels
+        )
+
         # Default to very slow but accurate behaviour
-        #if express == 0:
+        # if express == 0:
         #    express = n_active_pixels
-        #express = min( express, n_active_pixels )
-        express = n_active_pixels if express == 0 else min( express, n_active_pixels )
+        # express = min( express, n_active_pixels )
+        express = n_active_pixels if express == 0 else min(express, n_active_pixels)
 
         # Compute the multiplier factors
-        express_matrix = np.zeros( ( express, n_pixels ), dtype=dtype)
+        express_matrix = np.zeros((express, n_pixels), dtype=dtype)
         max_multiplier = n_active_pixels / express
         if dtype == int:
-            max_multiplier = math.ceil( max_multiplier )
+            max_multiplier = math.ceil(max_multiplier)
             for i in reversed(range(express)):
                 express_matrix[i, :] = util.set_min_max(
-                    max_multiplier, 0, n_active_pixels - sum( express_matrix[:, 0] )
+                    max_multiplier, 0, n_active_pixels - sum(express_matrix[:, 0])
                 )
         else:
             express_matrix[:] = max_multiplier
-        
-        return express_matrix, self.when_to_store_traps_from_express_matrix(express_matrix)
 
+        return (
+            express_matrix,
+            self.when_to_store_traps_from_express_matrix(express_matrix),
+        )
 
     def when_to_store_traps_from_express_matrix(self, express_matrix):
         """
@@ -578,30 +595,28 @@ class ROEChargeInjection(ROE):
         return np.zeros(express_matrix.shape, dtype=bool)
 
 
-
 class ROETrapPumping(ROEAbstract):
     def __init__(
-        self,
-        dwell_times=[0.5,0.5], 
-        n_pumps=1,
-        empty_traps_at_start=True,
+        self, dwell_times=[0.5, 0.5], n_pumps=1, empty_traps_at_start=True,
     ):
         """  
         """
-        
+
         super().__init__(dwell_times=dwell_times)
-        
+
         # Parse inputs
         self.n_pumps = n_pumps
         self.empty_traps_at_start = empty_traps_at_start
-        
-        # Define other variables that are used elsewhere but for which there is no choice with this class 
+
+        # Define other variables that are used elsewhere but for which there is no choice with this class
         self.force_downstream_release = False
         self.empty_traps_between_columns = True
-        
+
         # Link to generic methods
         self.clock_sequence = self._generate_clock_sequence()
-        self.pixels_accessed_during_clocking = self._generate_pixels_accessed_during_clocking()
+        self.pixels_accessed_during_clocking = (
+            self._generate_pixels_accessed_during_clocking()
+        )
 
     @property
     def dwell_times(self):
@@ -609,7 +624,7 @@ class ROETrapPumping(ROEAbstract):
         A list of the time spent during each step in the clocking sequence
         """
         return self._dwell_times
-        
+
     @dwell_times.setter
     def dwell_times(self, value):
         """
@@ -619,20 +634,22 @@ class ROETrapPumping(ROEAbstract):
             value = [value]
         self._dwell_times = value
         # Assume that there are twice as many steps in the Trap Pumping readout sequence as there are phases in the CCD.
-        if ( self.n_steps % 2 ) == 1: raise Exception("n_steps must be even for a complete trap pumping sequence")
-  
+        if (self.n_steps % 2) == 1:
+            raise Exception("n_steps must be even for a complete trap pumping sequence")
+
     @property
     def n_phases(self):
         # Assume that there are twice as many steps in the Trap Pumping readout sequence as there are phases in the CCD.
-        #if ( self.n_steps % 2 ) == 1: raise Exception("n_steps must be even for a complete trap pumping sequence")
-        return self.n_steps // 2  
- 
-    def express_matrix_from_pixels_and_express(self,
-            pixels_with_traps,
-            express=0,
-            dtype=float,
-            **kwargs # No other arguments are used, but may be passed by functions that call this for multiple types of ROE
-        ):
+        # if ( self.n_steps % 2 ) == 1: raise Exception("n_steps must be even for a complete trap pumping sequence")
+        return self.n_steps // 2
+
+    def express_matrix_from_pixels_and_express(
+        self,
+        pixels_with_traps,
+        express=0,
+        dtype=float,
+        **kwargs  # No other arguments are used, but may be passed by functions that call this for multiple types of ROE
+    ):
         """ 
         To reduce runtime, instead of calculating the effects of every 
         pixel-to-pixel transfer, it is possible to approximate readout by 
@@ -672,43 +689,46 @@ class ROETrapPumping(ROEAbstract):
             The express multiplier values for each pixel-to-pixel transfer.
         """
 
-
         # Parse inputs
-        if isinstance(pixels_with_traps, int): pixels_with_traps = [ pixels_with_traps ]
-        n_pixels_with_traps = len( pixels_with_traps )
-        
+        if isinstance(pixels_with_traps, int):
+            pixels_with_traps = [pixels_with_traps]
+        n_pixels_with_traps = len(pixels_with_traps)
+
         # Default to very slow but accurate behaviour
         if express == 0:
             express = self.n_pumps
-        express = min( express, self.n_pumps ) 
+        express = min(express, self.n_pumps)
 
         # Decide for how many effective pumps each implementation of a single pump will count
         # Treat first pump differently
-        if self.empty_traps_at_start and self.n_pumps > 1 and express < self.n_pumps :
-            express_multipliers = [1.]
-            express_multipliers.extend( [ ( self.n_pumps - 1 ) / express ] * express )
+        if self.empty_traps_at_start and self.n_pumps > 1 and express < self.n_pumps:
+            express_multipliers = [1.0]
+            express_multipliers.extend([(self.n_pumps - 1) / express] * express)
         else:
-            express_multipliers = [ self.n_pumps / express ] * express
+            express_multipliers = [self.n_pumps / express] * express
         n_express = len(express_multipliers)
-        
+
         # Make sure all values are integers, but still add up to the desired number of pumps
         if dtype == int:
-            express_multipliers = list( map( int, np.round( express_multipliers ) ) )
-            express_multipliers[-1] += self.n_pumps - sum( express_multipliers )
-        
+            express_multipliers = list(map(int, np.round(express_multipliers)))
+            express_multipliers[-1] += self.n_pumps - sum(express_multipliers)
+
         # Initialise an array
-        express_matrix = np.zeros(( n_express * n_pixels_with_traps, n_pixels_with_traps), dtype=dtype)
-        when_to_store_traps = np.zeros(( n_express * n_pixels_with_traps, n_pixels_with_traps), dtype=bool)
-        
+        express_matrix = np.zeros(
+            (n_express * n_pixels_with_traps, n_pixels_with_traps), dtype=dtype
+        )
+        when_to_store_traps = np.zeros(
+            (n_express * n_pixels_with_traps, n_pixels_with_traps), dtype=bool
+        )
+
         # Insert multipliers into final array
         for j in range(n_pixels_with_traps):
             for i in range(n_express):
-                express_matrix[ j * n_express + i, j ] = express_multipliers[ i ]
+                express_matrix[j * n_express + i, j] = express_multipliers[i]
                 # Save trap occupancy between pumps of same trap
-                when_to_store_traps[ j * n_express + i, j ] = True
-            # Actually, don't save trap occupancy after the final pump of a particular trap, 
+                when_to_store_traps[j * n_express + i, j] = True
+            # Actually, don't save trap occupancy after the final pump of a particular trap,
             # because we will be about to move on to the next trap (or have reached the end).
-            when_to_store_traps[ ( j + 1 ) * n_express - 1, j ] = False
+            when_to_store_traps[(j + 1) * n_express - 1, j] = False
 
         return express_matrix, when_to_store_traps
-

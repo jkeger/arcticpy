@@ -13,6 +13,7 @@ class Trap(object):
         capture_timescale=0,
         ccd=None,
         surface=False,
+        discrete=False,
     ):
         """The parameters for a single trap species.
 
@@ -35,83 +36,19 @@ class Trap(object):
         if ccd is None:
             ccd = CCD()
 
-        self.density = density
+        self.density = float(density)
         self.release_timescale = release_timescale
         self.capture_timescale = capture_timescale
         self.ccd = ccd
         self.surface = surface
+        self.discrete = discrete
 
         # Rates
+        self.emission_rate = 1 / self.release_timescale
         if self.capture_timescale == 0:
             self.capture_rate = np.inf
         else:
             self.capture_rate = 1 / self.capture_timescale
-        self.emission_rate = 1 / self.release_timescale
-
-    def cumulative_n_traps_from_n_electrons(self, n_electrons):
-        """ Calculate the total number of charge traps exposed to a charge cloud
-            containing n_electrons. This assumes that charge traps are uniformly
-            distributed through the volume, but that assumption can be relaxed
-            by adjusting this function to reflect the net number of traps seen
-            as a function of charge cloud size. An example of that is provided,
-            for surface traps that are responsible for blooming (which is
-            asymmetric and happens during readout, unlike bleeding). 
-            
-            This function embodies the core assumption of a volume-driven CTI
-            model like arCTIc: that traps are either exposed (and have a
-            constant capture timescale, which may be zero for instant capture),
-            or unexposed and therefore unavailable. This behaviour differs from
-            a density-driven CTI model, in which traps may capture an electron
-            anywhere in a pixel, but at varying capture probability. There is 
-            considerable evidence that CCDs in the Hubble Space Telescope are 
-            primarily density-driven; a software algorithm to mimic such 
-            behaviour also runs much faster.
-
-        Parameters
-        ----------
-        n_electrons : float
-            The size of a charge cloud in a pixel, in units of the number of 
-            electrons.
-
-        Returns
-        -------
-        n_traps : float
-            The number of traps of this species available.
-        """
-
-        #
-        # RJM: this is not currently used. But it could be....
-        #
-
-        well_depth = self.ccd.full_well_depth
-        if self.surface:
-            alpha = self.ccd.blooming_level
-            beta = 1
-            # Let surface traps soak up everything they can, as a cheap way of
-            # ensuring that (at least with instantaneous trapping), no pixel in
-            # an output image will ever contain more electrons than the full
-            # well depth.
-            extra_traps = min(n_electrons - well_depth, 0)
-        else:
-            alpha = self.ccd.well_notch_depth
-            beta = self.ccd.well_fill_power
-            extra_traps = 0
-
-        n_electrons_available = n_electrons - alpha
-        n_traps = (
-            self.density
-            * util.set_min_max((n_electrons_available) / (well_depth - alpha), 0, 1)
-            ** beta
-        )
-        n_traps += extra_traps
-
-        # Make sure that the effective number of traps available cannot exceed
-        # the number of electrons. Adjusting this here is algorithmically much
-        # easier than catching lots of excpetions when there are insufficient
-        # electrons to fill traps during the capture process.
-        n_traps = min(n_traps, n_electrons_available)
-
-        return n_traps
 
     def fill_fraction_from_time_elapsed(self, time_elapsed):
         """ Calculate the fraction of filled traps after a certain time_elapsed.

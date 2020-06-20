@@ -407,21 +407,21 @@ class ROE(ROEAbstract):
         window = range(pixels) if isinstance(pixels, int) else pixels
         n_pixels = max(window) + 1
         express = n_pixels if express == 0 else min((express, n_pixels + offset))
-        #if isinstance(pixels, int):
+        # if isinstance(pixels, int):
         #    n_pixels = pixels
         #    window = range(n_pixels)
-        #else:
+        # else:
         #    window = pixels
         #    n_pixels = max(window) + 1
-        #if express == 0:
+        # if express == 0:
         #    express = n_pixels # Can allow express > n_pixels
-        
+
         # Temporarily ignore the first pixel-to-pixel transfer, if it is to be handled differently than the rest
         if self.empty_traps_at_start and express < n_pixels:
             n_pixels -= 1
 
         # Compute the multiplier factors
-        max_multiplier = ( n_pixels + offset ) / express
+        max_multiplier = (n_pixels + offset) / express
         # if it's going to be an integer, ceil() rather than int() is required in case the number of pixels is not an integer multiple of express
         if dtype == int:
             max_multiplier = int(np.ceil(max_multiplier))
@@ -443,7 +443,7 @@ class ROE(ROEAbstract):
             express_matrix_small = express_matrix
             # Create a new matrix for the full number of transfers
             n_pixels += 1
-            express_matrix = np.flipud(np.identity(n_pixels + offset , dtype=dtype))
+            express_matrix = np.flipud(np.identity(n_pixels + offset, dtype=dtype))
             # Insert the original transfers into the new matrix at appropriate places
             n_nonzero = np.sum(express_matrix_small > 0, axis=1)
             express_matrix[n_nonzero, 1:] += express_matrix_small
@@ -646,7 +646,9 @@ class ROETrapPumping(ROEAbstract):
         """
         if not isinstance(value, list):
             value = [value]
-        self._dwell_times = value # This must go before the even check, because n_steps uses it.
+        self._dwell_times = (
+            value  # This must go before the even check, because n_steps uses it.
+        )
         if (self.n_steps % 2) == 1:
             raise Exception("n_steps must be even for a complete trap pumping sequence")
 

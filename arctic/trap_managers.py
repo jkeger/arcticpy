@@ -94,7 +94,7 @@ class AllTrapManager(UserList):
             self.data.append(trap_managers_this_phase)
 
         # Store empty trap state, for future reference
-        self.save()
+        self._saved_data = None
         self._n_electrons_trapped_in_save = 0.0
         self._n_electrons_trapped_previously = 0.0
 
@@ -179,7 +179,10 @@ class AllTrapManager(UserList):
             self.n_electrons_trapped_currently - self._n_electrons_trapped_in_save
         )
         # Overwrite the current trap state
-        self.data = deepcopy(self._saved_data)
+        if self._saved_data is None:
+            self.empty_all_traps()
+        else:
+            self.data = deepcopy(self._saved_data)
         # Could also have done this instead of remembering how many are in save, but it makes restoring a bit slower (and restoring is done more frequently than saving)
         # self._n_electrons_trapped_previously -= self.n_electrons_trapped_currently
 
@@ -445,12 +448,12 @@ class TrapManager(object):
         """
         # Matching watermark fractional volumes
         np.set_printoptions(suppress=True, linewidth=0)
-        print("wi", watermarks_initial[0:10, 0])
-        print("w ", watermarks[0:10, 0])
-        if not (watermarks_initial[:, 0] == watermarks[:, 0]).all():
-            print("wi", watermarks_initial[:, 0])
-            print("w ", watermarks[:, 0])
-        assert (watermarks_initial[:, 0] == watermarks[:, 0]).all()
+        # print("wi", watermarks_initial[0:10, 0])
+        # print("w ", watermarks[0:10, 0])
+        # if not (watermarks_initial[:, 0] == watermarks[:, 0]).all():
+        #   print("wi", watermarks_initial[:, 0])
+        #   print("w ", watermarks[:, 0])
+        # assert (watermarks_initial[:, 0] == watermarks[:, 0]).all()
 
         # Select watermark fill fractions that increased
         where_increased = np.where(watermarks_initial[:, 1:] < watermarks[:, 1:])
@@ -614,7 +617,8 @@ class TrapManager(object):
             # Not enough available electrons to capture
             if n_trapped_electrons_final == 0:
                 return 0
-            enough = n_free_electrons / n_trapped_electrons_final
+
+            enough = n_free_electrons / (express_multiplier * n_trapped_electrons_final)
             if enough < 1:
                 # For watermark fill fractions that increased, tweak them such that
                 #   the resulting increase instead matches the available electrons
@@ -732,7 +736,8 @@ class TrapManager(object):
 
         # Not enough available electrons to capture
         enough = n_free_electrons / (
-            n_trapped_electrons_final - n_trapped_electrons_initial
+            express_multiplier
+            * (n_trapped_electrons_final - n_trapped_electrons_initial)
         )
         if 0 < enough < 1:
             # For watermark fill fractions that increased, tweak them such that
@@ -862,7 +867,6 @@ class TrapManagerInstantCapture(TrapManager):
         ] = self.update_watermark_values_for_release(
             self.watermarks[: max_watermark_index + 1, 1:], dwell_time,
         )
-        # print(max_watermark_index,self.watermarks[: max_watermark_index + 1, 1:])
 
         # Resulting numbers of electrons in traps
         n_trapped_electrons_final = self.n_trapped_electrons_from_watermarks(
@@ -871,8 +875,6 @@ class TrapManagerInstantCapture(TrapManager):
 
         # Total number of released electrons and updated free electrons
         n_electrons_released = n_trapped_electrons_initial - n_trapped_electrons_final
-
-        # print('b:',n_trapped_electrons_initial,'a:',n_trapped_electrons_final,dwell_time)
 
         return n_trapped_electrons_initial - n_trapped_electrons_final
 
@@ -929,13 +931,11 @@ class TrapManagerInstantCapture(TrapManager):
         if max_watermark_index == -1 and n_free_electrons > 0:
 
             # Update the watermark volume, duplicated for the initial watermarks
-            # print('xxx',np.argmax(self.watermarks[:, 0] == 0) - 1,self.watermarks)
             self.watermarks[0, 0] = cloud_fractional_volume
             watermarks_initial[0, 0] = self.watermarks[0, 0]
 
             # Update the fill fractions
             self.watermarks[0, 1:] = self.filled_watermark_value
-            # print('xxx',np.argmax(self.watermarks[:, 0] == 0) - 1,self.watermarks)
 
             # Final number of electrons in traps
             n_trapped_electrons_final = self.n_trapped_electrons_from_watermarks(
@@ -945,8 +945,7 @@ class TrapManagerInstantCapture(TrapManager):
             # Not enough available electrons to capture
             if n_trapped_electrons_final == 0:
                 return 0.0
-            enough = n_free_electrons / n_trapped_electrons_final
-            # print('here',cloud_fractional_volume,n_trapped_electrons_final,enough,np.argmax(self.watermarks[:, 0] == 0) - 1)
+            enough = n_free_electrons / (express_multiplier * n_trapped_electrons_final)
             if enough < 1:
                 # For watermark fill fractions that increased, tweak them such that
                 #   the resulting increase instead matches the available electrons
@@ -1021,7 +1020,8 @@ class TrapManagerInstantCapture(TrapManager):
 
         # Not enough available electrons to capture
         enough = n_free_electrons / (
-            n_trapped_electrons_final - n_trapped_electrons_initial
+            express_multiplier
+            * (n_trapped_electrons_final - n_trapped_electrons_initial)
         )
         if 0 < enough < 1:
             # For watermark fill fractions that increased, tweak them such that
@@ -1119,14 +1119,8 @@ class TrapManagerInstantCapture(TrapManager):
             # Not enough available electrons to capture
             if n_trapped_electrons_final == 0:
                 return n_electrons_released
-            enough = n_free_electrons / n_trapped_electrons_final
-            #
-            #
-            #
-            #  RJM: NEED TO ADD EXPRESS MULTIPLIER TO ALL enoughS!!!!
-            #
-            #
-            #
+            enough = n_free_electrons / (express_multiplier * n_trapped_electrons_final)
+
             if enough < 1:
                 # For watermark fill fractions that increased, tweak them such that
                 #   the resulting increase instead matches the available electrons
@@ -1196,7 +1190,8 @@ class TrapManagerInstantCapture(TrapManager):
 
         # Not enough available electrons to capture
         enough = n_free_electrons / (
-            n_trapped_electrons_final - n_trapped_electrons_initial
+            express_multiplier
+            * (n_trapped_electrons_final - n_trapped_electrons_initial)
         )
         if 0 < enough < 1:
             # For watermark fill fractions that increased, tweak them such that

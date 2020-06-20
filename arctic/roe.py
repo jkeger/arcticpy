@@ -23,43 +23,40 @@
     sequence. The number of phases should match that in the instance of a CCD class, and
     the units of dwell_times should match those in the instance of a Traps class.
 
-    Unlike CCD pixels, where row 1 is 
-            closer to the readout register than row 2, phase 2 is closer than phase 1.
+    Unlike CCD pixels, where row 1 is closer to the readout register than row 2, 
+    phase 2 is closer than phase 1.
 
-            |           
-            +-----------
-            | Pixel n:  
-            |   Phase 0 
-            |   Phase 1 
-            |   Phase 2 
-            +-----------
-            |    .       
-                 .
-            |    .       
-            +-----------
-            | Pixel 1:  
-            |   Phase 0 
-            |   Phase 1 
-            |   Phase 2 
-            +-----------
-            | Pixel 0:  
-            |   Phase 0 
-            |   Phase 1 
-            |   Phase 2 
-            +-----------
-            | Readout   
-            +-----------
+    |           
+    +-----------
+    | Pixel n:  
+    |   Phase 0 
+    |   Phase 1 
+    |   Phase 2 
+    +-----------
+    |    .       
+         .
+    |    .       
+    +-----------
+    | Pixel 1:  
+    |   Phase 0 
+    |   Phase 1 
+    |   Phase 2 
+    +-----------
+    | Pixel 0:  
+    |   Phase 0 
+    |   Phase 1 
+    |   Phase 2 
+    +-----------
+    | Readout   
+    +-----------
  
 """
 import numpy as np
-import math
 from copy import deepcopy
 
 
 class ROEAbstract(object):
-    def __init__(
-        self, dwell_times,
-    ):
+    def __init__(self, dwell_times):
         """
         Bare core methods that are shared by all types of ROE.
         """
@@ -279,14 +276,6 @@ class ROE(ROEAbstract):
             number of steps in the clocking sequence is inferred from the length 
             of this list. The default value, [1], produces instantaneous transfer 
             between adjacent pixels, with no intermediate phases.
-        charge_injection : bool
-            False: usual imaging operation of CCD, where (photo)electrons are 
-                   created in pixels then clocked through however many pixels lie 
-                   between it and the readout register.
-            True:  electrons are electronically created by a charge injection 
-                   structure at the end of a CCD, then clocked through ALL of the 
-                   pixels to the readout register. By default, it is assumed that 
-                   this number is the number of rows in the image (but see n_rows).
         empty_traps_at_start : bool   (aka first_pixel_different)
             Only used outside charge injection mode. Allows for the first
             pixel-to-pixel transfer differently to the rest. Physically, this may be
@@ -367,7 +356,7 @@ class ROE(ROEAbstract):
         return self.n_steps
 
     def express_matrix_from_pixels_and_express(
-        self, rows, express=0, offset=0, dtype=float,
+        self, pixels, express=0, offset=0, dtype=float,
     ):
         """ 
         To reduce runtime, instead of calculating the effects of every 
@@ -381,8 +370,8 @@ class ROE(ROEAbstract):
         Parameters
         ----------
         pixels : int or list or range
-            int:         The number of rows in an image (should be called n_pixels).
-            list/range:  Rows in the image to be processed (can be a subset of the 
+            int:         The number of pixels in an image (should be called n_pixels).
+            list/range:  Pixels in the image to be processed (can be a subset of the 
                          entire image).
         express : int
             Parameter determining balance between accuracy (high values or zero)  
@@ -415,74 +404,84 @@ class ROE(ROEAbstract):
         """
 
         # Parse inputs
-        # Assumed number of rows in the (entire) image (even if given a postage stamp).
-        #  with enough rows to contain the supposed image, including offset
-        window = range(rows) if isinstance(rows, int) else rows
-        n_rows = max(window) + 1 + offset
-        # Default to very slow but accurate behaviour
-        if express == 0:
-            express = n_rows - offset
-        if self.empty_traps_at_start:
-            n_rows += 1
-
-        # Initialise an array
-        express_matrix = np.zeros((express, n_rows), dtype=dtype)
+        window = range(pixels) if isinstance(pixels, int) else pixels
+        n_pixels = max(window) + 1
+        express = n_pixels if express == 0 else min((express, n_pixels + offset))
+        #if isinstance(pixels, int):
+        #    n_pixels = pixels
+        #    window = range(n_pixels)
+        #else:
+        #    window = pixels
+        #    n_pixels = max(window) + 1
+        #if express == 0:
+        #    express = n_pixels # Can allow express > n_pixels
+        
+        # Temporarily ignore the first pixel-to-pixel transfer, if it is to be handled differently than the rest
+        if self.empty_traps_at_start and express < n_pixels:
+            n_pixels -= 1
 
         # Compute the multiplier factors
-        max_multiplier = n_rows / express
-        # if it's going to be an integer, ceil() rather than int() is required in case the number of rows is not an integer multiple of express
+        max_multiplier = ( n_pixels + offset ) / express
+        # if it's going to be an integer, ceil() rather than int() is required in case the number of pixels is not an integer multiple of express
         if dtype == int:
-            max_multiplier = math.ceil(max_multiplier)
+            max_multiplier = int(np.ceil(max_multiplier))
 
-        # This populates every row in the matrix with a range from 1 to n_rows
-        express_matrix[:] = np.arange(1, n_rows + 1)
+        # Initialise an array with enough pixels to contain the supposed image, including offset
+        express_matrix = np.ndarray((express, n_pixels + offset), dtype=dtype)
+        # Populate every row in the matrix with a range from 1 to n_pixels + offset (plus 1 because it starts at 1 not 0)
+        express_matrix[:] = np.arange(1, n_pixels + offset + 1)
         # Offset each row to account for the pixels that have already been read out
         for express_index in range(express):
             express_matrix[express_index] -= express_index * max_multiplier
-        # Set all values to between 0 and max_multiplier
+        # Truncate all values to between 0 and max_multiplier
         express_matrix[express_matrix < 0] = 0
         express_matrix[express_matrix > max_multiplier] = max_multiplier
 
-        # Separate out the first transfer of every pixel, so that it can be different from subsequent 
-        # transfers (it sees only empty traps)
-        if self.empty_traps_at_start:
-            # What we calculated before contained (intentionally) one transfer too few. Store it...
+        # Add an extra (first) transfer for every pixel, the effect of which will only ever be counted once, because it is physically different from the other transfers (it sees only empty traps)
+        if self.empty_traps_at_start and express < n_pixels:
+            # Store current matrix, which is correct for one-too-few pixel-to-pixel transfers
             express_matrix_small = express_matrix
-            # ..then create a new matrix with one extra transfer for each pixel
-            n_rows += 1
-            express_matrix = np.flipud(np.identity(n_rows))
-            # Combine the two sets of transfers appropriately
-            for i in range(express):
-                n_nonzero = sum(express_matrix_small[i, :] > 0)
-                express_matrix[n_nonzero, 1:] += express_matrix_small[i, :]
+            # Create a new matrix for the full number of transfers
+            n_pixels += 1
+            express_matrix = np.flipud(np.identity(n_pixels + offset , dtype=dtype))
+            # Insert the original transfers into the new matrix at appropriate places
+            n_nonzero = np.sum(express_matrix_small > 0, axis=1)
+            express_matrix[n_nonzero, 1:] += express_matrix_small
 
         # Extract the section of the array corresponding to the image (without the offset)
-        n_rows -= offset
         express_matrix = express_matrix[:, offset:]  # remove the offset
         express_matrix = express_matrix[:, window]  # keep only the region of interest
-        express_matrix = express_matrix[  # remove all rows containing only zeros, for speed later
+        express_matrix = express_matrix[  # remove all pixels containing only zeros, for speed later
             np.sum(express_matrix, axis=1) > 0, :
         ]
 
-        # The effect of a given pixel-to-pixel transfer may be calculated several times. The first
-        # time it is calculated, it may be used to represent a single transfer (because the first
-        # transfer is physically different from the rest). After that, each calculation may count
-        # For different numbers of transfers; it should converge better if each coomputation counts
-        # for the same number. This is not essential and currently slow. Maybe could have computed
-        # the express matrix in a different way that achieved this end directly.
-        if dtype is not int:
-            for i in range((express_matrix.shape)[1]):
-                first_one = (np.where(express_matrix[:, i] == 1))[0] # First time this transfer is calculated
-                express_matrix[first_one, i] = 0 # Temporarily discount this evaluation
-                #nonzero = np.where(express_matrix[:, i] > 0)
-                #n_nonzero = len( nonzero )
-                #nonzero = express_matrix[:, i] > 0
-                #sum_of_nonzero = sum(nonzero)
-                nonzero = express_matrix[:, i].nonzero()[0]
-                n_nonzero = nonzero.size
-                if n_nonzero > 0:
-                    express_matrix[nonzero, i] = sum(express_matrix[nonzero, i]) / n_nonzero
-                express_matrix[first_one, i] = 1 # Restore the first evaluation, so it stays as counting once
+        #
+        # Removed: this was slow, and a Bad Idea anyway.
+        #
+        # Although it improves overall convergence when express>0, it does so at a cost of local
+        # discontinuities in the gradients of charge trails (when the number of evaluations
+        # increases by 1). It will also prevent this python code from reproducing the output of
+        # the C++ code when express>0.
+        #
+        ## The effect of a given pixel-to-pixel transfer may be calculated several times. The first
+        ## time it is calculated, it may be used to represent a single transfer (because the first
+        ## transfer is physically different from the rest). After that, each calculation may count
+        ## For different numbers of transfers; it should converge better if each coomputation counts
+        ## for the same number. This is not essential and currently slow. Maybe could have computed
+        ## the express matrix in a different way that achieved this end directly.
+        # if dtype is not int:
+        #    for i in range((express_matrix.shape)[1]):
+        #        first_one = (np.where(express_matrix[:, i] == 1))[0] # First time this transfer is calculated
+        #        express_matrix[first_one, i] = 0 # Temporarily discount this evaluation
+        #        #nonzero = np.where(express_matrix[:, i] > 0)
+        #        #n_nonzero = len( nonzero )
+        #        #nonzero = express_matrix[:, i] > 0
+        #        #sum_of_nonzero = sum(nonzero)
+        #        nonzero = express_matrix[:, i].nonzero()[0]
+        #        n_nonzero = nonzero.size
+        #        if n_nonzero > 0:
+        #            express_matrix[nonzero, i] = sum(express_matrix[nonzero, i]) / n_nonzero
+        #        express_matrix[first_one, i] = 1 # Restore the first evaluation, so it stays as counting once
 
         return (
             express_matrix,
@@ -501,11 +500,11 @@ class ROE(ROEAbstract):
         used to represent many transfers, through the EXPRESS mechanism, as the lasrge
         loss of electrons is multiplied up, replicated throughout many.
         """
-        (n_express, n_rows) = express_matrix.shape
-        when_to_store_traps = np.zeros((n_express, n_rows), dtype=bool)
+        (n_express, n_pixels) = express_matrix.shape
+        when_to_store_traps = np.zeros((n_express, n_pixels), dtype=bool)
         if not self.empty_traps_at_start:
             for express_index in range(n_express - 1):
-                for row_index in range(n_rows - 1):
+                for row_index in range(n_pixels - 1):
                     if express_matrix[express_index + 1, row_index + 1] > 0:
                         break
                 when_to_store_traps[express_index, row_index] = True
@@ -521,6 +520,11 @@ class ROEChargeInjection(ROE):
         force_downstream_release=True,
     ):
         """  
+            True:  electrons are electronically created by a charge injection 
+                   structure at the end of a CCD, then clocked through ALL of the 
+                   pixels to the readout register. By default, it is assumed that 
+                   this number is the number of pixels in the image.
+        
         n_active_pixels : int
             The number of pixels between the charge injection structure and the 
             readout register. If not set, it is assumed to be the number of pixels in 
@@ -600,6 +604,16 @@ class ROETrapPumping(ROEAbstract):
         self, dwell_times=[0.5, 0.5], n_pumps=1, empty_traps_at_start=True,
     ):
         """  
+        Readout sequence to represent tramp pumping (aka pocket pumping).
+        If a uniform image is repeatedly pumped through a CCD, dipoles (positive-negative 
+        pairs in adjacent pixels) are created wherever there are traps in certain 
+        phases. 
+        Because the trap class knows nothing about the CCD, they are assumed to be in 
+        every pixel. This would create overlapping dipoles and, ultimately, no change.
+        The location of the traps should therefore be specified in the "window" variable
+        passed to arctic.add_cti, so only those particular pixels are pumped, and traps
+        in those poixels activated. The phase of the traps should be specified in 
+        arctic.CCD().
         """
 
         super().__init__(dwell_times=dwell_times)
@@ -628,19 +642,19 @@ class ROETrapPumping(ROEAbstract):
     @dwell_times.setter
     def dwell_times(self, value):
         """
-        Check that 
+        Check that there are an even number of steps in a there-and-back clocking sequence.
         """
         if not isinstance(value, list):
             value = [value]
-        self._dwell_times = value
-        # Assume that there are twice as many steps in the Trap Pumping readout sequence as there are phases in the CCD.
+        self._dwell_times = value # This must go before the even check, because n_steps uses it.
         if (self.n_steps % 2) == 1:
             raise Exception("n_steps must be even for a complete trap pumping sequence")
 
     @property
     def n_phases(self):
-        # Assume that there are twice as many steps in the Trap Pumping readout sequence as there are phases in the CCD.
-        # if ( self.n_steps % 2 ) == 1: raise Exception("n_steps must be even for a complete trap pumping sequence")
+        """
+        Assume that there are twice as many steps in the Trap Pumping readout sequence as there are phases in the CCD.
+        """
         return self.n_steps // 2
 
     def express_matrix_from_pixels_and_express(

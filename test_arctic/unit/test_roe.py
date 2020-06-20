@@ -9,17 +9,17 @@ class TestExpress:
     #    def test__trailing_of_trails(self):
     #        assert False, "TBD"
 
-    def test__express_matrix_from_rows(self):
+    def test__express_matrix_from_pixels(self):
 
         roe = ac.ROE(empty_traps_at_start=False)
         express_multiplier, _ = roe.express_matrix_from_pixels_and_express(
-            rows=12, express=1, dtype=int
+            pixels=12, express=1, dtype=int
         )
 
         assert express_multiplier == pytest.approx(np.array([np.arange(1, 13)]))
 
         express_multiplier, _ = roe.express_matrix_from_pixels_and_express(
-            rows=12, express=4, dtype=int
+            pixels=12, express=4, dtype=int
         )
 
         assert express_multiplier == pytest.approx(
@@ -34,18 +34,18 @@ class TestExpress:
         )
 
         express_multiplier, _ = roe.express_matrix_from_pixels_and_express(
-            rows=12, express=12
+            pixels=12, express=12
         )
 
         assert express_multiplier == pytest.approx(np.triu(np.ones((12, 12))))
 
         roe = ac.ROE(empty_traps_at_start=True)
         express_multiplier, _ = roe.express_matrix_from_pixels_and_express(
-            rows=12, express=12
+            pixels=12, express=12
         )
 
     def test__express_matrix_always_sums_to_n_transfers(self):
-        for rows in [5, 7, 17]:
+        for pixels in [5, 7, 17]:
             for express in [0, 1, 2, 7]:
                 for offset in [0, 1, 13]:
                     for dtype in [int, float]:
@@ -55,10 +55,10 @@ class TestExpress:
                                 express_multiplier,
                                 _,
                             ) = roe.express_matrix_from_pixels_and_express(
-                                rows=rows, express=express, offset=offset, dtype=dtype
+                                pixels=pixels, express=express, offset=offset, dtype=dtype
                             )
                             assert np.sum(express_multiplier, axis=0) == pytest.approx(
-                                np.arange(1, rows + 1) + offset
+                                np.arange(1, pixels + 1) + offset
                             )
 
 

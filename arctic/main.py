@@ -68,12 +68,10 @@ def _clock_charge_in_one_direction(
 
     # Parse inputs
     n_rows_in_image, n_columns_in_image = image.shape
-    print(window_row, n_rows_in_image, range(n_rows_in_image))
     if window_row is None:
         window_row = range(n_rows_in_image)
     elif isinstance(window_row, int):
         window_row = [window_row]
-    print(window_row)
     if window_column is None:
         window_column = range(n_columns_in_image)
 
@@ -106,7 +104,6 @@ def _clock_charge_in_one_direction(
             ),
             axis=0,
         )
-
 
     # Read out one column of pixels through one (column of) traps
     for column_index in range(len(window_column)):

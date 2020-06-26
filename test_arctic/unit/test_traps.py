@@ -1805,3 +1805,86 @@ class TestElectronsReleasedAndCapturedIncludingSlowTraps:
 
         # Only capture the available electrons
         assert trapped_electrons_final == pytest.approx(n_free_electrons)
+
+
+
+
+#class TestTrapManagerNonUniformHeightDistribution:
+#    def test__effective_non_uniform_electron_fractional_height(self):
+#
+#        traps = [
+#            ac.TrapNonUniformHeightDistribution(
+#                density=10,
+#                lifetime=-1 / np.log(0.5),
+#                electron_fractional_height_min=0.95,
+#                electron_fractional_height_max=1,
+#            )
+#        ]
+#        trap_manager = ac.TrapManagerNonUniformHeightDistribution(traps=traps, rows=6,)
+#
+#        assert trap_manager.effective_non_uniform_electron_fractional_height(0.9) == 0
+#        assert trap_manager.effective_non_uniform_electron_fractional_height(1) == 1
+#        assert (
+#            trap_manager.effective_non_uniform_electron_fractional_height(0.975) == 0.5
+#        )
+#
+#    def test__first_capture(self):
+#
+#        traps = [
+#            ac.TrapNonUniformHeightDistribution(
+#                density=10,
+#                lifetime=-1 / np.log(0.5),
+#                electron_fractional_height_min=0.95,
+#                electron_fractional_height_max=1,
+#            )
+#        ]
+#        trap_manager = ac.TrapManagerNonUniformHeightDistribution(traps=traps, rows=6,)
+#
+#        electron_fractional_height = 0.5
+#
+#        electrons_captured = trap_manager.electrons_captured_by_traps(
+#            electron_fractional_height=electron_fractional_height,
+#            watermarks=trap_manager.watermarks,
+#            traps=trap_manager.traps,
+#        )
+#
+#        assert electrons_captured == pytest.approx(0.5 * 10)
+#
+#        trap_manager = ac.TrapManagerNonUniformHeightDistribution(traps=traps, rows=6,)
+#
+#        electron_fractional_height = 0.99
+#
+#        electrons_captured = trap_manager.electrons_captured_by_traps(
+#            electron_fractional_height=electron_fractional_height,
+#            watermarks=trap_manager.watermarks,
+#            traps=trap_manager.traps,
+#        )
+#
+#        assert electrons_captured == pytest.approx(0.99 * 10)
+#
+#    def test__middle_new_watermarks(self):
+#
+#        traps = [
+#            ac.TrapNonUniformHeightDistribution(
+#                density=10,
+#                lifetime=-1 / np.log(0.5),
+#                electron_fractional_height_min=0.95,
+#                electron_fractional_height_max=1,
+#            )
+#        ]
+#        trap_manager = ac.TrapManagerNonUniformHeightDistribution(traps=traps, rows=6,)
+#
+#        trap_manager.watermarks = np.array(
+#            [[0.96, 0.8], [0.98, 0.4], [0.99, 0.3], [0, 0], [0, 0], [0, 0]]
+#        )
+#        electron_fractional_height = 0.97
+#
+#        electrons_captured = trap_manager.electrons_captured_by_traps(
+#            electron_fractional_height=electron_fractional_height,
+#            watermarks=trap_manager.watermarks,
+#            traps=trap_manager.traps,
+#        )
+#
+#        assert electrons_captured == pytest.approx((0.96 * 0.2 + 0.01 * 0.6) * 10)
+#
+

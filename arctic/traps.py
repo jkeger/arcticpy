@@ -41,41 +41,6 @@ class Trap(object):
     def distribution_within_pixel(self, fractional_volume=0):
         return None
 
-    def cumulative_n_traps_from_n_electrons(self, n_electrons):
-        #
-        # RJM: this is not currently used. But it could be....
-        #
-
-        well_depth = self.ccd.full_well_depth
-        if self.surface:
-            alpha = self.ccd.blooming_level
-            beta = 1
-            # Let surface traps soak up everything they can, as a cheap way of
-            # ensuring that (at least with instantaneous trapping), no pixel in
-            # an output image will ever contain more electrons than the full
-            # well depth.
-            extra_traps = min(n_electrons - well_depth, 0)
-        else:
-            alpha = self.ccd.well_notch_depth
-            beta = self.ccd.well_fill_power
-            extra_traps = 0
-
-        n_electrons_available = n_electrons - alpha
-        n_traps = (
-            self.density
-            * util.set_min_max((n_electrons_available) / (well_depth - alpha), 0, 1)
-            ** beta
-        )
-        n_traps += extra_traps
-
-        # Make sure that the effective number of traps available cannot exceed
-        # the number of electrons. Adjusting this here is algorithmically much
-        # easier than catching lots of excpetions when there are insufficient
-        # electrons to fill traps during the capture process.
-        n_traps = min(n_traps, n_electrons_available)
-
-        return n_traps
-
     def fill_fraction_from_time_elapsed(self, time_elapsed):
         """ Calculate the fraction of filled traps after a certain time_elapsed.
 
@@ -412,3 +377,86 @@ class TrapLogNormalLifetimeContinuum(TrapLifetimeContinuum):
             release_timescale_mu=release_timescale_mu,
             release_timescale_sigma=release_timescale_sigma,
         )
+
+
+#
+#
+# RANDOM STUFF FOR FUTURE ADOPTION
+#
+#
+
+
+class TrapNonUniformHeightDistribution(Trap):
+
+    # Modify the effective height for non-uniform trap distributions... inside electrons_captured_in_pixel
+    #
+    # RJM: this is the only thing different in this entire class! Can duplicate code be excised
+    #      by creating a method self.electron_fractional_height_from_electrons in Trap, which
+    #      just calls ccd_volume.electron_fractional_height_from_electrons, but modifying it here?
+    #
+    # electron_fractional_height = self.effective_non_uniform_electron_fractional_height(
+    #    electron_fractional_height
+    # )
+    """ For a non-uniform distribution of traps with height within the pixel.
+    """
+
+    def __init__(
+        self,
+        density,
+        lifetime,
+        electron_fractional_height_min,
+        electron_fractional_height_max,
+    ):
+        """The parameters for a single trap species. 
+        Parameters
+        ----------
+        density : float
+            The density of the trap species in a pixel.
+        lifetime : float
+            The release lifetime of the trap.
+        electron_fractional_height_min, electron_fractional_height_max : float
+            The minimum (maximum) fractional height of the electron cloud in 
+            the pixel below (above) which corresponds to an effective fractional 
+            height of 0 (1), with a linear relation in between.
+        """
+        super(TrapNonUniformHeightDistribution, self).__init__(
+            density=density, lifetime=lifetime
+        )
+
+        self.electron_fractional_height_min = electron_fractional_height_min
+        self.electron_fractional_height_max = electron_fractional_height_max
+
+    def cumulative_n_traps_from_n_electrons(self, n_electrons):
+        #
+        # RJM: this is not currently used. But it could be....
+        #
+
+        well_depth = self.ccd.full_well_depth
+        if self.surface:
+            alpha = self.ccd.blooming_level
+            beta = 1
+            # Let surface traps soak up everything they can, as a cheap way of
+            # ensuring that (at least with instantaneous trapping), no pixel in
+            # an output image will ever contain more electrons than the full
+            # well depth.
+            extra_traps = min(n_electrons - well_depth, 0)
+        else:
+            alpha = self.ccd.well_notch_depth
+            beta = self.ccd.well_fill_power
+            extra_traps = 0
+
+        n_electrons_available = n_electrons - alpha
+        n_traps = (
+            self.density
+            * util.set_min_max((n_electrons_available) / (well_depth - alpha), 0, 1)
+            ** beta
+        )
+        n_traps += extra_traps
+
+        # Make sure that the effective number of traps available cannot exceed
+        # the number of electrons. Adjusting this here is algorithmically much
+        # easier than catching lots of excpetions when there are insufficient
+        # electrons to fill traps during the capture process.
+        n_traps = min(n_traps, n_electrons_available)
+
+        return n_traps

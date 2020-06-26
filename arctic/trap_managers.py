@@ -1400,6 +1400,13 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
         return watermark_values + dwell_time
 
 
+#
+#
+# RANDOM STUFF FOR FUTURE ADOPTION
+#
+#
+
+
 class TrapManagerDiscrete(TrapManager):
     """
     To monitor traps as a set of discree entities, 
@@ -1442,3 +1449,65 @@ class TrapManagerDiscrete(TrapManager):
             "occupancy": np.zeros(n_pixels, dtype=float),
             "multiplicity": 1 / n_traps_per_trap,
         }
+
+
+class TrapManagerNonUniformHeightDistribution(TrapManager):
+    """ For a non-uniform distribution of traps with height within the pixel. """
+
+    def __init__(
+        self, traps, rows,
+    ):
+        """The manager for potentially multiple trap species that must use 
+        watermarks in the same way as each other.
+        
+        Allows a non-uniform distribution of trap heights within the pixel, by 
+        modifying the effective height that the electron cloud reaches in terms 
+        of the proportion of traps that are reached. Must be the same for all 
+        traps in this manager.
+        Parameters
+        ----------
+        traps : [Trap]
+            A list of one or more trap objects.
+        rows :int
+            The number of rows in the image. i.e. the maximum number of
+            possible electron trap/release events.
+        """
+        super(TrapManagerNonUniformHeightDistribution, self).__init__(
+            traps=traps, rows=rows
+        )
+
+        #
+        # RJM: why [0] in the next two lines?
+        #
+        self.electron_fractional_height_min = traps[0].electron_fractional_height_min
+        self.electron_fractional_height_max = traps[0].electron_fractional_height_max
+
+    def effective_non_uniform_electron_fractional_height(
+        self, electron_fractional_height
+    ):
+        # @staticmethod ?
+        """
+        Find the total number of electrons that the traps can capture, for a 
+        non-uniform distribution of traps with height within the pixel.
+        Parameters
+        -----------
+        electron_fractional_height : float
+            The original fractional height of the electron cloud in the pixel.
+            
+        Returns
+        -------
+        electron_fractional_height : float
+            The effective fractional height of the electron cloud in the pixel
+            given the distribution of traps with height within the pixel.
+        """
+        if electron_fractional_height <= self.electron_fractional_height_min:
+            return 0
+        elif electron_fractional_height >= self.electron_fractional_height_max:
+            return 1
+        else:
+            return (
+                electron_fractional_height - self.electron_fractional_height_min
+            ) / (
+                self.electron_fractional_height_max
+                - self.electron_fractional_height_min
+            )

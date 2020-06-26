@@ -196,9 +196,9 @@ class TrapManager(object):
             traps = [traps]
         self.traps = traps
         self._n_pixels = n_pixels
-        #print(ccd.fraction_of_traps)
+        
+        # Will not be necessary soon
         if ccd is None: ccd = CCD()
-        print(ccd.fraction_of_traps)
         self.ccd = ccd
         self.phase = phase
         
@@ -212,8 +212,7 @@ class TrapManager(object):
             ),
             dtype=float,  # first +1 is to ensure there is always at least one zero; second is for volume column
         )
-        # The value for a filled watermark level, here 1 as a fill fraction
-        self.filled_watermark_value = 1
+        #self.filled_watermark_value = 1
 
         # Trap rates
         self.capture_rates = np.array([trap.capture_rate for trap in traps])
@@ -222,6 +221,12 @@ class TrapManager(object):
 
         # Are they surface traps?
         self.surface = np.array([trap.surface for trap in traps], dtype=bool)
+
+
+    # The value for a filled watermark level, here 1 as a fill fraction
+    @property
+    def filled_watermark_value(self):
+        return 1
 
     # Total number of trap species within this trap manager
     @property
@@ -1207,13 +1212,18 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
              ...                        ]
     """
 
-    def __init__(self, traps, n_pixels, ccd=None, phase=0):
-        super(TrapManagerTrackTime, self).__init__(
-            traps=traps, n_pixels=n_pixels, ccd=ccd, phase=phase
-        )
-
-        # The value for a filled watermark level, here 0 as an elapsed time
-        self.filled_watermark_value = 0
+    #def __init__(self, traps, n_pixels, ccd=None, phase=0):
+    #    super(TrapManagerTrackTime, self).__init__(
+    #        traps=traps, n_pixels=n_pixels, ccd=ccd, phase=phase
+    #    )
+    #
+    #    # The value for a filled watermark level, here 0 as an elapsed time
+    #    self.filled_watermark_value = 0
+    
+    # The value for a filled watermark level, here 0 as an elapsed time
+    @property
+    def filled_watermark_value(self):
+        return 0
 
     def watermarks_converted_to_fill_fractions_from_elapsed_times(self, watermarks):
         """ Convert the watermark values to fill fractions.

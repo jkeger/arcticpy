@@ -135,7 +135,7 @@ def _clock_charge_in_one_direction(
                             + potential["capture_from_which_pixel"]
                         )
                         n_free_electrons = (
-                            image[row_read, window_column[column_index]]
+                            (image[row_read, window_column[column_index]])
                             * potential["high"]
                         )
 
@@ -145,7 +145,8 @@ def _clock_charge_in_one_direction(
                             n_electrons_released_and_captured += trap_manager.n_electrons_released_and_captured(
                                 n_free_electrons=n_free_electrons,
                                 dwell_time=roe.dwell_times[clocking_step],
-                                ccd=CCDPhase(ccd, phase),
+                                ccd_filling_function = ccd.cloud_fractional_volume_from_n_electrons_in_phase(phase),
+                                #ccd=ccd, phase=phase, #CCDPhase(ccd, phase),
                                 express_multiplier=express_multiplier,
                             )
 

@@ -206,9 +206,10 @@ class ROEAbstract(object):
             for phase in range(n_phases):
 
                 # Where to capture from?
-                capture_from_which_pixel = np.array(
-                    [(step_prime - phase + ((n_phases - 1) // 2)) // n_phases]
-                )
+                #capture_from_which_pixel = np.array(
+                #    [(step_prime - phase + ((n_phases - 1) // 2)) // n_phases]
+                #)
+                capture_from_which_pixel = (step_prime - phase + ((n_phases - 1) // 2)) // n_phases
 
                 # How many pixels to split the release between?
                 n_phases_for_release = 1 + (phase == split_release_phase)
@@ -251,8 +252,9 @@ class ROEAbstract(object):
         referred_to_pixels = [0]
         for step in range(self.n_steps):
             for phase in range(self.n_phases):
-                for x in self.clock_sequence[step][phase]["capture_from_which_pixel"]:
-                    referred_to_pixels.append(x)
+                referred_to_pixels.append( self.clock_sequence[step][phase]["capture_from_which_pixel"] )
+                #for x in self.clock_sequence[step][phase]["capture_from_which_pixel"]:
+                #    referred_to_pixels.append(x)
                 for x in self.clock_sequence[step][phase]["release_to_which_pixel"]:
                     referred_to_pixels.append(x)
         return sorted(set(referred_to_pixels))

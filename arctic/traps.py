@@ -1,7 +1,6 @@
 import numpy as np
 from scipy import integrate, optimize
 from copy import deepcopy
-from arctic.ccd import CCD
 from arctic import util
 
 
@@ -11,9 +10,7 @@ class Trap(object):
         density=0.13,
         release_timescale=0.25,
         capture_timescale=0,
-        ccd=None,
         surface=False,
-        discrete=False,
     ):
         """The parameters for a single trap species.
 
@@ -33,22 +30,21 @@ class Trap(object):
             The capture and emission rates (Lindegren (1998) section 3.2).
         """
 
-        if ccd is None:
-            ccd = CCD()
-
         self.density = float(density)
         self.release_timescale = release_timescale
         self.capture_timescale = capture_timescale
-        self.ccd = ccd
         self.surface = surface
-        self.discrete = discrete
-
+        
         # Rates
         self.emission_rate = 1 / self.release_timescale
         if self.capture_timescale == 0:
             self.capture_rate = np.inf
         else:
             self.capture_rate = 1 / self.capture_timescale
+    
+    
+    def distribution_within_pixel(self, fractional_volume=0):
+        return None
 
     def fill_fraction_from_time_elapsed(self, time_elapsed):
         """ Calculate the fraction of filled traps after a certain time_elapsed.
@@ -189,7 +185,7 @@ class Trap(object):
 class TrapInstantCapture(Trap):
     """ For the old C++ style release-then-instant-capture algorithm. """
 
-    def __init__(self, density=0.13, release_timescale=0.25, ccd=None, surface=False):
+    def __init__(self, density=0.13, release_timescale=0.25, surface=False):
         """The parameters for a single trap species.
 
         Parameters
@@ -200,12 +196,11 @@ class TrapInstantCapture(Trap):
             The release timescale of the trap, in the same units as the time 
             spent in each pixel or phase (Clocker sequence).
         """
-        super(TrapInstantCapture, self).__init__(
+        super().__init__(
             density=density,
             release_timescale=release_timescale,
             capture_timescale=0,
-            ccd=None,
-            surface=False,
+            surface=surface,
         )
 
 

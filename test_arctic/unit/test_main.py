@@ -4,6 +4,13 @@ import pytest
 import arctic as ac
 
 
+#
+# Unit tests still To Do:
+#
+# Check trailing of trails
+# Multiphase vs single phase
+# Bookkeepng - conservation of initial n_electrons 
+
 class TestGeneral:
     def test__add_cti__parallel_only__single_pixel__compare_cplusplus_version(self,):
         image = np.zeros((6, 2))

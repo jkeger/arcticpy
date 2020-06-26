@@ -400,7 +400,7 @@ class TestElectronsReleasedAndCapturedInstantCapture:
     def test__first_capture(self):
 
         n_free_electrons = 2500  # --> cloud_fractional_volume = 0.5
-        
+
         ccd = ac.CCD(well_fill_power=0.5, full_well_depth=10000, well_notch_depth=1e-7)
         traps = [ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))]
 
@@ -408,7 +408,9 @@ class TestElectronsReleasedAndCapturedInstantCapture:
 
         n_electrons_captured = trap_manager.n_electrons_captured(
             n_free_electrons=n_free_electrons,
-            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(0)
+            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(
+                0
+            ),
         )
 
         assert n_electrons_captured == pytest.approx(5)
@@ -440,7 +442,9 @@ class TestElectronsReleasedAndCapturedInstantCapture:
 
         n_electrons_captured = trap_manager.n_electrons_captured(
             n_free_electrons=n_free_electrons,
-            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(0)
+            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(
+                0
+            ),
         )
 
         assert n_electrons_captured == pytest.approx(
@@ -466,13 +470,15 @@ class TestElectronsReleasedAndCapturedInstantCapture:
         )
 
         ccd = ac.CCD(well_fill_power=0.5, full_well_depth=10000, well_notch_depth=1e-7)
-        
+
         traps = [ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))]
         trap_manager = ac.TrapManagerInstantCapture(traps=traps, n_pixels=6)
 
         n_electrons_captured = trap_manager.n_electrons_captured(
             n_free_electrons=n_free_electrons,
-            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(0)
+            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(
+                0
+            ),
         )
 
         assert n_electrons_captured == pytest.approx(0.0025)
@@ -489,7 +495,7 @@ class TestElectronsReleasedAndCapturedInstantCapture:
         )
 
         ccd = ac.CCD(well_fill_power=0.5, full_well_depth=10000, well_notch_depth=1e-7)
-        
+
         traps = [
             ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5)),
             ac.TrapInstantCapture(density=8, release_timescale=-1 / np.log(0.2)),
@@ -509,7 +515,9 @@ class TestElectronsReleasedAndCapturedInstantCapture:
 
         n_electrons_captured = trap_manager.n_electrons_captured(
             n_free_electrons=n_free_electrons,
-            ccd_filling_function = ccd.cloud_fractional_volume_from_n_electrons_in_phase(0)
+            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(
+                0
+            ),
         )
 
         assert n_electrons_captured == pytest.approx(
@@ -554,14 +562,18 @@ class TestElectronsReleasedAndCapturedInstantCapture:
         # Deprecated separate functions
         n_electrons_released = trap_manager_1.n_electrons_released()
         n_electrons_captured = trap_manager_1.n_electrons_captured(
-            n_free_electrons=n_free_electrons + n_electrons_released, 
-            ccd_filling_function = ccd.cloud_fractional_volume_from_n_electrons_in_phase(0)
+            n_free_electrons=n_free_electrons + n_electrons_released,
+            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(
+                0
+            ),
         )
 
         # Combined function
         n_electrons_released_and_captured = trap_manager_2.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons, 
-            ccd_filling_function = ccd.cloud_fractional_volume_from_n_electrons_in_phase(0)
+            n_free_electrons=n_free_electrons,
+            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(
+                0
+            ),
         )
 
         # Same net electrons and updated watermarks
@@ -658,7 +670,7 @@ class TestTrapManagerTrackTime:
 
         n_free_electrons = 5e4  # cloud_fractional_volume ~= 0.656
         ccd = ac.CCD(well_fill_power=0.8, full_well_depth=8.47e4, well_notch_depth=1e-7)
-        #ccd = ac.CCDPhase(ccd)
+        # ccd = ac.CCDPhase(ccd)
 
         trap = ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))
         trap_manager_fill = ac.TrapManagerInstantCapture(traps=[trap], n_pixels=6)
@@ -679,10 +691,16 @@ class TestTrapManagerTrackTime:
         )
 
         net_electrons_fill = trap_manager_fill.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons, ccd_filling_function = ccd.cloud_fractional_volume_from_n_electrons_in_phase(0)
+            n_free_electrons=n_free_electrons,
+            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(
+                0
+            ),
         )
         net_electrons_time = trap_manager_time.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons, ccd_filling_function = ccd.cloud_fractional_volume_from_n_electrons_in_phase(0)
+            n_free_electrons=n_free_electrons,
+            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(
+                0
+            ),
         )
 
         assert net_electrons_fill == net_electrons_time
@@ -695,7 +713,7 @@ class TestTrapManagerTrackTime:
     def test__electrons_released_and_captured_using_time_multiple_traps(self):
         n_free_electrons = 1e3
         ccd = ac.CCD(well_fill_power=0.8, full_well_depth=8.47e4, well_notch_depth=1e-7)
-        #ccd = ac.CCDPhase(ccd)
+        # ccd = ac.CCDPhase(ccd)
 
         trap_1 = ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))
         trap_2 = ac.TrapInstantCapture(density=10, release_timescale=-2 / np.log(0.5))
@@ -738,12 +756,16 @@ class TestTrapManagerTrackTime:
         )
 
         net_electrons_fill = trap_manager_fill.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons, 
-            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(0)
+            n_free_electrons=n_free_electrons,
+            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(
+                0
+            ),
         )
         net_electrons_time = trap_manager_time.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons, 
-            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(0)
+            n_free_electrons=n_free_electrons,
+            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(
+                0
+            ),
         )
 
         assert net_electrons_fill == pytest.approx(net_electrons_time)
@@ -920,7 +942,7 @@ class TestTrapLifetimeContinuum:
 
         n_free_electrons = 5e4  # cloud_fractional_volume ~= 0.656
         ccd = ac.CCD(well_fill_power=0.8, full_well_depth=8.47e4, well_notch_depth=1e-7)
-        #ccd = ac.CCDPhase(ccd)
+        # ccd = ac.CCDPhase(ccd)
 
         # Single trap
         trap = ac.TrapInstantCapture(density=10, release_timescale=1)
@@ -937,7 +959,9 @@ class TestTrapLifetimeContinuum:
         )
         net_electrons_single = trap_manager_single.n_electrons_released_and_captured(
             n_free_electrons=n_free_electrons,
-            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(0)
+            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(
+                0
+            ),
         )
 
         # Narrow continuum
@@ -967,7 +991,9 @@ class TestTrapLifetimeContinuum:
         )
         net_electrons_narrow = trap_manager_narrow.n_electrons_released_and_captured(
             n_free_electrons=n_free_electrons,
-            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(0)
+            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(
+                0
+            ),
         )
 
         # Continuum
@@ -992,7 +1018,9 @@ class TestTrapLifetimeContinuum:
         )
         net_electrons_continuum = trap_manager_continuum.n_electrons_released_and_captured(
             n_free_electrons=n_free_electrons,
-            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(0)
+            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(
+                0
+            ),
         )
 
         assert net_electrons_narrow == pytest.approx(net_electrons_single, rel=1e-4)
@@ -1089,7 +1117,9 @@ class TestTrapLifetimeContinuum:
         )
         net_electrons_continuum = trap_manager_continuum.n_electrons_released_and_captured(
             n_free_electrons=n_free_electrons,
-            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(0)
+            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(
+                0
+            ),
         )
 
         # Separated continuum traps
@@ -1113,7 +1143,9 @@ class TestTrapLifetimeContinuum:
         )
         net_electrons_continuum_split = trap_manager_continuum_split.n_electrons_released_and_captured(
             n_free_electrons=n_free_electrons,
-            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(0)
+            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(
+                0
+            ),
         )
 
         # Equivalent distributions of single traps, linearly spaced
@@ -1139,7 +1171,9 @@ class TestTrapLifetimeContinuum:
         )
         net_electrons_linear = trap_manager_linear.n_electrons_released_and_captured(
             n_free_electrons=n_free_electrons,
-            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(0)
+            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(
+                0
+            ),
         )
 
         # Equivalent distributions of single traps, logarithmically spaced
@@ -1171,11 +1205,11 @@ class TestTrapLifetimeContinuum:
         )
         net_electrons_log = trap_manager_log.n_electrons_released_and_captured(
             n_free_electrons=n_free_electrons,
-            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase()
+            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(),
         )
         net_electrons_log_2 = trap_manager_log.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons, 
-            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase()
+            n_free_electrons=n_free_electrons,
+            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(),
         )
 
         assert net_electrons_continuum == pytest.approx(net_electrons_continuum_split)
@@ -1185,9 +1219,9 @@ class TestTrapLifetimeContinuum:
     def test__trails_from_continuum_traps_compare_with_distributions_of_single_traps(
         self,
     ):
-        
+
         # This test is VERY slow!
-        
+
         size = 10
         pixels = np.arange(size)
         image_orig = np.zeros((size, 1))
@@ -1253,7 +1287,9 @@ class TestTrapLifetimeContinuum:
             image_orig = np.zeros((size, 1))
             image_orig[1, 0] = 1e4
 
-            ccd = ac.CCD(well_fill_power=0.8, full_well_depth=8.47e4, well_notch_depth=1e-7)
+            ccd = ac.CCD(
+                well_fill_power=0.8, full_well_depth=8.47e4, well_notch_depth=1e-7
+            )
 
             density = 1000
             release_timescale = 3
@@ -1261,7 +1297,8 @@ class TestTrapLifetimeContinuum:
             # Log-normal distribution
             def trap_distribution(release_timescale, median, sigma):
                 return np.exp(
-                    -((np.log(release_timescale) - np.log(median)) ** 2) / (2 * sigma ** 2)
+                    -((np.log(release_timescale) - np.log(median)) ** 2)
+                    / (2 * sigma ** 2)
                 ) / (release_timescale * sigma * np.sqrt(2 * np.pi))
 
             plt.figure()
@@ -1306,7 +1343,7 @@ class TestTrapLifetimeContinuum:
 class TestElectronsReleasedAndCapturedIncludingSlowTraps:
 
     ccd = ac.CCD(well_fill_power=0.8, full_well_depth=8.47e4, well_notch_depth=0)
-    
+
     density = 10
     release_timescale = 1
 
@@ -1467,18 +1504,24 @@ class TestElectronsReleasedAndCapturedIncludingSlowTraps:
         n_free_electrons = 5e4  # cloud_fractional_volume ~= 0.656
 
         net_electrons_instant = self.trap_manager_instant.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons, 
-            ccd_filling_function=self.ccd.cloud_fractional_volume_from_n_electrons_in_phase(0), 
+            n_free_electrons=n_free_electrons,
+            ccd_filling_function=self.ccd.cloud_fractional_volume_from_n_electrons_in_phase(
+                0
+            ),
             dwell_time=1,
         )
         net_electrons_fast = self.trap_manager_fast.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons, 
-            ccd_filling_function=self.ccd.cloud_fractional_volume_from_n_electrons_in_phase(0),
+            n_free_electrons=n_free_electrons,
+            ccd_filling_function=self.ccd.cloud_fractional_volume_from_n_electrons_in_phase(
+                0
+            ),
             dwell_time=1,
         )
         net_electrons_slow = self.trap_manager_slow.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons, 
-            ccd_filling_function=self.ccd.cloud_fractional_volume_from_n_electrons_in_phase(0),
+            n_free_electrons=n_free_electrons,
+            ccd_filling_function=self.ccd.cloud_fractional_volume_from_n_electrons_in_phase(
+                0
+            ),
             dwell_time=1,
         )
 
@@ -1506,18 +1549,24 @@ class TestElectronsReleasedAndCapturedIncludingSlowTraps:
         self.trap_manager_slow.watermarks = deepcopy(watermarks)
 
         net_electrons_instant = self.trap_manager_instant.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons, 
-            ccd_filling_function=self.ccd.cloud_fractional_volume_from_n_electrons_in_phase(0), 
+            n_free_electrons=n_free_electrons,
+            ccd_filling_function=self.ccd.cloud_fractional_volume_from_n_electrons_in_phase(
+                0
+            ),
             dwell_time=1,
         )
         net_electrons_fast = self.trap_manager_fast.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons, 
-            ccd_filling_function=self.ccd.cloud_fractional_volume_from_n_electrons_in_phase(0),
+            n_free_electrons=n_free_electrons,
+            ccd_filling_function=self.ccd.cloud_fractional_volume_from_n_electrons_in_phase(
+                0
+            ),
             dwell_time=1,
         )
         net_electrons_slow = self.trap_manager_slow.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons, 
-            ccd_filling_function=self.ccd.cloud_fractional_volume_from_n_electrons_in_phase(0), 
+            n_free_electrons=n_free_electrons,
+            ccd_filling_function=self.ccd.cloud_fractional_volume_from_n_electrons_in_phase(
+                0
+            ),
             dwell_time=1,
         )
 
@@ -1554,18 +1603,24 @@ class TestElectronsReleasedAndCapturedIncludingSlowTraps:
         self.trap_manager_slow.watermarks = deepcopy(watermarks)
 
         net_electrons_instant = self.trap_manager_instant.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons, 
-            ccd_filling_function=self.ccd.cloud_fractional_volume_from_n_electrons_in_phase(0), 
+            n_free_electrons=n_free_electrons,
+            ccd_filling_function=self.ccd.cloud_fractional_volume_from_n_electrons_in_phase(
+                0
+            ),
             dwell_time=1,
         )
         net_electrons_fast = self.trap_manager_fast.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons, 
-            ccd_filling_function=self.ccd.cloud_fractional_volume_from_n_electrons_in_phase(0), 
+            n_free_electrons=n_free_electrons,
+            ccd_filling_function=self.ccd.cloud_fractional_volume_from_n_electrons_in_phase(
+                0
+            ),
             dwell_time=1,
         )
         net_electrons_slow = self.trap_manager_slow.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons, 
-            ccd_filling_function=self.ccd.cloud_fractional_volume_from_n_electrons_in_phase(0), 
+            n_free_electrons=n_free_electrons,
+            ccd_filling_function=self.ccd.cloud_fractional_volume_from_n_electrons_in_phase(
+                0
+            ),
             dwell_time=1,
         )
 
@@ -1605,18 +1660,24 @@ class TestElectronsReleasedAndCapturedIncludingSlowTraps:
         self.trap_manager_slow.watermarks = deepcopy(watermarks)
 
         net_electrons_instant = self.trap_manager_instant.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons, 
-            ccd_filling_function=self.ccd.cloud_fractional_volume_from_n_electrons_in_phase(0), 
+            n_free_electrons=n_free_electrons,
+            ccd_filling_function=self.ccd.cloud_fractional_volume_from_n_electrons_in_phase(
+                0
+            ),
             dwell_time=1,
         )
         net_electrons_fast = self.trap_manager_fast.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons, 
-            ccd_filling_function=self.ccd.cloud_fractional_volume_from_n_electrons_in_phase(0), 
+            n_free_electrons=n_free_electrons,
+            ccd_filling_function=self.ccd.cloud_fractional_volume_from_n_electrons_in_phase(
+                0
+            ),
             dwell_time=1,
         )
         net_electrons_slow = self.trap_manager_slow.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons, 
-            ccd_filling_function=self.ccd.cloud_fractional_volume_from_n_electrons_in_phase(0), 
+            n_free_electrons=n_free_electrons,
+            ccd_filling_function=self.ccd.cloud_fractional_volume_from_n_electrons_in_phase(
+                0
+            ),
             dwell_time=1,
         )
 
@@ -1650,18 +1711,24 @@ class TestElectronsReleasedAndCapturedIncludingSlowTraps:
         self.trap_manager_slow.watermarks = deepcopy(watermarks)
 
         net_electrons_instant = self.trap_manager_instant.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons, 
-            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(0), 
+            n_free_electrons=n_free_electrons,
+            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(
+                0
+            ),
             dwell_time=1,
         )
         net_electrons_fast = self.trap_manager_fast.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons, 
-            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(0), 
+            n_free_electrons=n_free_electrons,
+            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(
+                0
+            ),
             dwell_time=1,
         )
         net_electrons_slow = self.trap_manager_slow.n_electrons_released_and_captured(
-            n_free_electrons=n_free_electrons, 
-            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(0),
+            n_free_electrons=n_free_electrons,
+            ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(
+                0
+            ),
             dwell_time=1,
         )
 

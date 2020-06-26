@@ -86,9 +86,9 @@ class CCD(object):
             self._fraction_of_traps = value
         else:
             self._fraction_of_traps = [value]  # Make sure the arrays are arrays
-        #Renormalise?
-        #self._pixel_width = sum( i for i in self._fraction_of_traps )
-        #self._fraction_of_traps = [i / self._pixel_width for i in self._fraction_of_traps]
+        # Renormalise?
+        # self._pixel_width = sum( i for i in self._fraction_of_traps )
+        # self._fraction_of_traps = [i / self._pixel_width for i in self._fraction_of_traps]
         self._n_phases = len(self._fraction_of_traps)
 
     @property
@@ -230,7 +230,7 @@ class CCD(object):
             volume = (
                 util.set_min_max((n_electrons - empty) / well_range, 0, 1)
             ) ** beta
-            
+
             return volume
 
         return cloud_fractional_volume_from_n_electrons
@@ -280,7 +280,9 @@ class CCDPhase(object):
         self.well_fill_power = ccd.well_fill_power[phase]
         self.well_notch_depth = ccd.well_notch_depth[phase]
         self.well_bloom_level = ccd.well_bloom_level[phase]
-        self.cloud_fractional_volume_from_n_electrons = ccd.cloud_fractional_volume_from_n_electrons_in_phase(phase)
+        self.cloud_fractional_volume_from_n_electrons = ccd.cloud_fractional_volume_from_n_electrons_in_phase(
+            phase
+        )
 
 
 class CCDComplex(CCD):

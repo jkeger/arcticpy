@@ -55,7 +55,10 @@ class TestExpress:
                                 express_multiplier,
                                 _,
                             ) = roe.express_matrix_from_pixels_and_express(
-                                pixels=pixels, express=express, offset=offset, dtype=dtype
+                                pixels=pixels,
+                                express=express,
+                                offset=offset,
+                                dtype=dtype,
                             )
                             assert np.sum(express_multiplier, axis=0) == pytest.approx(
                                 np.arange(1, pixels + 1) + offset

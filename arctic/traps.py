@@ -6,11 +6,7 @@ from arctic import util
 
 class Trap(object):
     def __init__(
-        self,
-        density=0.13,
-        release_timescale=0.25,
-        capture_timescale=0,
-        surface=False,
+        self, density=0.13, release_timescale=0.25, capture_timescale=0, surface=False,
     ):
         """The parameters for a single trap species.
 
@@ -34,15 +30,14 @@ class Trap(object):
         self.release_timescale = release_timescale
         self.capture_timescale = capture_timescale
         self.surface = surface
-        
+
         # Rates
         self.emission_rate = 1 / self.release_timescale
         if self.capture_timescale == 0:
             self.capture_rate = np.inf
         else:
             self.capture_rate = 1 / self.capture_timescale
-    
-    
+
     def distribution_within_pixel(self, fractional_volume=0):
         return None
 

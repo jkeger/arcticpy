@@ -8,6 +8,7 @@ from arctic.traps import (
     TrapLogNormalLifetimeContinuum,
     TrapInstantCapture,
 )
+from arctic.ccd import CCD, CCDPhase
 
 
 class AllTrapManager(UserList):
@@ -60,77 +61,37 @@ class AllTrapManager(UserList):
             traps = [traps]
         if not isinstance(traps[0], list):
             traps = [traps]
-        # if ccd is None: ccd = ac.CCD()
-
-        # Set up a list of trap managers in a single phase of the CCD
-        trap_managers_one_phase = []
-        for trap_group in traps:
-            # Use a non-default trap manager if required for the input trap species
-            if isinstance(
-                trap_group[0], (TrapLifetimeContinuum, TrapLogNormalLifetimeContinuum),
-            ):
-                trap_managers_one_phase.append(
-                    TrapManagerTrackTime(traps=trap_group, n_pixels=n_pixels, ccd=ccd)
-                )
-            elif isinstance(trap_group[0], TrapInstantCapture):
-                trap_managers_one_phase.append(
-                    TrapManagerInstantCapture(
-                        traps=trap_group, n_pixels=n_pixels, ccd=ccd
-                    )
-                )
-            else:
-                trap_managers_one_phase.append(
-                    TrapManager(traps=trap_group, n_pixels=n_pixels, ccd=ccd)
-                )
+        #if ccd is None: ccd = ac.CCD()
 
         # Replicate trap managers to keep track of traps in different phases separately
-        fraction_of_traps = ccd.fraction_of_traps
+        #fraction_of_traps = ccd.fraction_of_traps
         self.data = []
-        for i in range(ccd.n_phases):
-            trap_managers_this_phase = deepcopy(trap_managers_one_phase)
-            for j in range(len(trap_managers_this_phase)):
-                # Caution; next line also alters trap_managers_this_phase.traps.density
-                trap_managers_this_phase[j].n_traps_per_pixel *= fraction_of_traps[i]
+        for phase in range(ccd.n_phases):
+    
+            # Set up list of traps in a single phase of the CCD
+            trap_managers_this_phase = []
+            for trap_group in traps:
+                # Use a non-default trap manager if required for the input trap species
+                if isinstance(
+                    trap_group[0], (TrapLifetimeContinuum, TrapLogNormalLifetimeContinuum),
+                ):
+                    trap_managers_this_phase.append(
+                        TrapManagerTrackTime(traps=trap_group, n_pixels=n_pixels, ccd=ccd, phase=phase)
+                    )
+                elif isinstance(trap_group[0], TrapInstantCapture):
+                    trap_managers_this_phase.append(
+                        TrapManagerInstantCapture(traps=trap_group, n_pixels=n_pixels, ccd=ccd, phase=phase)
+                     )
+                else:
+                    trap_managers_this_phase.append(
+                        TrapManager(traps=trap_group, n_pixels=n_pixels, ccd=ccd, phase=phase)
+                    )
             self.data.append(trap_managers_this_phase)
 
         # Store empty trap state, for future reference
         self._saved_data = None
         self._n_electrons_trapped_in_save = 0.0
         self._n_electrons_trapped_previously = 0.0
-
-    #
-    # Can only do this neater loop once the caution line is removed from above
-    #
-
-    #    # Replicate trap managers to keep track of traps in different phases separately
-    #    trap_managers = []
-    #    for i in range(ccd.n_phases):
-    #
-    #        # Set up list of traps in a single phase of the CCD
-    #        trap_managers_this_phase = []
-    #        for trap_group in traps:
-    #            # Use a non-default trap manager if required for the input trap species
-    #            if isinstance(
-    #                trap_group[0], (TrapLifetimeContinuum, TrapLogNormalLifetimeContinuum),
-    #            ):
-    #                trap_managers_this_phase.append(
-    #                    TrapManagerTrackTime(traps=trap_group, n_pixels=n_pixels, ccd=ccd)
-    #                )
-    #            elif isinstance(trap_group[0], TrapInstantCapture):
-    #                trap_managers_this_phase.append(
-    #                    TrapManagerInstantCapture(traps=trap_group, n_pixels=n_pixels, ccd=ccd)
-    #                 )
-    #            else:
-    #                trap_managers_this_phase.append(
-    #                    TrapManager(traps=trap_group, n_pixels=n_pixels, ccd=ccd)
-    #                )
-    #
-    #        #trap_managers_this_phase = deepcopy(trap_managers_one_phase)
-    #        for j in range(len(trap_managers_this_phase)):
-    #            # Caution; next line also alters trap_managers_this_phase.traps.density
-    #            print(i,ccd.fraction_of_traps[i])
-    #            trap_managers_this_phase[j].n_traps_per_pixel *= ccd.fraction_of_traps[i]
-    #        trap_managers.append(trap_managers_this_phase)
 
     @property
     def n_electrons_trapped(self):
@@ -187,8 +148,11 @@ class AllTrapManager(UserList):
         # self._n_electrons_trapped_previously -= self.n_electrons_trapped_currently
 
 
+
+
+
 class TrapManager(object):
-    def __init__(self, traps, n_pixels, ccd=None):
+    def __init__(self, traps, n_pixels, ccd=None, phase=0):
         """
         The manager for potentially multiple trap species that are able to use 
         watermarks in the same way as each other.
@@ -232,6 +196,13 @@ class TrapManager(object):
             traps = [traps]
         self.traps = traps
         self._n_pixels = n_pixels
+        #print(ccd.fraction_of_traps)
+        if ccd is None: ccd = CCD()
+        print(ccd.fraction_of_traps)
+        self.ccd = ccd
+        self.phase = phase
+        
+        #self.n_traps_per_pixel = np.array([trap.density for trap in self.traps], dtype=float) * ccd.fraction_of_traps[phase]
 
         # Set up the watermark array
         self.watermarks = np.zeros(
@@ -265,7 +236,7 @@ class TrapManager(object):
     # Number of traps of each species, in each pixel
     @property
     def n_traps_per_pixel(self):
-        return np.array([trap.density for trap in self.traps], dtype=float)
+        return np.array([trap.density for trap in self.traps], dtype=float) * self.ccd.fraction_of_traps[self.phase]
 
     @n_traps_per_pixel.setter
     def n_traps_per_pixel(self, values):
@@ -285,6 +256,7 @@ class TrapManager(object):
 
     # Returns a (self-contained) function describing the well-filling model in any phase
     def n_traps_exposed_from_n_electrons(self, ccd, phase=0):
+        #zself.n_traps_per_pixel
         return ccd.cloud_fractional_volume_from_n_electrons_in_phase(
             phase
         )  # this is a function of n_electrons)
@@ -1235,9 +1207,9 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
              ...                        ]
     """
 
-    def __init__(self, traps, n_pixels, ccd=None):
+    def __init__(self, traps, n_pixels, ccd=None, phase=0):
         super(TrapManagerTrackTime, self).__init__(
-            traps=traps, n_pixels=n_pixels, ccd=ccd
+            traps=traps, n_pixels=n_pixels, ccd=ccd, phase=phase
         )
 
         # The value for a filled watermark level, here 0 as an elapsed time

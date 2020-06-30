@@ -2,64 +2,30 @@
 
 Usage
 -----
-$  python3  test_arctic/profile_demo.py  output_name
+$  python3  test_arctic/profile_demo.py  express  output_name  do_plot
 
 Args
 ----
-output_name : str
+express : int
+    ArCTIc express parameter.
+    
+output_name : str (opt.)
     Saves the profiling output to `test_arctic/output_name.txt`, and the image 
-    to `test_arctic/output_name.png`. If not provided then defaults to "test".    
+    to `test_arctic/output_name.png`. Defaults to "test_<express>". 
+    
+do_plot : int (opt.)
+    If 1 then plot the output, default 0.
 """
 
 import os
 import sys
 import cProfile, pstats, io
+import timeit
 import numpy as np
 from astropy.io import fits
 import matplotlib.pyplot as plt
 
 import arctic as ac
-
-
-def add_cti_to_hst_image():
-
-    # Load the HST image
-    Fp_image = "test_arctic/jc0a01h8q_raw.fits"
-    # print("Loading %s ... " % Fp_image, end="")
-    # sys.stdout.flush()
-    hdu_list = fits.open(Fp_image)
-    idx_image = 1
-    input_image = np.array(hdu_list[idx_image].data).astype("float64").T
-    # print("Done")
-
-    # Model inputs
-    trap = ac.Trap(density=1, release_timescale=10)
-    ccd = ac.CCD(well_notch_depth=0.01, well_fill_power=0.8, full_well_depth=84700)
-    express = 1
-
-    # Select a subset of rows
-    row_start = 0
-    row_end = -1
-    # row_start = 200
-    # row_end = 400
-
-    # Select a subset of columns
-    column_start = 2662
-    column_end = column_start + 1
-
-    # Refine input image
-    input_image = input_image[column_start:column_end, row_start:row_end].T
-    print("%d row(s), %d column(s)" % input_image.shape)
-
-    # Add CTI to the column
-    output_image = ac.add_cti(
-        image=input_image,
-        parallel_traps=[trap],
-        parallel_ccd=ccd,
-        parallel_express=express,
-    )
-
-    return input_image, output_image
 
 
 def plot_counts(input_image, output_image, output_name=None):
@@ -109,18 +75,83 @@ def plot_difference(input_image, output_image, output_name=None):
     plt.close()
 
 
+def add_cti_to_hst_image(express=1):
+
+    # Load the HST image
+    Fp_image = "test_arctic/jc0a01h8q_raw.fits"
+    hdu_list = fits.open(Fp_image)
+    idx_image = 1
+    input_image = np.array(hdu_list[idx_image].data).astype("float64").T
+
+    # Model inputs
+    trap = ac.Trap(density=1, release_timescale=10)
+    ccd = ac.CCD(well_notch_depth=0.01, well_fill_power=0.8, full_well_depth=84700)
+
+    # Select a subset of rows
+    row_start = 0
+    row_end = -1
+    # row_start = 200
+    # row_end = 400
+
+    # Select a subset of columns
+    column_start = 2662
+    column_end = column_start + 1
+
+    # Refine input image
+    input_image = input_image[column_start:column_end, row_start:row_end].T
+    print("%d row(s), %d column(s)" % input_image.shape)
+
+    # Add CTI to the column
+    output_image = ac.add_cti(
+        image=input_image,
+        parallel_traps=[trap],
+        parallel_ccd=ccd,
+        parallel_express=express,
+    )
+
+    return input_image, output_image
+
+
 if __name__ == "__main__":
+    # Input parameters
     try:
-        output_name = sys.argv[1]
+        express = int(sys.argv[1])
     except IndexError:
-        output_name = "test"
+        express = 1
+    print("express = %d" % express)
+    try:
+        output_name = sys.argv[2]
+    except IndexError:
+        output_name = "test_%d" % express
+    print("output_name = \"%s\"" % output_name)
+    try:
+        do_plot = int(sys.argv[3])
+    except IndexError:
+        do_plot = 0
+    print("do_plot = %d" % do_plot)
+    
+    # Time without profiling (manual toggle)
+    if not True:
+        def time_wrapper():
+            return add_cti_to_hst_image(express=express)
+        print("time: ", timeit.timeit(time_wrapper, number=1))
+        
+        # Write input image to new fits file e.g. for C++ comparison
+        if not True:
+            Fp_image = "test_arctic/input_image.fits"                
+            new_hdr = fits.Header()
+            hdu = fits.PrimaryHDU(np.flipud(input_image), new_hdr)
+            hdu.writeto(Fp_image)
+            print("Saved input image %s" % Fp_image)
+            
+        exit()
 
     # Set up profiling
     pr = cProfile.Profile()
     pr.enable()
 
     # Add CTI
-    input_image, output_image = add_cti_to_hst_image()
+    input_image, output_image = add_cti_to_hst_image(express=express)
     pr.disable()
 
     # Save profiling output
@@ -136,5 +167,8 @@ if __name__ == "__main__":
         print("\nWrote %s" % Fp_output)
 
     # Plot image
-    plot_counts(input_image, output_image, output_name=output_name)
-    plot_difference(input_image, output_image, output_name=output_name)
+    if do_plot == 1:
+        plot_counts(input_image, output_image, output_name=output_name)
+        plot_difference(input_image, output_image, output_name=output_name)
+
+

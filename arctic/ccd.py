@@ -41,9 +41,10 @@ class CCD(object):
         Parameters
         ----------
         fraction_of_traps : float or [float]
-            For multi-phase clocking, the physical width of each phase. This is used only to
-            distribute the traps between phases (they are assigned to a phaae in proportional
-            to the width of that phase). The units do not matter and can be anything from
+            Assuming that traps have uniform density throughout the CCD, for multi-phase 
+            clocking, this specifies the physical width of each phase. This is used only to
+            distribute the traps between phases. The units do not matter and can be anything 
+            from
             microns to light years, or fractions of a pixel. Only the fractional widths are
             ever returned. If this is an array then you can optionally also enter a list of
             different full_well_depth, well_notch_depth, and well_fill_power for each phase.
@@ -85,9 +86,10 @@ class CCD(object):
             self._fraction_of_traps = value
         else:
             self._fraction_of_traps = [value]  # Make sure the arrays are arrays
+        # Renormalise?
+        # self._pixel_width = sum( i for i in self._fraction_of_traps )
+        # self._fraction_of_traps = [i / self._pixel_width for i in self._fraction_of_traps]
         self._n_phases = len(self._fraction_of_traps)
-
-    #   self._pixel_width = sum( i for i in self._fraction_of_traps )
 
     @property
     def n_phases(self):
@@ -96,10 +98,6 @@ class CCD(object):
     # @property
     # def pixel_width(self):
     #    return self._pixel_width
-
-    # @property
-    # def phase_fractional_widths(self):
-    #    return [i / self._pixel_width for i in self._fraction_of_traps]
 
     @property
     def full_well_depth(self):
@@ -170,41 +168,6 @@ class CCD(object):
                 value = self.full_well_depth
             self._well_bloom_level = [value] * self.n_phases
 
-    def cumulative_n_traps_from_n_electrons(self, n_electrons):
-        #
-        # RJM: this is not currently used. But it could be....
-        #
-
-        well_depth = self.ccd.full_well_depth
-        if self.surface:
-            alpha = self.ccd.blooming_level
-            beta = 1
-            # Let surface traps soak up everything they can, as a cheap way of
-            # ensuring that (at least with instantaneous trapping), no pixel in
-            # an output image will ever contain more electrons than the full
-            # well depth.
-            extra_traps = min(n_electrons - well_depth, 0)
-        else:
-            alpha = self.ccd.well_notch_depth
-            beta = self.ccd.well_fill_power
-            extra_traps = 0
-
-        n_electrons_available = n_electrons - alpha
-        n_traps = (
-            self.density
-            * util.set_min_max((n_electrons_available) / (well_depth - alpha), 0, 1)
-            ** beta
-        )
-        n_traps += extra_traps
-
-        # Make sure that the effective number of traps available cannot exceed
-        # the number of electrons. Adjusting this here is algorithmically much
-        # easier than catching lots of excpetions when there are insufficient
-        # electrons to fill traps during the capture process.
-        n_traps = min(n_traps, n_electrons_available)
-
-        return n_traps
-
     # Returns a (self-contained) function describing the well-filling model in a single phase
     def cloud_fractional_volume_from_n_electrons_and_phase(
         self, n_electrons, phase=0, surface=False
@@ -267,47 +230,59 @@ class CCD(object):
             volume = (
                 util.set_min_max((n_electrons - empty) / well_range, 0, 1)
             ) ** beta
+
             return volume
 
         return cloud_fractional_volume_from_n_electrons
 
+    def cumulative_n_traps_from_n_electrons(self, n_electrons):
+        #
+        # RJM: this is not currently used. But it could be....
+        #
+
+        well_depth = self.ccd.full_well_depth
+        if self.surface:
+            alpha = self.ccd.blooming_level
+            beta = 1
+            # Let surface traps soak up everything they can, as a cheap way of
+            # ensuring that (at least with instantaneous trapping), no pixel in
+            # an output image will ever contain more electrons than the full
+            # well depth.
+            extra_traps = min(n_electrons - well_depth, 0)
+        else:
+            alpha = self.ccd.well_notch_depth
+            beta = self.ccd.well_fill_power
+            extra_traps = 0
+
+        n_electrons_available = n_electrons - alpha
+        n_traps = (
+            self.density
+            * util.set_min_max((n_electrons_available) / (well_depth - alpha), 0, 1)
+            ** beta
+        )
+        n_traps += extra_traps
+
+        # Make sure that the effective number of traps available cannot exceed
+        # the number of electrons. Adjusting this here is algorithmically much
+        # easier than catching lots of excpetions when there are insufficient
+        # electrons to fill traps during the capture process.
+        n_traps = min(n_traps, n_electrons_available)
+
+        return n_traps
+
 
 class CCDPhase(object):
     def __init__(self, ccd=CCD(), phase=0):
-        """Hello"""
+        """Extract just one phase from the CCD"""
 
         self.fraction_of_traps = ccd.fraction_of_traps[phase]
-
         self.full_well_depth = ccd.full_well_depth[phase]
         self.well_fill_power = ccd.well_fill_power[phase]
         self.well_notch_depth = ccd.well_notch_depth[phase]
         self.well_bloom_level = ccd.well_bloom_level[phase]
-
-    def cloud_fractional_volume_from_n_electrons(self, n_electrons, surface=False):
-
-        fraction_of_traps = self.fraction_of_traps
-        full_well_depth = self.full_well_depth
-        well_fill_power = self.well_fill_power
-        well_notch_depth = self.well_notch_depth
-        well_bloom_level = self.well_bloom_level
-
-        if n_electrons == 0:
-            return 0
-
-        # print('surface?',surface)
-        if surface:
-            empty = self.blooming_level
-            beta = 1
-        else:
-            empty = self.well_notch_depth
-            beta = self.well_fill_power
-        well_range = self.full_well_depth - empty
-
-        volume = (util.set_min_max((n_electrons - empty) / well_range, 0, 1)) ** beta
-
-        # volume = ( n_electrons > 500 )
-
-        return volume
+        self.cloud_fractional_volume_from_n_electrons = ccd.cloud_fractional_volume_from_n_electrons_in_phase(
+            phase
+        )
 
 
 class CCDComplex(CCD):
@@ -389,7 +364,7 @@ class CCDComplex(CCD):
                 (n_electrons - self.well_notch_depth)
                 / (
                     self.well_range - self.well_notch_depth
-                )  # RJM I think that is a bug because nothch depth has been subtracted twice
+                )  # RJM I think that is a bug because notch depth has been subtracted twice
             )
         ) ** self.well_fill_power
 

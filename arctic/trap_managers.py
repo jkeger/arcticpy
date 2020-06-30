@@ -150,7 +150,6 @@ class AllTrapManager(UserList):
         # self._n_electrons_trapped_previously -= self.n_electrons_trapped_currently
 
 
-
 class TrapManager(object):
     def __init__(self, traps, n_pixels, ccd=CCD(), phase=0):
         """

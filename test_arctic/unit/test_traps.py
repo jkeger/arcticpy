@@ -1807,9 +1807,7 @@ class TestElectronsReleasedAndCapturedIncludingSlowTraps:
         assert trapped_electrons_final == pytest.approx(n_free_electrons)
 
 
-
-
-#class TestTrapManagerNonUniformHeightDistribution:
+# class TestTrapManagerNonUniformHeightDistribution:
 #    def test__effective_non_uniform_electron_fractional_height(self):
 #
 #        traps = [
@@ -1887,4 +1885,3 @@ class TestElectronsReleasedAndCapturedIncludingSlowTraps:
 #
 #        assert electrons_captured == pytest.approx((0.96 * 0.2 + 0.01 * 0.6) * 10)
 #
-

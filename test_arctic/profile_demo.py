@@ -123,27 +123,29 @@ if __name__ == "__main__":
         output_name = sys.argv[2]
     except IndexError:
         output_name = "test_%d" % express
-    print("output_name = \"%s\"" % output_name)
+    print('output_name = "%s"' % output_name)
     try:
         do_plot = int(sys.argv[3])
     except IndexError:
         do_plot = 0
     print("do_plot = %d" % do_plot)
-    
+
     # Time without profiling (manual toggle)
     if not True:
+
         def time_wrapper():
             return add_cti_to_hst_image(express=express)
+
         print("time: ", timeit.timeit(time_wrapper, number=1))
-        
+
         # Write input image to new fits file e.g. for C++ comparison
         if not True:
-            Fp_image = "test_arctic/input_image.fits"                
+            Fp_image = "test_arctic/input_image.fits"
             new_hdr = fits.Header()
             hdu = fits.PrimaryHDU(np.flipud(input_image), new_hdr)
             hdu.writeto(Fp_image)
             print("Saved input image %s" % Fp_image)
-            
+
         exit()
 
     # Set up profiling
@@ -172,3 +174,21 @@ if __name__ == "__main__":
         plot_difference(input_image, output_image, output_name=output_name)
 
 
+# Notes
+# -----
+#
+# express 1
+#   28 s (no-profile 21 s) C++: 2 s
+#   Diff columns: 30, 28, 29, 27, 27, 30, 31 (next day: 23)
+#
+# express 2
+#   30 s (no-profile 23 s) C++: 3 s
+#
+# express 5
+#   33 s (no-profile 25 s) C++: 6 s
+#
+# express 10
+#   41 s (no-profile 26 s) C++: 11 s
+#
+# express 20
+#   51 s (no-profile 35 s) C++: 22 s

@@ -14,25 +14,25 @@ import numpy as np
 import os
 from copy import deepcopy
 
-from arctic.roe import (
+from arcticpy.roe import (
     ROE,
     ROEChargeInjection,
     ROETrapPumping,
 )
-from arctic.ccd import CCD, CCDPhase
-from arctic.traps import (
+from arcticpy.ccd import CCD, CCDPhase
+from arcticpy.traps import (
     Trap,
     TrapLifetimeContinuum,
     TrapLogNormalLifetimeContinuum,
     TrapInstantCapture,
 )
-from arctic.trap_managers import (
+from arcticpy.trap_managers import (
     AllTrapManager,
     TrapManager,
     TrapManagerTrackTime,
     TrapManagerInstantCapture,
 )
-from arctic import util
+from arcticpy import util
 
 
 def _clock_charge_in_one_direction(

@@ -4,7 +4,7 @@ from scipy import integrate
 import matplotlib.pyplot as plt
 from copy import deepcopy
 
-import arctic as ac
+import arcticpy as ac
 
 
 class TestTrapParams:

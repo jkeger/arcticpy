@@ -2,13 +2,13 @@ import numpy as np
 from collections import UserList
 from scipy import integrate, optimize
 from copy import deepcopy
-from arctic.traps import (
+from arcticpy.traps import (
     Trap,
     TrapLifetimeContinuum,
     TrapLogNormalLifetimeContinuum,
     TrapInstantCapture,
 )
-from arctic.ccd import CCD, CCDPhase
+from arcticpy.ccd import CCD, CCDPhase
 
 
 class AllTrapManager(UserList):

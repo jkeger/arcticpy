@@ -1,8 +1,8 @@
 import numpy as np
 from copy import deepcopy
 
-from arctic import util
-import arctic as ac
+from arcticpy import util
+import arcticpy as ac
 
 
 # detector=ac.CCD([3,1,45])

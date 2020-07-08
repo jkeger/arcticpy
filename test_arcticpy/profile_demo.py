@@ -2,7 +2,7 @@
 
 Usage
 -----
-$  python3  test_arctic/profile_demo.py  express  output_name  do_plot
+$  python3  test_arcticpy/profile_demo.py  express  output_name  do_plot
 
 Args
 ----
@@ -10,8 +10,8 @@ express : int
     ArCTIc express parameter.
     
 output_name : str (opt.)
-    Saves the profiling output to `test_arctic/output_name.txt`, and the image 
-    to `test_arctic/output_name.png`. Defaults to "test_<express>". 
+    Saves the profiling output to `test_arcticpy/output_name.txt`, and the image 
+    to `test_arcticpy/output_name.png`. Defaults to "test_<express>". 
     
 do_plot : int (opt.)
     If 1 then plot the output, default 0.
@@ -25,7 +25,7 @@ import numpy as np
 from astropy.io import fits
 import matplotlib.pyplot as plt
 
-import arctic as ac
+import arcticpy as ac
 
 
 def plot_counts(input_image, output_image, output_name=None):
@@ -45,7 +45,7 @@ def plot_counts(input_image, output_image, output_name=None):
 
     # Save or show the figure
     if output_name is not None:
-        Fp_save = "test_arctic/%s_counts.png" % output_name
+        Fp_save = "test_arcticpy/%s_counts.png" % output_name
         plt.savefig(Fp_save, dpi=600)
         print("Saved %s" % Fp_save)
     else:
@@ -67,7 +67,7 @@ def plot_difference(input_image, output_image, output_name=None):
 
     # Save or show the figure
     if output_name is not None:
-        Fp_save = "test_arctic/%s_diff.png" % output_name
+        Fp_save = "test_arcticpy/%s_diff.png" % output_name
         plt.savefig(Fp_save, dpi=600)
         print("Saved %s" % Fp_save)
     else:
@@ -78,7 +78,7 @@ def plot_difference(input_image, output_image, output_name=None):
 def add_cti_to_hst_image(express=1):
 
     # Load the HST image
-    Fp_image = "test_arctic/jc0a01h8q_raw.fits"
+    Fp_image = "test_arcticpy/jc0a01h8q_raw.fits"
     hdu_list = fits.open(Fp_image)
     idx_image = 1
     input_image = np.array(hdu_list[idx_image].data).astype("float64").T
@@ -140,7 +140,7 @@ if __name__ == "__main__":
 
         # Write input image to new fits file e.g. for C++ comparison
         if not True:
-            Fp_image = "test_arctic/input_image.fits"
+            Fp_image = "test_arcticpy/input_image.fits"
             new_hdr = fits.Header()
             hdu = fits.PrimaryHDU(np.flipud(input_image), new_hdr)
             hdu.writeto(Fp_image)
@@ -163,7 +163,7 @@ if __name__ == "__main__":
     ps.print_stats()
     # Print first few lines and save all
     print(s.getvalue()[:1500], ". . .")
-    Fp_output = "test_arctic/%s.txt" % output_name
+    Fp_output = "test_arcticpy/%s.txt" % output_name
     with open(Fp_output, "w") as f:
         f.write(s.getvalue())
         print("\nWrote %s" % Fp_output)

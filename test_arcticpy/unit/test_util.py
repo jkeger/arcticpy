@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 from astropy.io import fits
 
-import arctic as ac
+import arcticpy as ac
 
 
 @pytest.fixture(name="hdr_path")

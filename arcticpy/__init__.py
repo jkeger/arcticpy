@@ -1,21 +1,21 @@
-from arctic.main import add_cti, remove_cti
-from arctic.roe import (
+from arcticpy.main import add_cti, remove_cti
+from arcticpy.roe import (
     ROE,
     ROETrapPumping,
     ROEChargeInjection,
 )
-from arctic.ccd import CCD, CCDComplex, CCDPhase
-from arctic.traps import (
+from arcticpy.ccd import CCD, CCDComplex, CCDPhase
+from arcticpy.traps import (
     Trap,
     TrapLifetimeContinuum,
     TrapLogNormalLifetimeContinuum,
     TrapInstantCapture,
 )
-from arctic.trap_managers import (
+from arcticpy.trap_managers import (
     AllTrapManager,
     TrapManager,
     TrapManagerTrackTime,
     TrapManagerInstantCapture,
 )
-from arctic import util
-from arctic.util import profile
+from arcticpy import util
+from arcticpy.util import profile

@@ -1,4 +1,4 @@
-import arctic as ac
+import arcticpy as ac
 import numpy as np
 
 import pytest

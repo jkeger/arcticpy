@@ -1,7 +1,7 @@
 import numpy as np
 from scipy import integrate, optimize
 from copy import deepcopy
-from arctic import util
+from arcticpy import util
 
 
 class Trap(object):

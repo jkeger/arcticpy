@@ -1,17 +1,17 @@
-Arctic Python
+ArCTIC Python
 =============
 
 AlgoRithm for Charge Transfer Inefficiency Correction
 -----------------------------------------------------
 
-WIP...
+Coming soon...
 
 
 
 
-
-Formatted with [black](https://github.com/psf/black).
 
 Jacob Kegerreis  
-James Nightingale  
 Richard Massey  
+James Nightingale  
+
+Formatted with [black](https://github.com/psf/black).

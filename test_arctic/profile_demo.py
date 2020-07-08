@@ -178,6 +178,24 @@ if __name__ == "__main__":
 # -----
 #
 # express 1
+#   5.5 s (no-profile 4.2 s) C++: 2 s
+#
+# express 2
+#   6.7 s (no-profile 4.6 s) C++: 3 s
+#
+# express 5
+#   11.2 s (no-profile 6.2 s) C++: 6 s
+#   Diff columns: 13.3, 11.8, 11.5, 11.2, 11.6, 11.9, 11.6, 11.7
+#
+# express 10
+#   17.1 s (no-profile 9.7 s) C++: 11 s
+#
+# express 20
+#   37.5 s (no-profile 15.4 s) C++: 22 s
+#
+#
+# OLD (bad express matrix sums)
+# express 1
 #   28 s (no-profile 21 s) C++: 2 s
 #   Diff columns: 30, 28, 29, 27, 27, 30, 31 (next day: 23)
 #

@@ -4,8 +4,13 @@ from arcticpy.roe import (
     ROETrapPumping,
     ROEChargeInjection,
 )
+<<<<<<< HEAD:arcticpy/__init__.py
 from arcticpy.ccd import CCD, CCDComplex, CCDPhase
 from arcticpy.traps import (
+=======
+from arctic.ccd import CCD, CCDPhase
+from arctic.traps import (
+>>>>>>> Added roe.express_matrix_dtype switch:arctic/__init__.py
     Trap,
     TrapLifetimeContinuum,
     TrapLogNormalLifetimeContinuum,

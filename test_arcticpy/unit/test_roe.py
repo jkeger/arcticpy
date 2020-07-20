@@ -1,25 +1,70 @@
-import numpy as np
 import pytest
+<<<<<<< HEAD:test_arcticpy/unit/test_roe.py
 
 import arcticpy as ac
-
+=======
+import numpy as np
+import arctic as ac
+>>>>>>> Added roe.express_matrix_dtype switch:test_arctic/unit/test_roe.py
 
 class TestExpress:
+    def test__split_parallel_and_serial_readout_by_time(self):
 
-    #    def test__trailing_of_trails(self):
-    #        assert False, "TBD"
+        image_pre_cti = np.zeros((20, 15))
+        image_pre_cti[1, 1] += 10000
+
+        trap = ac.Trap(density=10, release_timescale=10.0)
+        ccd = ac.CCD(well_notch_depth=0.0, well_fill_power=0.8, full_well_depth=100000)
+        roe = ac.ROE(empty_traps_at_start=False, empty_traps_between_columns=True)
+
+        express = 2
+        offset = 0
+        split_point = 0.25
+
+        # Run in two halves
+        image_post_cti_firsthalf = ac.add_cti(
+            image=image_pre_cti,
+            parallel_traps=[trap], parallel_ccd=ccd, parallel_roe=roe, parallel_express=express, parallel_offset=offset,
+            serial_traps=[trap], serial_ccd=ccd, serial_roe=roe, serial_express=express, serial_offset=offset,
+            time_window=[0, split_point],
+        )
+        trail_firsthalf = image_post_cti_firsthalf - image_pre_cti
+        image_post_cti_secondhalf= ac.add_cti(
+            image=image_pre_cti,
+            serial_traps=[trap], serial_ccd=ccd, serial_roe=roe, serial_express=express, serial_offset=offset,
+            parallel_traps=[trap], parallel_ccd=ccd, parallel_roe=roe, parallel_express=express, parallel_offset=offset,
+            time_window=[split_point, 1],
+        )
+        image_post_cti_split = image_post_cti_firsthalf + image_post_cti_secondhalf - image_pre_cti
+        trail_split = image_post_cti_split - image_pre_cti
+
+        # Run all in one go
+        image_post_cti = ac.add_cti(
+            image=image_pre_cti,
+            serial_traps=[trap], serial_ccd=ccd, serial_roe=roe, serial_express=express, serial_offset=offset,
+            parallel_traps=[trap], parallel_ccd=ccd, parallel_roe=roe, parallel_express=express, parallel_offset=offset
+        )
+        trail = image_post_cti - image_pre_cti
+
+
+        #diff = trail_split - trail
+        #print(trail)
+        #print(trail_firsthalf)
+        #print(trail_split)
+
+        assert ((abs(trail_split - trail) < 2e-4).all())
 
     def test__express_matrix_from_pixels(self):
 
-        roe = ac.ROE(empty_traps_at_start=False)
-        express_multiplier, _ = roe.express_matrix_from_pixels_and_express(
-            pixels=12, express=1, dtype=int
+        roe = ac.ROE(empty_traps_at_start=False, express_matrix_dtype=int)
+        express_multiplier, _, _ = roe.express_matrix_from_pixels_and_express(
+            pixels=12, express=1
         )
 
         assert express_multiplier == pytest.approx(np.array([np.arange(1, 13)]))
 
-        express_multiplier, _ = roe.express_matrix_from_pixels_and_express(
-            pixels=12, express=4, dtype=int
+        express_multiplier, _, _ = roe.express_matrix_from_pixels_and_express(
+            pixels=12, express=4
         )
 
         assert express_multiplier == pytest.approx(
@@ -33,16 +78,12 @@ class TestExpress:
             )
         )
 
-        express_multiplier, _ = roe.express_matrix_from_pixels_and_express(
+        express_multiplier, _, _ = roe.express_matrix_from_pixels_and_express(
             pixels=12, express=12
         )
 
         assert express_multiplier == pytest.approx(np.triu(np.ones((12, 12))))
 
-        roe = ac.ROE(empty_traps_at_start=True)
-        express_multiplier, _ = roe.express_matrix_from_pixels_and_express(
-            pixels=12, express=12
-        )
 
     def test__express_matrix_always_sums_to_n_transfers(self):
         for pixels in [5, 7, 17]:
@@ -50,20 +91,38 @@ class TestExpress:
                 for offset in [0, 1, 13]:
                     for dtype in [int, float]:
                         for first_pixel_different in [True, False]:
-                            roe = ac.ROE(empty_traps_at_start=first_pixel_different)
+                            roe = ac.ROE(empty_traps_at_start=first_pixel_different, express_matrix_dtype=dtype)
                             (
-                                express_multiplier,
-                                _,
+                                express_multiplier, _, _,
                             ) = roe.express_matrix_from_pixels_and_express(
                                 pixels=pixels,
                                 express=express,
-                                offset=offset,
-                                dtype=dtype,
+                                offset=offset
                             )
                             assert np.sum(express_multiplier, axis=0) == pytest.approx(
                                 np.arange(1, pixels + 1) + offset
                             )
 
+    def test__express_matrix_split_by_time(self):
+        roe = ac.ROE(express_matrix_dtype=int)     
+        express = 2
+        offset = 2
+        pixels = 8
+        total_pixels = pixels + offset
+        express_multiplier1,when1,_ = roe.express_matrix_from_pixels_and_express(pixels,express,offset=offset,window_express=range(0,6))
+        express_multiplier2,when2,_ = roe.express_matrix_from_pixels_and_express(pixels,express,offset=offset,window_express=range(6,9))
+        express_multiplier3,when3,_ = roe.express_matrix_from_pixels_and_express(pixels,express,offset=offset,window_express=range(9,total_pixels))
+        express_multipliera,whena,_ = roe.express_matrix_from_pixels_and_express(pixels,express,offset=offset)
+        total_transfers = (
+            np.sum(express_multiplier1, axis=0) + 
+            np.sum(express_multiplier2, axis=0) +
+            np.sum(express_multiplier3, axis=0)
+        )
+        assert total_transfers == pytest.approx( np.arange(1, pixels + 1) + offset )
+        assert (when1 == when2).all()
+        assert (when1 == when3).all()
+        assert (when1 == whena).all()
+        assert ((express_multiplier1 + express_multiplier2 + express_multiplier3) == express_multipliera).all()
 
 class TestClockingSequences:
     def test__release_fractions_sum_to_unity(self):
@@ -79,8 +138,8 @@ class TestClockingSequences:
         for force_downstream_release in [True, False]:
             roe = ac.ROE([1], force_downstream_release=force_downstream_release)
             assert roe.pixels_accessed_during_clocking == [0]
-            # assert min(roe.pixels_accessed_during_clocking) == 0
-            # assert max(roe.pixels_accessed_during_clocking) == 0
+            assert min(roe.pixels_accessed_during_clocking) == 0
+            assert max(roe.pixels_accessed_during_clocking) == 0
             assert roe.n_phases == 1
             assert roe.n_steps == 1
             assert roe.clock_sequence[0][0]["high"], "Highness"
@@ -93,8 +152,6 @@ class TestClockingSequences:
 
         roe = ac.ROE([1] * n_phases, force_downstream_release=False)
         assert roe.pixels_accessed_during_clocking == [-1, 0, 1]
-        # assert min(roe.pixels_accessed_during_clocking) == -1
-        # assert max(roe.pixels_accessed_during_clocking) == +1
         assert roe.n_phases == n_phases
         assert roe.n_steps == n_phases
 
@@ -109,17 +166,15 @@ class TestClockingSequences:
             ), "Step {}, phase {}, release".format(step, phase)
 
         # Check other phases
-        assert (
+        assert all(
             roe.clock_sequence[0][1]["release_to_which_pixel"] == np.array([-1, 0])
-        ).all
-        assert (
+        )
+        assert all(
             roe.clock_sequence[1][0]["release_to_which_pixel"] == np.array([0, 1])
-        ).all
+        )
 
         roe = ac.ROE([1] * n_phases, force_downstream_release=True)
         assert roe.pixels_accessed_during_clocking == [0, 1]
-        # assert min(roe.pixels_accessed_during_clocking) == 0
-        # assert max(roe.pixels_accessed_during_clocking) == +1
         assert roe.n_phases == n_phases
         assert roe.n_steps == n_phases
 
@@ -134,12 +189,12 @@ class TestClockingSequences:
             ), "Step {}, phase {}, release".format(step, phase)
 
         # Check other phases
-        assert (
+        assert all(
             roe.clock_sequence[0][1]["release_to_which_pixel"] == np.array([0, 1])
-        ).all
-        assert (
+        )
+        assert all(
             roe.clock_sequence[1][0]["release_to_which_pixel"] == np.array([0, 1])
-        ).all
+        )
 
     def test__readout_sequence_three_phase_single_phase_high(self):
 
@@ -147,8 +202,6 @@ class TestClockingSequences:
 
         roe = ac.ROE([1] * n_phases, force_downstream_release=False)
         assert roe.pixels_accessed_during_clocking == [-1, 0, 1]
-        # assert min(roe.pixels_accessed_during_clocking) == -1
-        # assert max(roe.pixels_accessed_during_clocking) == +1
         assert roe.n_phases == n_phases
         assert roe.n_steps == n_phases
 
@@ -173,8 +226,6 @@ class TestClockingSequences:
         # Never move electrons ahead of the trap
         roe = ac.ROE([1] * n_phases, force_downstream_release=True)
         assert roe.pixels_accessed_during_clocking == [0, 1]
-        # assert min(roe.pixels_accessed_during_clocking) == 0
-        # assert max(roe.pixels_accessed_during_clocking) == +1
         assert roe.n_phases == n_phases
         assert roe.n_steps == n_phases
 
@@ -203,8 +254,6 @@ class TestClockingSequences:
 
         roe = ac.ROETrapPumping([1] * (2 * n_phases))
         assert roe.pixels_accessed_during_clocking == [-1, 0, 1]
-        # assert min(roe.pixels_accessed_during_clocking) == -1
-        # assert max(roe.pixels_accessed_during_clocking) == +1
         assert roe.n_phases == n_phases
         assert roe.n_steps == 2 * n_phases
 
@@ -223,8 +272,6 @@ class TestClockingSequences:
 
         roe = ac.ROE([1] * n_phases, force_downstream_release=False)
         assert roe.pixels_accessed_during_clocking == [-1, 0, 1]
-        # assert min(roe.pixels_accessed_during_clocking) == -1
-        # assert max(roe.pixels_accessed_during_clocking) == +1
         assert roe.n_phases == n_phases
         assert roe.n_steps == n_phases
 
@@ -240,30 +287,28 @@ class TestClockingSequences:
 
         # Check other phases
         assert roe.clock_sequence[0][1]["release_to_which_pixel"] == 0
-        assert (
+        assert all(
             roe.clock_sequence[0][2]["release_to_which_pixel"] == np.array([-1, 0])
-        ).all
+        )
         assert roe.clock_sequence[0][3]["release_to_which_pixel"] == -1
         assert roe.clock_sequence[1][0]["release_to_which_pixel"] == 0
         assert roe.clock_sequence[1][2]["release_to_which_pixel"] == 0
-        assert (
+        assert all(
             roe.clock_sequence[1][3]["release_to_which_pixel"] == np.array([-1, 0])
-        ).all
-        assert (
+        )
+        assert all(
             roe.clock_sequence[2][0]["release_to_which_pixel"] == np.array([0, 1])
-        ).all
+        )
         assert roe.clock_sequence[2][1]["release_to_which_pixel"] == 0
         assert roe.clock_sequence[2][3]["release_to_which_pixel"] == 0
         assert roe.clock_sequence[3][0]["release_to_which_pixel"] == 1
-        assert (
+        assert all(
             roe.clock_sequence[3][1]["release_to_which_pixel"] == np.array([0, 1])
-        ).all
+        )
         assert roe.clock_sequence[3][2]["release_to_which_pixel"] == 0
 
         roe = ac.ROE([1] * n_phases, force_downstream_release=True)
         assert roe.pixels_accessed_during_clocking == [0, 1]
-        # assert min(roe.pixels_accessed_during_clocking) == 0
-        # assert max(roe.pixels_accessed_during_clocking) == +1
         assert roe.n_phases == n_phases
         assert roe.n_steps == n_phases
 
@@ -279,24 +324,24 @@ class TestClockingSequences:
 
         # Check other phases
         assert roe.clock_sequence[0][1]["release_to_which_pixel"] == 1
-        assert (
+        assert all(
             roe.clock_sequence[0][2]["release_to_which_pixel"] == np.array([0, 1])
-        ).all
+        )
         assert roe.clock_sequence[0][3]["release_to_which_pixel"] == 0
         assert roe.clock_sequence[1][0]["release_to_which_pixel"] == 0
         assert roe.clock_sequence[1][2]["release_to_which_pixel"] == 1
-        assert (
+        assert all(
             roe.clock_sequence[1][3]["release_to_which_pixel"] == np.array([0, 1])
-        ).all
-        assert (
+        )
+        assert all(
             roe.clock_sequence[2][0]["release_to_which_pixel"] == np.array([0, 1])
-        ).all
+        )
         assert roe.clock_sequence[2][1]["release_to_which_pixel"] == 0
         assert roe.clock_sequence[2][3]["release_to_which_pixel"] == 1
         assert roe.clock_sequence[3][0]["release_to_which_pixel"] == 1
-        assert (
+        assert all(
             roe.clock_sequence[3][1]["release_to_which_pixel"] == np.array([0, 1])
-        ).all
+        )
         assert roe.clock_sequence[3][2]["release_to_which_pixel"] == 0
 
     def test__trappumping_sequence_four_phase_single_phase_high(self):
@@ -304,8 +349,6 @@ class TestClockingSequences:
         n_phases = 4
         roe = ac.ROETrapPumping([1] * (2 * n_phases))
         assert roe.pixels_accessed_during_clocking == [-1, 0, 1]
-        # assert min(roe.pixels_accessed_during_clocking) == -1
-        # assert max(roe.pixels_accessed_during_clocking) == +1
         assert roe.n_phases == n_phases
         assert roe.n_steps == 2 * n_phases
 
@@ -430,11 +473,11 @@ class TestTrapPumpingResults:
         ) / image_orig[[trap_pixel, trap_pixel + 1]]
 
         assert (
-            abs(fractional_diff_01) < 1e-7
-        ).all, "changing express from 0 (slow) to 1 (fast)"
+            abs(fractional_diff_01) < 1e-4
+        ).all(), "changing express from 0 (slow) to 1 (fast)"
         assert (
-            abs(fractional_diff_03) < 1e-7
-        ).all, "changing express from 0 (slow) to 3 (fastish)"
+            abs(fractional_diff_03) < 1e-4
+        ).all(), "changing express from 0 (slow) to 3 (fastish)"
 
         # Add more traps
         density_change = 2
@@ -460,7 +503,7 @@ class TestTrapPumpingResults:
                 - image_orig[[trap_pixel, trap_pixel + 1]]
             )
         ) / image_orig[[trap_pixel, trap_pixel + 1]]
-        assert (abs(fractional_diff) < 1e-7).all
+        assert (abs(fractional_diff) < 1e-4).all()
 
         # Do more pumps
         n_pumps_change = 10
@@ -486,9 +529,12 @@ class TestTrapPumpingResults:
                 - image_orig[[trap_pixel, trap_pixel + 1]]
             )
         ) / image_orig[[trap_pixel, trap_pixel + 1]]
-        assert (abs(fractional_diff) < 1e-7).all
+        assert (abs(fractional_diff) < 1e-4).all()
 
 
+
+
+#class TestTrapPumpingResults:
 #    def test__express_is_good_approximation_for_charge_injection(self):
 #
 #        roe = ac.ROEChargeInjection(n_active_pixels=2)

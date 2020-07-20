@@ -39,6 +39,11 @@ class Trap(object):
             self.capture_rate = 1 / self.capture_timescale
 
     def distribution_within_pixel(self, fractional_volume=0):
+        if self.surface:
+            #
+            # RJM: RESERVED FOR SURFACE TRAPS OR SPECIES WITH NONUNIFORM DENSITY WITHIN A PIXEL
+            #
+            pass
         return None
 
     def fill_fraction_from_time_elapsed(self, time_elapsed):
@@ -379,9 +384,13 @@ class TrapLogNormalLifetimeContinuum(TrapLifetimeContinuum):
         )
 
 
+
+
+
+
 #
 #
-# RANDOM STUFF FOR FUTURE ADOPTION
+# RJM: IDEAS FOR FUTURE ADOPTION
 #
 #
 

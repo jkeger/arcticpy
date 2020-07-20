@@ -4,8 +4,12 @@ import shutil
 import numpy as np
 import pytest
 from astropy.io import fits
+<<<<<<< HEAD:test_arcticpy/unit/test_util.py
 
 import arcticpy as ac
+=======
+import arctic as ac
+>>>>>>> Added roe.express_matrix_dtype switch:test_arctic/unit/test_util.py
 
 
 @pytest.fixture(name="hdr_path")

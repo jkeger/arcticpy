@@ -1,3 +1,4 @@
+<<<<<<< HEAD:arcticpy/util.py
 import cProfile, pstats, io
 
 
@@ -20,6 +21,28 @@ def profile(fnc):
         return retval
 
     return inner
+=======
+import numpy as np
+
+def israel_arctan_function(tau, rho, a, d_a, d_p, d_w, g_a, g_p, g_w):
+    result = (rho) * (
+        a
+        + ( d_a * np.arctan( ( np.log(tau) - d_p) / d_w) )
+        + ( g_a * np.exp( -0.5 * ( (np.log(tau) - g_p) / g_w) ** 2) ) 
+        )
+    if isinstance(result,np.ndarray): result = sum(result)
+    return result
+
+def delta_ellipticity(tau, rho=1):
+    a = 0.05333
+    d_a = 0.03357
+    d_p = 1.628
+    d_w = 0.2951
+    g_a = 0.09901
+    g_p = 0.4553
+    g_w = 0.4132
+    return israel_arctan_function(tau, rho, a, d_a, d_p, d_w, g_a, g_p, g_w)
+>>>>>>> Added roe.express_matrix_dtype switch:arctic/util.py
 
 
 def set_min_max(value, min, max):

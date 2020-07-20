@@ -9,8 +9,12 @@ import arcticpy as ac
 #
 # Check trailing of trails
 # Multiphase vs single phase
-# Bookkeepng - conservation of initial n_electrons
-
+# Bookkeeping - conservation of initial n_electrons
+# test__express_is_good_approximation_for_charge_injection (draft in test_roe)
+# test__express_is_good_approximation_for_readout
+#
+#    def test__trailing_of_trails(self):
+#        assert False, "TBD"
 
 class TestGeneral:
     def test__add_cti__parallel_only__single_pixel__compare_cplusplus_version(self,):
@@ -586,6 +590,36 @@ class TestAddCTIParallelOnly:
 
         assert (image_difference[:, 5] == 0.0).all()  # No Delta, no charge
 
+    def test__split_parallel_readout_by_time(self):
+
+        image_pre_cti = np.zeros((10,1))
+        image_pre_cti[1, 0] += 10000
+
+        trap = ac.Trap(density=10, release_timescale=10.0)
+        ccd = ac.CCD(well_notch_depth=0.0, well_fill_power=0.8, full_well_depth=100000)
+        roe = ac.ROE(empty_traps_at_start=False)
+
+        # Run all in one go
+        express = 2
+        offset = 0
+        split_point = 0.3
+        image_post_cti = ac.add_cti(
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd=ccd, parallel_roe=roe, parallel_express=express
+        )
+        trail = image_post_cti - image_pre_cti
+
+        # Run in two halves
+        image_post_cti_firsthalf = ac.add_cti(
+            image=image_pre_cti, parallel_traps=[trap], parallel_ccd=ccd, parallel_roe=roe, parallel_express=express, time_window = [0, split_point],
+        )
+        trail_firsthalf = image_post_cti_firsthalf - image_pre_cti
+        image_post_cti_split = ac.add_cti(
+            image=image_post_cti_firsthalf, parallel_traps=[trap], parallel_ccd=ccd, parallel_roe=roe, parallel_express=express, time_window=[split_point, 1],
+        )
+        trail_split = image_post_cti_split - image_pre_cti
+
+        assert all(abs(trail_split - trail) < 2e-4)
+
 
 class TestArcticAddCTIParallelAndSerial:
     def test__horizontal_charge_line__loses_charge_trails_form_both_directions(self,):
@@ -905,6 +939,38 @@ class TestArcticAddCTIParallelAndSerial:
             image_difference[3:5, 3:5] < 0.0
         ).all()  # fewer captures in 2, so fainter trails trail region
 
+    def test__split_serial_readout_by_time(self):
+
+        image_pre_cti = np.zeros((4, 10))
+        image_pre_cti[0, 1] += 10000
+
+        trap = ac.Trap(density=10, release_timescale=10.0)
+        ccd = ac.CCD(well_notch_depth=0.0, well_fill_power=0.8, full_well_depth=100000)
+        roe = ac.ROE(empty_traps_at_start=False, empty_traps_between_columns=True)
+
+        express = 2
+        offset = 0
+        split_point = 0.75
+
+        # Run in two halves
+        image_post_cti_firsthalf = ac.add_cti(
+            image=image_pre_cti, serial_traps=[trap], serial_ccd=ccd, serial_roe=roe, serial_express=express, serial_offset=offset,
+            time_window=[0, split_point],
+        )
+        trail_firsthalf = image_post_cti_firsthalf - image_pre_cti
+        image_post_cti_split = ac.add_cti(
+            image=image_post_cti_firsthalf, serial_traps=[trap], serial_ccd=ccd, serial_roe=roe, serial_express=express, serial_offset=offset,
+            time_window=[split_point, 1],
+        )
+        trail_split = image_post_cti_split - image_pre_cti
+
+        # Run all in one go
+        image_post_cti = ac.add_cti(
+            image=image_pre_cti, serial_traps=[trap], serial_ccd=ccd, serial_roe=roe, serial_express=express, serial_offset=offset
+        )
+        trail = image_post_cti - image_pre_cti
+
+        assert ((abs(trail_split - trail) < 1e-6).all())
 
 class TestAddCTIParallelMultiPhase:
     def test__square__horizontal_line__line_loses_charge_trails_appear(self):

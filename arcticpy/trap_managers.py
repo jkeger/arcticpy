@@ -12,7 +12,7 @@ from arcticpy.ccd import CCD, CCDPhase
 
 
 class AllTrapManager(UserList):
-    def __init__(self, traps, n_pixels, ccd=None):
+    def __init__(self, traps, max_n_transfers, ccd=None):
         """
         A list (of a list) of trap managers.
         Each trap manager handles a group of trap species that shares watermark levels;
@@ -28,7 +28,7 @@ class AllTrapManager(UserList):
             must be able to share watermarks - i.e. they are distributed in the same way 
             throughout the pixel volume, and their state is stored either by occupancy or
             time since filling. e.g. [[bulk_trap_slow,bulk_trap_fast],[surface_trap]]
-        n_pixels :  int
+        max_n_transfers :  int
             The number of pixels containing traps that charge will be expected to move.
             This determines the maximum number of possible capture/release events that
             could chreate new watermark levels, and is used to initialise the watermark
@@ -61,8 +61,6 @@ class AllTrapManager(UserList):
             traps = [traps]
         if not isinstance(traps[0], list):
             traps = [traps]
-        # if ccd is None: ccd = ac.CCD()
-        # if n_pixels is None: n_pixels = max(ccd.n_pixels)
 
         # Replicate trap managers to keep track of traps in different phases separately
         # fraction_of_traps = ccd.fraction_of_traps
@@ -78,14 +76,14 @@ class AllTrapManager(UserList):
                     (TrapLifetimeContinuum, TrapLogNormalLifetimeContinuum),
                 ):
                     trap_manager = TrapManagerTrackTime(
-                        traps=trap_group, n_pixels=n_pixels
+                        traps=trap_group, max_n_transfers=max_n_transfers
                     )
                 elif isinstance(trap_group[0], TrapInstantCapture):
                     trap_manager = TrapManagerInstantCapture(
-                        traps=trap_group, n_pixels=n_pixels
+                        traps=trap_group, max_n_transfers=max_n_transfers
                     )
                 else:
-                    trap_manager = TrapManager(traps=trap_group, n_pixels=n_pixels)
+                    trap_manager = TrapManager(traps=trap_group, max_n_transfers=max_n_transfers)
                 trap_manager.n_traps_per_pixel *= ccd.fraction_of_traps[phase]
                 trap_managers_this_phase.append(trap_manager)
             self.data.append(trap_managers_this_phase)
@@ -151,7 +149,7 @@ class AllTrapManager(UserList):
 
 
 class TrapManager(object):
-    def __init__(self, traps, n_pixels, ccd=CCD(), phase=0):
+    def __init__(self, traps, max_n_transfers, ccd=None, phase=0):
         """
         The manager for potentially multiple trap species that are able to use 
         watermarks in the same way as each other.
@@ -163,12 +161,12 @@ class TrapManager(object):
             to share watermarks - i.e. they must be similarly distributed throughout 
             the pixel volume, and all their states must be stored either by occupancy or
             by time since filling. e.g. [bulk_trap_slow,bulk_trap_fast]
-        n_pixels :  int
+        max_n_transfers :  int
             The number of pixels containing traps that charge will be expected to move.
             This determines the maximum number of possible capture/release events that
             could chreate new watermark levels, and is used to initialise the watermark
             array to be only as large as needed, for efficiency.
-        ccd :  CCD
+        ccd :  arctic.CCD
             Configuration of the CCD in which the electrons will move. Used to access the
             number of phases per pixel, and the fractional volume of a pixel that is filled
             by a cloud of electrons.
@@ -196,16 +194,13 @@ class TrapManager(object):
         if isinstance(phase, list):
             if len(phase) > 0:
                 raise ValueError("")
-        # RJM: might be able to add this
-        # if not isinstance(traps[0], list):
-        #    traps = [traps]
         self.traps = deepcopy(traps)
-        self._n_pixels = n_pixels
+        self._max_n_transfers = max_n_transfers
 
         # Set up the watermark array
         self.watermarks = np.zeros(
             (
-                1 + (self.n_pixels * self.n_watermarks_per_transfer),
+                1 + (self.max_n_transfers * self.n_watermarks_per_transfer),
                 # this +1 is to ensure there is always at least one zero, even if all transfers create a new watermark. The zero is used to find the highest used watermark
                 1 + self.n_trap_species,
                 # this +1 is to make space for the volume column
@@ -240,7 +235,9 @@ class TrapManager(object):
                 self, n_electrons, ccd_filling_function
             ):
                 fraction_of_traps = 0
-                # RESERVED FOR SEURFACE TRAPS OR SPECIES WITH NONUNIFORM DENSITY WITHIN A PIXEL
+                #
+                # RJM: RESERVED FOR SURFACE TRAPS OR SPECIES WITH NONUNIFORM DENSITY WITHIN A PIXEL
+                #
                 # self.traps[0].something(self.ccd.cloud_fractional_volume_from_n_electrons_in_phase(self.phase) )
                 return fraction_of_traps
 
@@ -256,20 +253,20 @@ class TrapManager(object):
             self, n_electrons, ccd_filling_function
         )
 
-    # The value for a filled watermark level, here 1 as a fill fraction
+    # The value for a full watermark level, here 1 because we are monitoring the fill fraction
     @property
     def filled_watermark_value(self):
         return 1
 
-    # Each transfer can create up to 2 new watermark levels (at the other extreme, a transfer can remove all but one)
+    # Each transfer can create up to 2 new watermark levels (at the other extreme, a transfer can remove all watermarks bar one)
     @property
     def n_watermarks_per_transfer(self):
         return 2
 
     # Number of pixels for which this manager is expected to monitor trap occupancy
     @property
-    def n_pixels(self):
-        return self._n_pixels
+    def max_n_transfers(self):
+        return self._max_n_transfers
 
     # Total number of trap species within this trap manager
     @property
@@ -453,17 +450,6 @@ class TrapManager(object):
         watermarks : np.ndarray
             The updated watermarks. See initial_watermarks_from_n_pixels_and_total_traps().
         """
-        # Matching watermark fractional volumes
-        np.set_printoptions(suppress=True, linewidth=0)
-        # print("wi", watermarks_initial[0:10, 0])
-        # print("w ", watermarks[0:10, 0])
-        # if not (watermarks_initial[:, 0] == watermarks[:, 0]).all():
-        #   print("wi", watermarks_initial[:, 0])
-        #   print("w ", watermarks[:, 0])
-        # assert (watermarks_initial[:, 0] == watermarks[:, 0]).all()
-
-        # Select watermark fill fractions that increased
-        where_increased = np.where(watermarks_initial[:, 1:] < watermarks[:, 1:])
 
         # Limit the increase to the `enough` fraction of the original
         watermarks[:, 1:] = (
@@ -1407,7 +1393,7 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
 
 #
 #
-# RANDOM STUFF FOR FUTURE ADOPTION
+# RJM: IDEAS FOR FUTURE ADOPTION
 #
 #
 
@@ -1428,7 +1414,7 @@ class TrapManagerDiscrete(TrapManager):
         hence the number of electrons it holds when it is at maximum occupancy).
         """
 
-        n_pixels = self.n_pixels
+        max_n_transfers = self.max_n_transfers
         n_traps_per_trap = self.traps.discrete
         n_traps = self.traps.density * n_pixels * n_traps_per_trap
 
@@ -1442,6 +1428,7 @@ class TrapManagerDiscrete(TrapManager):
             n_traps = np.rint(n_traps)
 
         # Decide (random) trap locations
+        np.set_printoptions(suppress=True, linewidth=0)
         print("This should account for phase widths!!!")
         x = np.random.randint(0, n_pixels, n_traps)
         x.sort
@@ -1481,16 +1468,12 @@ class TrapManagerNonUniformHeightDistribution(TrapManager):
             traps=traps, rows=rows
         )
 
-        #
-        # RJM: why [0] in the next two lines?
-        #
         self.electron_fractional_height_min = traps[0].electron_fractional_height_min
         self.electron_fractional_height_max = traps[0].electron_fractional_height_max
 
     def effective_non_uniform_electron_fractional_height(
         self, electron_fractional_height
     ):
-        # @staticmethod ?
         """
         Find the total number of electrons that the traps can capture, for a 
         non-uniform distribution of traps with height within the pixel.

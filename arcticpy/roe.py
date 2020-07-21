@@ -230,15 +230,15 @@ class ROEAbstract(object):
                 #    [(step_prime - phase + ((n_phases - 1) // 2)) // n_phases]
                 # )
                 capture_from_which_pixel = (
-                                                   step_prime - phase + ((n_phases - 1) // 2)
-                                           ) // n_phases
+                    step_prime - phase + ((n_phases - 1) // 2)
+                ) // n_phases
 
                 # How many pixels to split the release between?
                 n_phases_for_release = 1 + (phase == split_release_phase)
 
                 # How much to release into each pixel?
                 release_fraction_to_pixel = (
-                        np.ones(n_phases_for_release, dtype=float) / n_phases_for_release
+                    np.ones(n_phases_for_release, dtype=float) / n_phases_for_release
                 )
 
                 # Where to release to?
@@ -286,12 +286,12 @@ class ROEAbstract(object):
 
 class ROE(ROEAbstract):
     def __init__(
-            self,
-            dwell_times=[1],
-            empty_traps_at_start=True,
-            empty_traps_between_columns=True,
-            force_downstream_release=True,
-            express_matrix_dtype=float
+        self,
+        dwell_times=[1],
+        empty_traps_at_start=True,
+        empty_traps_between_columns=True,
+        force_downstream_release=True,
+        express_matrix_dtype=float,
     ):
         """
         Inputs:
@@ -382,7 +382,7 @@ class ROE(ROEAbstract):
         return self.n_steps
 
     def express_matrix_from_pixels_and_express(
-            self, pixels, express=0, offset=0, window_express=None
+        self, pixels, express=0, offset=0, window_express=None
     ):
         """ 
         To reduce runtime, instead of calculating the effects of every 
@@ -437,7 +437,9 @@ class ROE(ROEAbstract):
             n_pixels -= 1
 
         # Initialise an array with enough pixels to contain the supposed image, including offset
-        express_matrix = np.ndarray((express, n_pixels + offset), dtype=self.express_matrix_dtype)
+        express_matrix = np.ndarray(
+            (express, n_pixels + offset), dtype=self.express_matrix_dtype
+        )
 
         # Compute the multiplier factors
         max_multiplier = (n_pixels + offset) / express
@@ -458,7 +460,9 @@ class ROE(ROEAbstract):
             express_matrix_small = express_matrix
             # Create a new matrix for the full number of transfers
             n_pixels += 1
-            express_matrix = np.flipud(np.identity(n_pixels + offset, dtype=self.express_matrix_dtype))
+            express_matrix = np.flipud(
+                np.identity(n_pixels + offset, dtype=self.express_matrix_dtype)
+            )
             # Insert the original transfers into the new matrix at appropriate places
             n_nonzero = np.sum(express_matrix_small > 0, axis=1)
             express_matrix[n_nonzero, 1:] += express_matrix_small
@@ -468,9 +472,15 @@ class ROE(ROEAbstract):
         when_to_monitor_traps = when_to_monitor_traps[:, window]
 
         # Extract the desired section of the array
-        express_matrix = self.restrict_time_span_of_express_matrix(express_matrix, window_express)  # keep only the temporal region of interest (do this last because a: it is faster if operating on a smaller array, and b: it includes the removal of lines that are all zero, some of which might already exist)
-        express_matrix = express_matrix[:, offset:]  # remove the offset (which is not represented in the image pixels)
-        express_matrix = express_matrix[:, window]  # keep only the spatial region of interest
+        express_matrix = self.restrict_time_span_of_express_matrix(
+            express_matrix, window_express
+        )  # keep only the temporal region of interest (do this last because a: it is faster if operating on a smaller array, and b: it includes the removal of lines that are all zero, some of which might already exist)
+        express_matrix = express_matrix[
+            :, offset:
+        ]  # remove the offset (which is not represented in the image pixels)
+        express_matrix = express_matrix[
+            :, window
+        ]  # keep only the spatial region of interest
 
         return (
             express_matrix,
@@ -503,7 +513,6 @@ class ROE(ROEAbstract):
 
         return express_matrix
 
-
     def when_to_store_traps_from_express_matrix(self, express_matrix):
         """
         Decide appropriate moments to store trap occupancy levels, so the next
@@ -529,12 +538,12 @@ class ROE(ROEAbstract):
 
 class ROEChargeInjection(ROE):
     def __init__(
-            self,
-            dwell_times=[1],
-            n_active_pixels=None,
-            empty_traps_between_columns=True,
-            force_downstream_release=True,
-            express_matrix_dtype=float
+        self,
+        dwell_times=[1],
+        n_active_pixels=None,
+        empty_traps_between_columns=True,
+        force_downstream_release=True,
+        express_matrix_dtype=float,
     ):
         """  
             True:  electrons are electronically created by a charge injection 
@@ -565,13 +574,13 @@ class ROEChargeInjection(ROE):
         )
 
     def express_matrix_from_pixels_and_express(
-            self,
-            pixels,
-            express=0,
-            offset=0,
-            window_express=None,
-            **kwargs
-            # No other arguments are used, but may be passed by functions that call this for multiple types of ROE
+        self,
+        pixels,
+        express=0,
+        offset=0,
+        window_express=None,
+        **kwargs
+        # No other arguments are used, but may be passed by functions that call this for multiple types of ROE
     ):
         """ 
         Returns
@@ -584,7 +593,9 @@ class ROEChargeInjection(ROE):
         window = range(pixels) if isinstance(pixels, int) else pixels
         n_pixels = max(window) + 1
         n_active_pixels = (
-             n_pixels + offset if self.n_active_pixels is None else self.n_active_pixels#
+            n_pixels + offset
+            if self.n_active_pixels is None
+            else self.n_active_pixels  #
         )
 
         # Default to very slow but accurate behaviour
@@ -607,7 +618,9 @@ class ROEChargeInjection(ROE):
 
         # Keep only the temporal region of interest
         when_to_monitor_traps = express_matrix > 0
-        express_matrix = self.restrict_time_span_of_express_matrix(express_matrix, window_express)
+        express_matrix = self.restrict_time_span_of_express_matrix(
+            express_matrix, window_express
+        )
 
         return (
             express_matrix,
@@ -625,11 +638,11 @@ class ROEChargeInjection(ROE):
 
 class ROETrapPumping(ROEAbstract):
     def __init__(
-            self,
-            dwell_times=[0.5, 0.5],
-            n_pumps=1,
-            empty_traps_at_start=True,
-            express_matrix_dtype=float,
+        self,
+        dwell_times=[0.5, 0.5],
+        n_pumps=1,
+        empty_traps_at_start=True,
+        express_matrix_dtype=float,
     ):
         """  
         Readout sequence to represent tramp pumping (aka pocket pumping).
@@ -688,11 +701,11 @@ class ROETrapPumping(ROEAbstract):
         return self.n_steps // 2
 
     def express_matrix_from_pixels_and_express(
-            self,
-            pixels_with_traps,
-            express=0,
-            **kwargs
-            # No other arguments are used, but may be passed by functions that call this for multiple types of ROE
+        self,
+        pixels_with_traps,
+        express=0,
+        **kwargs
+        # No other arguments are used, but may be passed by functions that call this for multiple types of ROE
     ):
         """ 
         To reduce runtime, instead of calculating the effects of every 
@@ -759,7 +772,8 @@ class ROETrapPumping(ROEAbstract):
 
         # Initialise an array
         express_matrix = np.zeros(
-            (n_express * n_pixels_with_traps, n_pixels_with_traps), dtype=self.express_matrix_dtype
+            (n_express * n_pixels_with_traps, n_pixels_with_traps),
+            dtype=self.express_matrix_dtype,
         )
 
         # Insert multipliers into final array

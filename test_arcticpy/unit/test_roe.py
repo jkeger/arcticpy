@@ -1,11 +1,8 @@
 import pytest
-<<<<<<< HEAD:test_arcticpy/unit/test_roe.py
+import numpy as np
 
 import arcticpy as ac
-=======
-import numpy as np
-import arctic as ac
->>>>>>> Added roe.express_matrix_dtype switch:test_arctic/unit/test_roe.py
+
 
 class TestExpress:
     def test__split_parallel_and_serial_readout_by_time(self):

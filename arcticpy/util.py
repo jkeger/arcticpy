@@ -1,27 +1,3 @@
-<<<<<<< HEAD:arcticpy/util.py
-import cProfile, pstats, io
-
-
-def profile(fnc):
-    """ A decorator that uses cProfile to profile a function. """
-
-    def inner(*args, **kwargs):
-
-        pr = cProfile.Profile()
-        pr.enable()
-        retval = fnc(*args, **kwargs)
-        pr.disable()
-
-        s = io.StringIO()
-        sortby = "cumulative"
-        ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
-        ps.print_stats()
-        print(s.getvalue())
-
-        return retval
-
-    return inner
-=======
 import numpy as np
 
 def israel_arctan_function(tau, rho, a, d_a, d_p, d_w, g_a, g_p, g_w):
@@ -42,7 +18,6 @@ def delta_ellipticity(tau, rho=1):
     g_p = 0.4553
     g_w = 0.4132
     return israel_arctan_function(tau, rho, a, d_a, d_p, d_w, g_a, g_p, g_w)
->>>>>>> Added roe.express_matrix_dtype switch:arctic/util.py
 
 
 def set_min_max(value, min, max):

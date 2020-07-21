@@ -384,10 +384,6 @@ class TrapLogNormalLifetimeContinuum(TrapLifetimeContinuum):
         )
 
 
-
-
-
-
 #
 #
 # RJM: IDEAS FOR FUTURE ADOPTION

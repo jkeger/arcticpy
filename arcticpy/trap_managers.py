@@ -83,7 +83,9 @@ class AllTrapManager(UserList):
                         traps=trap_group, max_n_transfers=max_n_transfers
                     )
                 else:
-                    trap_manager = TrapManager(traps=trap_group, max_n_transfers=max_n_transfers)
+                    trap_manager = TrapManager(
+                        traps=trap_group, max_n_transfers=max_n_transfers
+                    )
                 trap_manager.n_traps_per_pixel *= ccd.fraction_of_traps[phase]
                 trap_managers_this_phase.append(trap_manager)
             self.data.append(trap_managers_this_phase)

@@ -11,13 +11,8 @@ James Nightingale
 """
 import numpy as np
 from copy import deepcopy
-<<<<<<< HEAD:arcticpy/main.py
 
-from arcticpy.roe import (
-    ROE,
-    ROEChargeInjection,
-    ROETrapPumping,
-)
+from arcticpy.roe import ROE
 from arcticpy.ccd import CCD, CCDPhase
 from arcticpy.traps import (
     Trap,
@@ -25,17 +20,8 @@ from arcticpy.traps import (
     TrapLogNormalLifetimeContinuum,
     TrapInstantCapture,
 )
-from arcticpy.trap_managers import (
-    AllTrapManager,
-    TrapManager,
-    TrapManagerTrackTime,
-    TrapManagerInstantCapture,
-)
+from arcticpy.trap_managers import AllTrapManager
 from arcticpy import util
-=======
-from arctic.roe import ROE
-from arctic.trap_managers import AllTrapManager
->>>>>>> Added roe.express_matrix_dtype switch:arctic/main.py
 
 
 def _clock_charge_in_one_direction(

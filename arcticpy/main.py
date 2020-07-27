@@ -57,12 +57,17 @@ def _clock_charge_in_one_direction(
         The output array of pixel values.
     """
 
-    # Calculate the number of times that the effect of each pixel-to-pixel transfer can be replicated
-    express_matrix, when_to_monitor_traps, when_to_store_traps = roe.express_matrix_from_pixels_and_express(
+    # Calculate the number of times that the effect of each pixel-to-pixel
+    # transfer can be replicated
+    (
+        express_matrix,
+        when_to_monitor_traps,
+        when_to_store_traps,
+    ) = roe.express_matrix_from_pixels_and_express(
         window_row, express=express, offset=offset, window_express=window_express
     )
     (n_express, n_rows_to_process) = express_matrix.shape
-    
+
     # Decide in advance which steps need to be evaluated, and which can be skipped
     phases_with_traps = [i for i, x in enumerate(ccd.fraction_of_traps) if x > 0]
     steps_with_nonzero_dwell_time = [i for i, x in enumerate(roe.dwell_times) if x > 0]
@@ -86,6 +91,7 @@ def _clock_charge_in_one_direction(
         # Monitor the traps in every pixel, or just one (express=1) or a few
         # (express=a few) then replicate their effect
         for express_index in range(n_express):
+            print(" # express = %d" % express_index)
 
             # Reset trap occupancy levels
             trap_managers.restore()
@@ -95,7 +101,7 @@ def _clock_charge_in_one_direction(
             for row_index in range(len(window_row)):
 
                 express_multiplier = express_matrix[express_index, row_index]
-                #if express_multiplier == 0:
+                # if express_multiplier == 0:
                 if not when_to_monitor_traps[express_index, row_index]:
                     continue
 
@@ -105,14 +111,14 @@ def _clock_charge_in_one_direction(
                     for phase in phases_with_traps:
 
                         # Extract initial number of electrons from the relevant charge cloud
-                        potential = roe.clock_sequence[clocking_step][phase]
+                        roe_potential_dict = roe.clock_sequence[clocking_step][phase]
                         row_read = (
                             window_row[row_index]
-                            + potential["capture_from_which_pixel"]
+                            + roe_potential_dict["capture_from_which_pixel"]
                         )
                         n_free_electrons = (
                             image[row_read, window_column[column_index]]
-                            * potential["high"]
+                            * roe_potential_dict["high"]
                         )
 
                         # Allow electrons to be released from and captured by charge traps
@@ -129,15 +135,17 @@ def _clock_charge_in_one_direction(
 
                         # Return the released electrons back to the relevant charge cloud
                         row_write = (
-                            window_row[row_index] + potential["release_to_which_pixel"]
+                            window_row[row_index]
+                            + roe_potential_dict["release_to_which_pixel"]
                         )
                         image[row_write, window_column[column_index]] += (
                             n_electrons_released_and_captured
-                            * potential["release_fraction_to_pixel"]
+                            * roe_potential_dict["release_fraction_to_pixel"]
                             * express_multiplier
                         )
 
-                # At end of (each express pass on) each row, check whether trap occupancy will be required for next express pass
+                # At end of (each express pass on) each row, check whether trap
+                # occupancy will be required for next express pass
                 if when_to_store_traps[express_index, row_index]:
                     trap_managers.save()
 
@@ -167,7 +175,7 @@ def add_cti(
     serial_express=0,
     serial_offset=0,
     serial_window=None,
-    time_window=[0,1],
+    time_window=[0, 1],
 ):
     """
     Add CTI trails to an image by trapping, releasing, and moving electrons
@@ -232,20 +240,21 @@ def add_cti(
         serial_window = range(n_columns_in_image)
     elif isinstance(serial_window, int):
         serial_window = range(serial_window, serial_window + 1)
-    if time_window == [0,1]:
+    if time_window == [0, 1]:
         express_window = None
         window_column_serial = parallel_window
     else:
         express_window = range(
             int(time_window[0] * (n_rows_in_image + parallel_offset)),
-            int(time_window[1] * (n_rows_in_image + parallel_offset))
+            int(time_window[1] * (n_rows_in_image + parallel_offset)),
         )
         if len(express_window) == 0:
             window_column_serial = range(0)
         else:
-            window_column_serial = range(  # intersection of spatial and temporal windows of interest
+            # Intersection of spatial and temporal windows of interest
+            window_column_serial = range(
                 max(parallel_window[0], express_window[0] - parallel_offset),
-                min(parallel_window[-1], express_window[-1] - parallel_offset) + 1
+                min(parallel_window[-1], express_window[-1] - parallel_offset) + 1,
             )
 
     # If ROE not provided then assume simple, single-phase clocking in imaging mode
@@ -313,7 +322,7 @@ def remove_cti(
     serial_express=0,
     serial_offset=0,
     serial_window=None,
-    time_window=[0,1]
+    time_window=[0, 1],
 ):
     """
     Add CTI trails to an image by trapping, releasing, and moving electrons 

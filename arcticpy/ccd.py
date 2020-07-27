@@ -23,15 +23,14 @@ class CCD(object):
         trap density is  uniform, the ratio of full_well_depth to fraction_of_traps will
         be the same in all phases. 
 
-        # All the following are equivalent:
+        All the following are equivalent:
+            detector.cloud_fractional_volume_from_n_electrons_and_phase(n_electrons, phase)
 
-        detector.cloud_fractional_volume_from_n_electrons_and_phase(n_electrons,phase)
+            f = detector.cloud_fractional_volume_from_n_electrons_in_phase(phase)
+            f(n_electrons)
 
-        f=detector.cloud_fractional_volume_from_n_electrons_in_phase(phase)
-        f(n_electrons)
-
-        p=ac.CCDPhase(detector,phase)
-        p.cloud_fractional_volume_from_n_electrons(n_electrons)
+            p = ac.CCDPhase(detector, phase)
+            p.cloud_fractional_volume_from_n_electrons(n_electrons)
         
         
         Parameters
@@ -169,7 +168,7 @@ class CCD(object):
         asymmetric and happens during readout, unlike bleeding). 
         
         This function embodies the core assumption of a volume-driven CTI
-        model like arCTIc: that traps are either exposed (and have a
+        model like ArCTIC: that traps are either exposed (and have a
         constant capture timescale, which may be zero for instant capture),
         or unexposed and therefore unavailable. This behaviour differs from
         a density-driven CTI model, in which traps may capture an electron
@@ -181,8 +180,8 @@ class CCD(object):
 
         def cloud_fractional_volume_from_n_electrons(n_electrons, surface=False):
             """
-            Inputs
-            ------
+            Parameters
+            ----------
             n_electrons : float
                 The size of a charge cloud in a pixel, in units of the number of 
                 electrons.

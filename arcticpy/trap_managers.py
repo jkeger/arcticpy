@@ -23,17 +23,17 @@ class AllTrapManager(UserList):
         
         Inputs:
         -------
-        traps :  Trap or [Trap] or [[Trap]]
+        traps : Trap or [Trap] or [[Trap]]
             A list of one or more trap species. Species listed together in the inner list
             must be able to share watermarks - i.e. they are distributed in the same way 
             throughout the pixel volume, and their state is stored either by occupancy or
             time since filling. e.g. [[bulk_trap_slow,bulk_trap_fast],[surface_trap]]
-        max_n_transfers :  int
+        max_n_transfers : int
             The number of pixels containing traps that charge will be expected to move.
             This determines the maximum number of possible capture/release events that
             could chreate new watermark levels, and is used to initialise the watermark
             array to be only as large as needed, for efficiency.
-        ccd :  CCD
+        ccd : CCD
             Configuration of the CCD in which the electrons will move. Used to access the
             number of phases per pixel, and the fractional volume of a pixel that is filled
             by a cloud of electrons.
@@ -47,11 +47,11 @@ class AllTrapManager(UserList):
         
         Methods:
         --------
-        empty_all_traps() :
+        empty_all_traps()
             Set all trap occupancies to empty.
-        save() :
+        save()
             Save trap occupancy levels for future reference.
-        restore() :
+        restore()
             Recall trap occupancy levels.
         """
 
@@ -63,7 +63,6 @@ class AllTrapManager(UserList):
             traps = [traps]
 
         # Replicate trap managers to keep track of traps in different phases separately
-        # fraction_of_traps = ccd.fraction_of_traps
         self.data = []
         for phase in range(ccd.n_phases):
 
@@ -127,7 +126,8 @@ class AllTrapManager(UserList):
         """
         Save trap occupancy levels for future reference
         """
-        # This stores far more than necessary. But extracting only the watermark arrays requires overhead.
+        # This stores far more than necessary. But extracting only the watermark
+        # arrays requires overhead.
         self._saved_data = deepcopy(self.data)
         self._n_electrons_trapped_in_save = self.n_electrons_trapped_currently
 
@@ -137,7 +137,8 @@ class AllTrapManager(UserList):
         """
         # Book keeping, of how many electrons have ended up where.
         # About to forget about those currently in traps, so add them to previous total.
-        # About to recall the ones in save back to current account, so remove them from the savings.
+        # About to recall the ones in save back to current account, so remove them
+        # from the savings.
         self._n_electrons_trapped_previously += (
             self.n_electrons_trapped_currently - self._n_electrons_trapped_in_save
         )
@@ -146,7 +147,9 @@ class AllTrapManager(UserList):
             self.empty_all_traps()
         else:
             self.data = deepcopy(self._saved_data)
-        # Could also have done this instead of remembering how many are in save, but it makes restoring a bit slower (and restoring is done more frequently than saving)
+        # Could also have done this instead of remembering how many are in save,
+        # but it makes restoring a bit slower (and restoring is done more
+        # frequently than saving)
         # self._n_electrons_trapped_previously -= self.n_electrons_trapped_currently
 
 
@@ -158,24 +161,24 @@ class TrapManager(object):
 
         Parameters
         ----------
-        traps :  Trap or [Trap]
+        traps : Trap or [Trap]
             A list of one or more trap species. Species listed together must be able 
             to share watermarks - i.e. they must be similarly distributed throughout 
             the pixel volume, and all their states must be stored either by occupancy or
             by time since filling. e.g. [bulk_trap_slow,bulk_trap_fast]
-        max_n_transfers :  int
+        max_n_transfers : int
             The number of pixels containing traps that charge will be expected to move.
             This determines the maximum number of possible capture/release events that
             could chreate new watermark levels, and is used to initialise the watermark
             array to be only as large as needed, for efficiency.
-        ccd :  arctic.CCD
+        ccd : arctic.CCD
             Configuration of the CCD in which the electrons will move. Used to access the
             number of phases per pixel, and the fractional volume of a pixel that is filled
             by a cloud of electrons.
                 
         Attributes
         ----------
-        watermarks :  np.ndarray
+        watermarks : np.ndarray
             Array of watermark fractional volumes and fill fractions to describe 
             the trap states. Lists each (active) watermark fractional volume and 
             the corresponding fill fractions of each traps. Inactive elements 
@@ -202,10 +205,12 @@ class TrapManager(object):
         # Set up the watermark array
         self.watermarks = np.zeros(
             (
+                # This +1 is to ensure there is always at least one zero, even
+                # if all transfers create a new watermark. The zero is used to
+                # find the highest used watermark
                 1 + (self.max_n_transfers * self.n_watermarks_per_transfer),
-                # this +1 is to ensure there is always at least one zero, even if all transfers create a new watermark. The zero is used to find the highest used watermark
+                # This +1 is to make space for the volume column
                 1 + self.n_trap_species,
-                # this +1 is to make space for the volume column
             ),
             dtype=float,
         )
@@ -218,18 +223,16 @@ class TrapManager(object):
         # Are they surface traps?
         self.surface = np.array([trap.surface for trap in traps], dtype=bool)
 
-        # Construct a function that describes the fraction of traps that are exposed by a charge cloud
-        # containing n_electrons. This must be fractional (rather than the absolute number of traps)
-        # because it can be shared between trap species that have different trap densities.
+        # Construct a function that describes the fraction of traps that are
+        # exposed by a charge cloud containing n_electrons. This must be
+        # fractional (rather than the absolute number of traps) because it can
+        # be shared between trap species that have different trap densities.
         if self.traps[0].distribution_within_pixel() == None:
 
             def _fraction_of_traps_exposed_from_n_electrons(
                 self, n_electrons, ccd_filling_function, surface=self.surface[0]
             ):
-                # ccd_filling_function = ccd.cloud_fractional_volume_from_n_electrons_in_phase(phase)
                 return ccd_filling_function(n_electrons)
-                # return (self.ccd.cloud_fractional_volume_from_n_electrons_in_phase)(phase)
-                # return self.ccd.cloud_fractional_volume_from_n_electrons_and_phase(n_electrons,phase)
 
         else:
 
@@ -247,40 +250,42 @@ class TrapManager(object):
             _fraction_of_traps_exposed_from_n_electrons
         )
 
-    # A (self-contained) function describing the well-filling model in any phase
     def fraction_of_traps_exposed_from_n_electrons(
         self, n_electrons, ccd_filling_function=None
     ):
+        """ A (self-contained) function describing the well-filling model in any phase """
         return self._fraction_of_traps_exposed_from_n_electrons(
             self, n_electrons, ccd_filling_function
         )
 
-    # The value for a full watermark level, here 1 because we are monitoring the fill fraction
     @property
     def filled_watermark_value(self):
+        """ The value for a full watermark level, here 1 because we are 
+            monitoring the fill fraction.
+        """
         return 1
 
-    # Each transfer can create up to 2 new watermark levels (at the other extreme, a transfer can remove all watermarks bar one)
     @property
     def n_watermarks_per_transfer(self):
+        """ Each transfer can create up to 2 new watermark levels (at the other 
+            extreme, a transfer can remove all watermarks bar one) 
+        """
         return 2
 
-    # Number of pixels for which this manager is expected to monitor trap occupancy
     @property
     def max_n_transfers(self):
+        """ Number of pixels for which this manager is expected to monitor trap occupancy """
         return self._max_n_transfers
 
-    # Total number of trap species within this trap manager
     @property
     def n_trap_species(self):
+        """ Total number of trap species within this trap manager """
         return len(self.traps)
 
-    # Number of traps of each species, in each pixel
     @property
     def n_traps_per_pixel(self):
-        return np.array(
-            [trap.density for trap in self.traps], dtype=float
-        )  # * self.ccd.fraction_of_traps[self.phase]
+        """ Number of traps of each species, in each pixel """
+        return np.array([trap.density for trap in self.traps], dtype=float)
 
     @n_traps_per_pixel.setter
     def n_traps_per_pixel(self, values):
@@ -588,9 +593,6 @@ class TrapManager(object):
         max_watermark_index = np.argmax(self.watermarks[:, 0] == 0) - 1
 
         # The fractional volume the electron cloud reaches in the pixel well
-        # cloud_fractional_volume = ccd.cloud_fractional_volume_from_n_electrons(
-        #    n_electrons=n_free_electrons
-        # )
         cloud_fractional_volume = self.fraction_of_traps_exposed_from_n_electrons(
             n_electrons=n_free_electrons, ccd_filling_function=ccd_filling_function
         )
@@ -623,7 +625,7 @@ class TrapManager(object):
             enough = n_free_electrons / (express_multiplier * n_trapped_electrons_final)
             if enough < 1:
                 # For watermark fill fractions that increased, tweak them such that
-                #   the resulting increase instead matches the available electrons
+                # the resulting increase instead matches the available electrons
                 self.watermarks = self.updated_watermarks_from_capture_not_enough(
                     self.watermarks, watermarks_initial, enough
                 )
@@ -636,8 +638,8 @@ class TrapManager(object):
             return -n_trapped_electrons_final
 
         # Cloud fractional volume below existing watermarks (or 0): create a new
-        #   watermark at the cloud fractional volume then release electrons from
-        #   watermarks above the cloud
+        # watermark at the cloud fractional volume then release electrons from
+        # watermarks above the cloud
         elif (
             watermark_index_above_cloud <= max_watermark_index
             or max_watermark_index == -1
@@ -677,9 +679,6 @@ class TrapManager(object):
             n_free_electrons += n_trapped_electrons_initial - n_trapped_electrons_tmp
 
             # Re-calculate the fractional volume of the electron cloud
-            # cloud_fractional_volume = ccd.cloud_fractional_volume_from_n_electrons(
-            #    n_electrons=n_free_electrons
-            # )
             cloud_fractional_volume = self.fraction_of_traps_exposed_from_n_electrons(
                 n_electrons=n_free_electrons, ccd_filling_function=ccd_filling_function
             )
@@ -746,7 +745,7 @@ class TrapManager(object):
         )
         if 0 < enough < 1:
             # For watermark fill fractions that increased, tweak them such that
-            #   the resulting increase instead matches the available electrons
+            # the resulting increase instead matches the available electrons
             self.watermarks = self.updated_watermarks_from_capture_not_enough(
                 watermarks=self.watermarks,
                 watermarks_initial=watermarks_initial,
@@ -866,7 +865,6 @@ class TrapManagerInstantCapture(TrapManager):
 
         # Find the highest active watermark
         max_watermark_index = np.argmax(self.watermarks[:, 0] == 0) - 1
-
         # Release electrons from existing watermark levels
         self.watermarks[
             : max_watermark_index + 1, 1:
@@ -912,23 +910,17 @@ class TrapManagerInstantCapture(TrapManager):
         watermarks : np.ndarray
             The updated watermarks. See initial_watermarks_from_n_pixels_and_total_traps().
         """
-        # Save the initial watermarks and number of electrons in traps, in case there aren't enough
-        # free electrons to fill all the identified traps
+        # Save the initial watermarks and number of electrons in traps, in case
+        # there aren't enough free electrons to fill all the identified traps
         watermarks_initial = deepcopy(self.watermarks)
         n_trapped_electrons_initial = self.n_trapped_electrons_from_watermarks(
             watermarks=self.watermarks
         )
 
-        # The number of traps for each species
-        # n_traps_per_pixel = self.n_traps_per_pixel
-
         # Find the highest active watermark
         max_watermark_index = np.argmax(self.watermarks[:, 0] == 0) - 1
 
         # The fractional volume the electron cloud reaches in the pixel well
-        # cloud_fractional_volume = self.ccd.cloud_fractional_volume_from_n_electrons(
-        #    n_electrons=n_free_electrons
-        # )
         cloud_fractional_volume = self.fraction_of_traps_exposed_from_n_electrons(
             n_electrons=n_free_electrons, ccd_filling_function=ccd_filling_function
         )
@@ -961,7 +953,7 @@ class TrapManagerInstantCapture(TrapManager):
             enough = n_free_electrons / (express_multiplier * n_trapped_electrons_final)
             if enough < 1:
                 # For watermark fill fractions that increased, tweak them such that
-                #   the resulting increase instead matches the available electrons
+                # the resulting increase instead matches the available electrons
                 self.watermarks = self.updated_watermarks_from_capture_not_enough(
                     self.watermarks, watermarks_initial, enough
                 )
@@ -974,7 +966,7 @@ class TrapManagerInstantCapture(TrapManager):
             return n_trapped_electrons_final
 
         # Cloud fractional volume below existing watermarks (or 0): create a new
-        #   watermark at the cloud fractional volume
+        # watermark at the cloud fractional volume
         elif (
             watermark_index_above_cloud <= max_watermark_index
             or max_watermark_index == -1
@@ -1015,7 +1007,6 @@ class TrapManagerInstantCapture(TrapManager):
         self.watermarks[
             : watermark_index_above_cloud + 1, 1:
         ] = self.filled_watermark_value
-        # self.watermarks[: watermark_index_above_cloud + 1, 1:] = 0
 
         # Collapse any redundant watermarks that are completely full
         self.watermarks, watermarks_initial = self.collapse_redundant_watermarks(
@@ -1038,7 +1029,7 @@ class TrapManagerInstantCapture(TrapManager):
         )
         if 0 < enough < 1:
             # For watermark fill fractions that increased, tweak them such that
-            #   the resulting increase instead matches the available electrons
+            # the resulting increase instead matches the available electrons
             self.watermarks = self.updated_watermarks_from_capture_not_enough(
                 watermarks=self.watermarks,
                 watermarks_initial=watermarks_initial,
@@ -1107,9 +1098,6 @@ class TrapManagerInstantCapture(TrapManager):
         max_watermark_index = np.argmax(self.watermarks[:, 0] == 0) - 1
 
         # The fractional volume the electron cloud reaches in the pixel well
-        # cloud_fractional_volume = ccd.cloud_fractional_volume_from_n_electrons(
-        #    n_electrons=n_free_electrons
-        # )
         cloud_fractional_volume = self.fraction_of_traps_exposed_from_n_electrons(
             n_electrons=n_free_electrons, ccd_filling_function=ccd_filling_function
         )
@@ -1143,7 +1131,7 @@ class TrapManagerInstantCapture(TrapManager):
 
             if enough < 1:
                 # For watermark fill fractions that increased, tweak them such that
-                #   the resulting increase instead matches the available electrons
+                # the resulting increase instead matches the available electrons
                 self.watermarks = self.updated_watermarks_from_capture_not_enough(
                     self.watermarks, watermarks_initial, enough
                 )
@@ -1156,7 +1144,7 @@ class TrapManagerInstantCapture(TrapManager):
             return -n_trapped_electrons_final
 
         # Cloud fractional volume below existing watermarks (or 0): create a new
-        #   watermark at the cloud fractional volume
+        # watermark at the cloud fractional volume
         elif (
             watermark_index_above_cloud <= max_watermark_index
             or max_watermark_index == -1
@@ -1197,7 +1185,6 @@ class TrapManagerInstantCapture(TrapManager):
         self.watermarks[
             : watermark_index_above_cloud + 1, 1:
         ] = self.filled_watermark_value
-        # self.watermarks[: watermark_index_above_cloud + 1, 1:] = 0
 
         # Collapse any redundant watermarks that are completely full
         self.watermarks, watermarks_initial = self.collapse_redundant_watermarks(
@@ -1220,7 +1207,7 @@ class TrapManagerInstantCapture(TrapManager):
         )
         if 0 < enough < 1:
             # For watermark fill fractions that increased, tweak them such that
-            #   the resulting increase instead matches the available electrons
+            # the resulting increase instead matches the available electrons
             self.watermarks = self.updated_watermarks_from_capture_not_enough(
                 watermarks=self.watermarks,
                 watermarks_initial=watermarks_initial,
@@ -1260,9 +1247,9 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
              ...                        ]
     """
 
-    # The value for a filled watermark level, here 0 is an elapsed time
     @property
     def filled_watermark_value(self):
+        """ The value for a filled watermark level, here 0 is an elapsed time """
         return 0
 
     def watermarks_converted_to_fill_fractions_from_elapsed_times(self, watermarks):

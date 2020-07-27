@@ -19,6 +19,8 @@ class Trap(object):
             spent in each pixel or phase (Clocker sequence).
         capture_timescale : float
             The capture timescale of the trap. Default 0 for instant capture.
+        surface : bool
+            ###
             
         Attributes
         ----------
@@ -119,6 +121,7 @@ class Trap(object):
 
     @property
     def delta_ellipticity(self):
+        """ ### """
 
         a = 0.05333
         d_a = 0.03357
@@ -149,19 +152,23 @@ class Trap(object):
 
     @classmethod
     def poisson_trap(cls, trap, shape, seed=0):
-        """For a set of traps with a given set of densities (which are in traps per pixel), compute a new set of \
-        trap densities by drawing new values for from a Poisson distribution.
+        """
+        For a set of traps with a given set of densities (which are in traps 
+        per pixel), compute a new set of trap densities by drawing new values 
+        for from a Poisson distribution.
 
-        This requires us to first convert each trap density to the total number of traps in the column.
+        This requires us to first convert each trap density to the total number 
+        of traps in the column.
 
-        This is used to model the random distribution of traps on a CCD, which changes the number of traps in each \
-        column.
+        This is used to model the random distribution of traps on a CCD, which 
+        changes the number of traps in each column.
 
         Parameters
         ----------
-        trap
+        ###
         shape : (int, int)
-            The shape of the image, so that the correct number of trap densities are computed.
+            The shape of the image, so that the correct number of trap densities 
+            are computed.
         seed : int
             The seed of the Poisson random number generator.
         """
@@ -186,7 +193,7 @@ class TrapInstantCapture(Trap):
     """ For the old C++ style release-then-instant-capture algorithm. """
 
     def __init__(self, density=0.13, release_timescale=0.25, surface=False):
-        """The parameters for a single trap species.
+        """ The parameters for a single trap species.
 
         Parameters
         ----------
@@ -195,6 +202,8 @@ class TrapInstantCapture(Trap):
         release_timescale : float
             The release timescale of the trap, in the same units as the time 
             spent in each pixel or phase (Clocker sequence).
+        surface : bool
+            ###
         """
         super().__init__(
             density=density,

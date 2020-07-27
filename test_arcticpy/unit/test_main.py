@@ -10,17 +10,112 @@ import arcticpy as ac
 # Check trailing of trails
 # Multiphase vs single phase
 # Bookkeeping - conservation of initial n_electrons
-# test__express_is_good_approximation_for_charge_injection (draft in test_roe)
-# test__express_is_good_approximation_for_readout
-#
-#    def test__trailing_of_trails(self):
-#        assert False, "TBD"
+
+
+###
+import matplotlib.pyplot as plt
+
+
+def format_array_string(array, format):
+    """ Return a print-ready string of an array's contents in a given format.
+
+        Args:
+            array ([])
+                An array of values that can be printed with the given format.
+
+            format (str)
+                A printing format, e.g. "%d", "%.5g".
+                
+                Custom options:
+                    "string":   Include quotation marks around each string.
+                    "dorf":     Int or float if decimal places are needed.
+
+        Returns:
+            string (str)
+                The formatted string.
+    """
+    string = ""
+
+    # Append each element
+    # 1D
+    if len(np.shape(array)) == 1:
+        for x in array:
+            if x is None:
+                string += "None, "
+            else:
+                # Custom formats
+                if format == "string":
+                    string += '"%s", ' % x
+                elif format == "dorf":
+                    string += "{0}, ".format(str(round(x, 1) if x % 1 else int(x)))
+                # Standard formats
+                else:
+                    string += "%s, " % (format % x)
+    # Recursive for higher dimensions
+    else:
+        for arr in array:
+            string += "%s, " % format_array_string(arr, format)
+
+    # Add brackets and remove the trailing comma
+    return "[%s]" % string[:-2]
+
+
+def plot_counts(image_A, image_B, output_name=None):
+    """ Plot the counts of the output and input images. """
+    pixels = np.arange(len(image_A))
+
+    plt.figure(figsize=(10, 6))
+
+    plt.plot(pixels, image_A, lw=1, alpha=0.8, label="1 py")
+    plt.plot(pixels, image_B, lw=1, ls="--", alpha=0.8, label="1 C++")
+
+    # plt.legend()
+    plt.yscale("log")
+    plt.xlabel("Pixel")
+    plt.ylabel("Counts")
+    plt.tight_layout()
+
+    # Save or show the figure
+    if output_name is not None:
+        Fp_save = "test_arcticpy/%s_counts.png" % output_name
+        plt.savefig(Fp_save, dpi=600)
+        print("Saved %s" % Fp_save)
+    # else:
+    #     plt.show()
+    # plt.close()
+
+
+def plot_difference(image_A, image_B, output_name=None):
+    """ Plot the difference between the output and input images. """
+    pixels = np.arange(len(image_A))
+
+    plt.figure(figsize=(10, 6))
+
+    plt.plot(pixels, image_B - image_A, lw=1, alpha=0.8)
+
+    plt.xlabel("Pixel")
+    plt.ylabel("Count Difference")
+    plt.tight_layout()
+
+    # Save or show the figure
+    if output_name is not None:
+        Fp_save = "test_arcticpy/%s_diff.png" % output_name
+        plt.savefig(Fp_save, dpi=600)
+        print("Saved %s" % Fp_save)
+    # else:
+    #     plt.show()
+    # plt.close()
+
+
+###
+
 
 class TestGeneral:
     def test__add_cti__parallel_only__single_pixel__compare_cplusplus_version(self,):
         image = np.zeros((6, 2))
         image[2, 1] = 1000
 
+        # Default traps, similar but slightly different algorithm to the C++
         traps = [ac.Trap(density=10, release_timescale=-1 / np.log(0.5))]
 
         ccd = ac.CCD(well_fill_power=0.8, full_well_depth=8.47e4, well_notch_depth=1e-7)
@@ -41,7 +136,7 @@ class TestGeneral:
             abs=1e-3,
         )
 
-        # Instant capture traps (same release-then-capture algorithm as the C++)
+        # Instant-capture traps, same release-then-capture algorithm as the C++
         image = np.zeros((6, 2))
         image[2, 1] = 1000
 
@@ -64,35 +159,6 @@ class TestGeneral:
             ),
             abs=1e-3,
         )
-
-    def test__remove_cti__parallel_only__single_pixel__successive_iterations(self,):
-        image = np.zeros((6, 2))
-        image[2, 1] = 1000
-
-        traps = [ac.Trap(density=10, release_timescale=-1 / np.log(0.5))]
-
-        ccd = ac.CCD(well_fill_power=0.8, full_well_depth=8.47e4, well_notch_depth=1e-7)
-
-        image_add = ac.add_cti(image=image, parallel_traps=traps, parallel_ccd=ccd)
-
-        # Check similarity after different iterations
-        iterations_tolerance_dict = {
-            1: 1e-2,
-            2: 1e-5,
-            3: 2e-7,
-            4: 2e-9,
-            5: 3e-12,
-        }
-
-        for iterations, tolerance in iterations_tolerance_dict.items():
-            image_rem = ac.remove_cti(
-                image=image_add,
-                iterations=iterations,
-                parallel_traps=traps,
-                parallel_ccd=ccd,
-            )
-
-            assert image_rem == pytest.approx(image, abs=tolerance)
 
     def test__multiple_trap_managers(self):
         image = np.zeros((6, 2))
@@ -592,7 +658,7 @@ class TestAddCTIParallelOnly:
 
     def test__split_parallel_readout_by_time(self):
 
-        image_pre_cti = np.zeros((10,1))
+        image_pre_cti = np.zeros((10, 1))
         image_pre_cti[1, 0] += 10000
 
         trap = ac.Trap(density=10, release_timescale=10.0)
@@ -604,17 +670,31 @@ class TestAddCTIParallelOnly:
         offset = 0
         split_point = 0.3
         image_post_cti = ac.add_cti(
-            image=image_pre_cti, parallel_traps=[trap], parallel_ccd=ccd, parallel_roe=roe, parallel_express=express
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd=ccd,
+            parallel_roe=roe,
+            parallel_express=express,
         )
         trail = image_post_cti - image_pre_cti
 
         # Run in two halves
         image_post_cti_firsthalf = ac.add_cti(
-            image=image_pre_cti, parallel_traps=[trap], parallel_ccd=ccd, parallel_roe=roe, parallel_express=express, time_window = [0, split_point],
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd=ccd,
+            parallel_roe=roe,
+            parallel_express=express,
+            time_window=[0, split_point],
         )
         trail_firsthalf = image_post_cti_firsthalf - image_pre_cti
         image_post_cti_split = ac.add_cti(
-            image=image_post_cti_firsthalf, parallel_traps=[trap], parallel_ccd=ccd, parallel_roe=roe, parallel_express=express, time_window=[split_point, 1],
+            image=image_post_cti_firsthalf,
+            parallel_traps=[trap],
+            parallel_ccd=ccd,
+            parallel_roe=roe,
+            parallel_express=express,
+            time_window=[split_point, 1],
         )
         trail_split = image_post_cti_split - image_pre_cti
 
@@ -954,23 +1034,39 @@ class TestArcticAddCTIParallelAndSerial:
 
         # Run in two halves
         image_post_cti_firsthalf = ac.add_cti(
-            image=image_pre_cti, serial_traps=[trap], serial_ccd=ccd, serial_roe=roe, serial_express=express, serial_offset=offset,
+            image=image_pre_cti,
+            serial_traps=[trap],
+            serial_ccd=ccd,
+            serial_roe=roe,
+            serial_express=express,
+            serial_offset=offset,
             time_window=[0, split_point],
         )
         trail_firsthalf = image_post_cti_firsthalf - image_pre_cti
         image_post_cti_split = ac.add_cti(
-            image=image_post_cti_firsthalf, serial_traps=[trap], serial_ccd=ccd, serial_roe=roe, serial_express=express, serial_offset=offset,
+            image=image_post_cti_firsthalf,
+            serial_traps=[trap],
+            serial_ccd=ccd,
+            serial_roe=roe,
+            serial_express=express,
+            serial_offset=offset,
             time_window=[split_point, 1],
         )
         trail_split = image_post_cti_split - image_pre_cti
 
         # Run all in one go
         image_post_cti = ac.add_cti(
-            image=image_pre_cti, serial_traps=[trap], serial_ccd=ccd, serial_roe=roe, serial_express=express, serial_offset=offset
+            image=image_pre_cti,
+            serial_traps=[trap],
+            serial_ccd=ccd,
+            serial_roe=roe,
+            serial_express=express,
+            serial_offset=offset,
         )
         trail = image_post_cti - image_pre_cti
 
-        assert ((abs(trail_split - trail) < 1e-6).all())
+        assert (abs(trail_split - trail) < 1e-6).all()
+
 
 class TestAddCTIParallelMultiPhase:
     def test__square__horizontal_line__line_loses_charge_trails_appear(self):

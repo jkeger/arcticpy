@@ -1,15 +1,20 @@
 import numpy as np
 
+
 def israel_arctan_function(tau, rho, a, d_a, d_p, d_w, g_a, g_p, g_w):
+    """ ### """
     result = (rho) * (
         a
-        + ( d_a * np.arctan( ( np.log(tau) - d_p) / d_w) )
-        + ( g_a * np.exp( -0.5 * ( (np.log(tau) - g_p) / g_w) ** 2) ) 
-        )
-    if isinstance(result,np.ndarray): result = sum(result)
+        + (d_a * np.arctan((np.log(tau) - d_p) / d_w))
+        + (g_a * np.exp(-0.5 * ((np.log(tau) - g_p) / g_w) ** 2))
+    )
+    if isinstance(result, np.ndarray):
+        result = sum(result)
     return result
 
+
 def delta_ellipticity(tau, rho=1):
+    """ ### """
     a = 0.05333
     d_a = 0.03357
     d_p = 1.628
@@ -53,9 +58,6 @@ def update_fits_header_info(
             parallel_clocker.iterations,
             "Iterations Used In Correction (Parallel)",
         )
-        # ext_header.set(
-        #     "cte_pwld", parallel_clocker.well_depth, "CCD Well Depth (Parallel)"
-        # )
 
     if serial_clocker is not None:
         ext_header.set(
@@ -63,9 +65,6 @@ def update_fits_header_info(
             serial_clocker.iterations,
             "Iterations Used In Correction (Serial)",
         )
-        # ext_header.set(
-        #     "cte_swld", serial_clocker.well_depth, "CCD Well Depth (Serial)"
-        # )
 
         def add_trap(name, traps):
             for i, trap in traps:

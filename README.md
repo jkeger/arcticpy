@@ -1,7 +1,7 @@
-arCTIc python
+ArCTIC python
 =============
 
-Algorithm for Charge Transfer Inefficiency (CTI) correction
+AlgoRithm for Charge Transfer Inefficiency (CTI) Correction
 -----------------------------------------------------------
 
 What is CTI?

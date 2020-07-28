@@ -1,14 +1,3 @@
-"""
-arCTIc: algoRithm for Charge Transfer Inefficiency correction
-
-Add or remove image trailing due to charge transfer inefficiency (CTI) in CCD detectors.
-    
-https://github.com/jkeger/arcticpy
-
-Jacob Kegerreis (2020) jacob.kegerreis@durham.ac.uk
-Richard Massey r.j.massey@durham.ac.uk
-James Nightingale
-"""
 import numpy as np
 from copy import deepcopy
 
@@ -35,21 +24,35 @@ def _clock_charge_in_one_direction(
     ----------
     image : np.ndarray
         The input array of pixel values.
+        
     roe : ROE
-        An object describing the timing and direction(s) in which electrons are moved
-        during readout
+        An object describing the timing and direction(s) in which electrons are 
+        moved during readout.
+        
     ccd : CCD
-        An object describing the way in which a cloud of electrons fills the CCD volume. 
+        An object describing the way in which a cloud of electrons fills the CCD 
+        volume. 
+        
     traps : [Trap] or [[Trap]]
-        A list of one or more trap objects. To use different types of traps 
-        that will require different watermark levels, pass a 2D list of 
-        lists, i.e. a list containing lists of one or more traps for each 
-        type. 
+        A list of one or more trap objects. To use different types of traps that
+        will require different watermark levels, pass a 2D list of lists, i.e. a 
+        list containing lists of one or more traps for each type. 
+        
     express : int
         The factor by which pixel-to-pixel transfers are combined for efficiency.
+        
     offset : int
-        The number of (e.g. prescan) pixels separating the supplied image from the readout 
-        node.
+        The number of (e.g. prescan) pixels separating the supplied image from 
+        the readout node.
+        
+    window_row :
+        ###
+    
+    window_column :
+        ### 
+        
+    window_express :
+        ###
 
     Returns
     -------
@@ -69,7 +72,9 @@ def _clock_charge_in_one_direction(
     (n_express, n_rows_to_process) = express_matrix.shape
 
     # Decide in advance which steps need to be evaluated, and which can be skipped
-    phases_with_traps = [i for i, x in enumerate(ccd.fraction_of_traps) if x > 0]
+    phases_with_traps = [
+        i for i, x in enumerate(ccd.fraction_of_traps_per_phase) if x > 0
+    ]
     steps_with_nonzero_dwell_time = [i for i, x in enumerate(roe.dwell_times) if x > 0]
     express_with_nonzero_effect = (np.sum(express_matrix, axis=1) > 0).nonzero()
 
@@ -91,15 +96,12 @@ def _clock_charge_in_one_direction(
         # Monitor the traps in every pixel, or just one (express=1) or a few
         # (express=a few) then replicate their effect
         for express_index in range(n_express):
-            print(" # express = %d" % express_index)
-
             # Reset trap occupancy levels
             trap_managers.restore()
             checksum = np.sum(image[:, window_column[column_index]])
 
             # Each pixel
             for row_index in range(len(window_row)):
-
                 express_multiplier = express_matrix[express_index, row_index]
                 # if express_multiplier == 0:
                 if not when_to_monitor_traps[express_index, row_index]:
@@ -163,8 +165,8 @@ def _clock_charge_in_one_direction(
 
 def add_cti(
     image,
-    parallel_roe=None,
     parallel_ccd=None,
+    parallel_roe=None,
     parallel_traps=None,
     parallel_express=0,
     parallel_offset=0,
@@ -185,39 +187,47 @@ def add_cti(
     ----------
     image : np.ndarray
         The input array of pixel values, assumed to be in units of electrons.
+        
     parallel_express : int
         The factor by which pixel-to-pixel transfers are combined for
         efficiency for parallel clocking.
+        
     parallel_roe : ROE
         The object describing the clocking read-out electronics for parallel
         clocking.
+        
     parallel_ccd : CCD
         The object describing the CCD volume for parallel clocking. For
         multi-phase clocking optionally use a list of different CCD volumes
         for each phase, in the same size list as parallel_roe.dwell_times.
+        
     parallel_traps : [Trap] or [[Trap]]
         A list of one or more trap objects for parallel clocking. To use
         different types of traps that will require different watermark
         levels, pass a 2D list of lists, i.e. a list containing lists of
         one or more traps for each type.
+        
     parallel_offset : int
         The supplied image array is a postage stamp offset this number of
         pixels from the readout register. This increases the number of
         pixel-to-pixel transfers assumed if readout is normal (and has no
         effect for other types of clocking).
+        
     parallel_window : range()
         For speed, calculate only the effect on this subset of pixels.
         Note that, because of edge effects, you should start the range several
         pixels before the actual region of interest.
+        
     serial_* : *
         The same as the parallel_* objects described above but for serial
         clocking instead.
+        
     time_window : [float, float]
         The beginning and end of the time during readout to be calculated.
         This could be used to add cosmic rays during readout of simulated
         images. Successive calls to complete the readout should start at
-        the same value that the previous one ended, e.g. [0,0.5] then
-        [0.5,1]. Be careful not to divide readout too finely, as there is
+        the same value that the previous one ended, e.g. [0, 0.5] then
+        [0.5, 1]. Be careful not to divide readout too finely, as there is
         only as much temporal resolution as there are rows (not rows * phases)
         in the image. Also, for each time that readout is split between
         successive calls to this function, the output in one row of pixels
@@ -325,41 +335,49 @@ def remove_cti(
     time_window=[0, 1],
 ):
     """
-    Add CTI trails to an image by trapping, releasing, and moving electrons 
-    along their independent columns, for parallel and/or serial clocking.
+    Remove CTI trails from an image by first modelling the addition of CTI.
+    
+    See ###
 
     Parameters
     ----------
     image : np.ndarray
         The input array of pixel values.
+        
     iterations : int
-        If CTI is being corrected, iterations determines the number of times 
-        clocking is run to perform the correction via forward modeling. For 
-        adding CTI only one run is required and iterations is ignored.
+        The number of times CTI-adding clocking is run to perform the correction 
+        via forward modelling. 
+        
     parallel_express : int
         The factor by which pixel-to-pixel transfers are combined for 
         efficiency for parallel clocking.
+        
     parallel_roe : ROE
         The object describing the clocking read-out electronics for parallel 
         clocking.
+        
     parallel_ccd : CCD
         The object describing the CCD volume for parallel clocking. For 
         multi-phase clocking optionally use a list of different CCD volumes
         for each phase, in the same size list as parallel_roe.dwell_times.
+        
     parallel_traps : [Trap] or [[Trap]]
         A list of one or more trap objects for parallel clocking. To use 
         different types of traps that will require different watermark 
         levels, pass a 2D list of lists, i.e. a list containing lists of 
         one or more traps for each type.
+        
     parallel_offset : int
         The supplied image array is a postage stamp offset this number of 
         pixels from the readout register. This increases the number of
         pixel-to-pixel transfers assumed if readout is normal (and has no
         effect for other types of clocking).
+        
     parallel_window : range() or list
         For speed, calculate only the effect on this subset of pixels. 
         Note that, because of edge effects, you should start the range several 
         pixels before the actual region of interest.
+        
     serial_* : *
         The same as the parallel_* objects described above but for serial 
         clocking instead.

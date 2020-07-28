@@ -27,36 +27,6 @@ class TestTrapParams:
         assert serial_trap_1.release_timescale == 4.0
 
 
-#    def test__ccd_class___sets_value_correctly(self):
-#
-#        parallel_ccd = ac.CCDComplex(
-#            full_well_depth=10000.0,
-#            well_notch_depth=0.01,
-#            well_fill_alpha=0.2,
-#            well_fill_power=0.8,
-#        )
-#        parallel_ccd = ac.CCDPhase(parallel_ccd)
-#
-#        serial_ccd = ac.CCDComplex(
-#            full_well_depth=1000.0,
-#            well_notch_depth=1.02,
-#            well_fill_alpha=1.1,
-#            well_fill_power=1.4,
-#        )
-#        serial_ccd = ac.CCDPhase(serial_ccd)
-#
-#        assert parallel_ccd.full_well_depth == 10000.0
-#        assert parallel_ccd.well_notch_depth == 0.01
-#        assert parallel_ccd.well_fill_alpha == 0.2
-#        assert parallel_ccd.well_fill_power == 0.8
-#
-#        assert serial_ccd.full_well_depth == 1000.0
-#        assert serial_ccd.well_notch_depth == 1.02
-#        assert serial_ccd.well_range == 998.98
-#        assert serial_ccd.well_fill_alpha == 1.1
-#        assert serial_ccd.well_fill_power == 1.4
-
-
 class TestSpecies:
     def test__electrons_released_from_electrons_and_dwell_time(self):
 
@@ -253,14 +223,37 @@ class TestTrapManagerUtilities:
             watermarks=watermarks
         ) == ((0.5 * 0.8 + 0.2 * 0.4 + 0.1 * 0.3) * trap.density)
 
+    #        watermarks = np.array(
+    #            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0], [0, 0]]
+    #        )
+    #
+    #        assert trap_manager.n_trapped_electrons_from_watermarks(
+    #            watermarks=watermarks, fractional_width=0.5
+    #        ) == ((0.5 * 0.8 + 0.2 * 0.4 + 0.1 * 0.3) * trap.density * 0.5)
 
-#        watermarks = np.array(
-#            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0], [0, 0]]
-#        )
-#
-#        assert trap_manager.n_trapped_electrons_from_watermarks(
-#            watermarks=watermarks, fractional_width=0.5
-#        ) == ((0.5 * 0.8 + 0.2 * 0.4 + 0.1 * 0.3) * trap.density * 0.5)
+    def test__multiple_trap_managers(self):
+        image = np.zeros((6, 2))
+        image[2, 1] = 1000
+
+        # Single trap manager
+        traps = [
+            ac.Trap(density=10, release_timescale=-1 / np.log(0.5)),
+            ac.Trap(density=5, release_timescale=-1 / np.log(0.5)),
+        ]
+
+        ccd = ac.CCD(well_fill_power=0.8, full_well_depth=8.47e4, well_notch_depth=1e-7)
+
+        image_single = ac.add_cti(image=image, parallel_traps=traps, parallel_ccd=ccd)
+
+        # Multiple trap managers
+        traps = [
+            [ac.Trap(density=10, release_timescale=-1 / np.log(0.5))],
+            [ac.Trap(density=5, release_timescale=-1 / np.log(0.5))],
+        ]
+
+        image_multi = ac.add_cti(image=image, parallel_traps=traps, parallel_ccd=ccd)
+
+        assert (image_single == image_multi).all
 
 
 class TestInitialWatermarks:
@@ -1822,83 +1815,3 @@ class TestElectronsReleasedAndCapturedIncludingSlowTraps:
 
         # Only capture the available electrons
         assert trapped_electrons_final == pytest.approx(n_free_electrons)
-
-
-# class TestTrapManagerNonUniformHeightDistribution:
-#    def test__effective_non_uniform_electron_fractional_height(self):
-#
-#        traps = [
-#            ac.TrapNonUniformHeightDistribution(
-#                density=10,
-#                lifetime=-1 / np.log(0.5),
-#                electron_fractional_height_min=0.95,
-#                electron_fractional_height_max=1,
-#            )
-#        ]
-#        trap_manager = ac.TrapManagerNonUniformHeightDistribution(traps=traps, rows=6,)
-#
-#        assert trap_manager.effective_non_uniform_electron_fractional_height(0.9) == 0
-#        assert trap_manager.effective_non_uniform_electron_fractional_height(1) == 1
-#        assert (
-#            trap_manager.effective_non_uniform_electron_fractional_height(0.975) == 0.5
-#        )
-#
-#    def test__first_capture(self):
-#
-#        traps = [
-#            ac.TrapNonUniformHeightDistribution(
-#                density=10,
-#                lifetime=-1 / np.log(0.5),
-#                electron_fractional_height_min=0.95,
-#                electron_fractional_height_max=1,
-#            )
-#        ]
-#        trap_manager = ac.TrapManagerNonUniformHeightDistribution(traps=traps, rows=6,)
-#
-#        electron_fractional_height = 0.5
-#
-#        electrons_captured = trap_manager.electrons_captured_by_traps(
-#            electron_fractional_height=electron_fractional_height,
-#            watermarks=trap_manager.watermarks,
-#            traps=trap_manager.traps,
-#        )
-#
-#        assert electrons_captured == pytest.approx(0.5 * 10)
-#
-#        trap_manager = ac.TrapManagerNonUniformHeightDistribution(traps=traps, rows=6,)
-#
-#        electron_fractional_height = 0.99
-#
-#        electrons_captured = trap_manager.electrons_captured_by_traps(
-#            electron_fractional_height=electron_fractional_height,
-#            watermarks=trap_manager.watermarks,
-#            traps=trap_manager.traps,
-#        )
-#
-#        assert electrons_captured == pytest.approx(0.99 * 10)
-#
-#    def test__middle_new_watermarks(self):
-#
-#        traps = [
-#            ac.TrapNonUniformHeightDistribution(
-#                density=10,
-#                lifetime=-1 / np.log(0.5),
-#                electron_fractional_height_min=0.95,
-#                electron_fractional_height_max=1,
-#            )
-#        ]
-#        trap_manager = ac.TrapManagerNonUniformHeightDistribution(traps=traps, rows=6,)
-#
-#        trap_manager.watermarks = np.array(
-#            [[0.96, 0.8], [0.98, 0.4], [0.99, 0.3], [0, 0], [0, 0], [0, 0]]
-#        )
-#        electron_fractional_height = 0.97
-#
-#        electrons_captured = trap_manager.electrons_captured_by_traps(
-#            electron_fractional_height=electron_fractional_height,
-#            watermarks=trap_manager.watermarks,
-#            traps=trap_manager.traps,
-#        )
-#
-#        assert electrons_captured == pytest.approx((0.96 * 0.2 + 0.01 * 0.6) * 10)
-#

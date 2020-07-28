@@ -69,7 +69,7 @@ class TestMultiPhase:
             well_notch_depth=0.01,
             well_fill_power=0.8,
             full_well_depth=84700,
-            fraction_of_traps=[0.5, 0.2, 0.2, 0.1],
+            fraction_of_traps_per_phase=[0.5, 0.2, 0.2, 0.1],
         )
 
         assert ccd.well_notch_depth == [0.01] * 4
@@ -81,7 +81,7 @@ class TestMultiPhase:
             well_notch_depth=0.01,
             well_fill_power=0.8,
             full_well_depth=[84700, 1e5, 2e5, 3e5],
-            fraction_of_traps=[0.5, 0.2, 0.2, 0.1],
+            fraction_of_traps_per_phase=[0.5, 0.2, 0.2, 0.1],
         )
 
         assert ccd.well_notch_depth == [0.01] * 4
@@ -93,7 +93,7 @@ class TestMultiPhase:
             well_notch_depth=0.01,
             well_fill_power=0.8,
             full_well_depth=[84700, 1e5, 2e5, 3e5],
-            fraction_of_traps=[0.5, 0.2, 0.2, 0.1],
+            fraction_of_traps_per_phase=[0.5, 0.2, 0.2, 0.1],
         )
 
         ccd_phase_0 = ac.CCDPhase(ccd, 0)

@@ -21,36 +21,41 @@ class AllTrapManager(UserList):
         TrapManagers[trap_group_id][phase]
         They are created with all traps initially empty.
         
-        Inputs:
-        -------
+        Parameters
+        ----------
         traps : Trap or [Trap] or [[Trap]]
             A list of one or more trap species. Species listed together in the inner list
             must be able to share watermarks - i.e. they are distributed in the same way 
             throughout the pixel volume, and their state is stored either by occupancy or
             time since filling. e.g. [[bulk_trap_slow,bulk_trap_fast],[surface_trap]]
+            
         max_n_transfers : int
             The number of pixels containing traps that charge will be expected to move.
             This determines the maximum number of possible capture/release events that
             could chreate new watermark levels, and is used to initialise the watermark
             array to be only as large as needed, for efficiency.
+            
         ccd : CCD
             Configuration of the CCD in which the electrons will move. Used to access the
             number of phases per pixel, and the fractional volume of a pixel that is filled
             by a cloud of electrons.
             
-        Attributes:
-        -----------
+        Attributes
+        ----------
         n_electrons_trapped : float
             The number of electrons in traps that are being or have been monitored.
+            
         n_electrons_trapped_currently : float
             The number of electrons in traps that are currently being actively monitored.
         
-        Methods:
-        --------
+        Methods
+        -------
         empty_all_traps()
             Set all trap occupancies to empty.
+            
         save()
             Save trap occupancy levels for future reference.
+            
         restore()
             Recall trap occupancy levels.
         """
@@ -85,7 +90,7 @@ class AllTrapManager(UserList):
                     trap_manager = TrapManager(
                         traps=trap_group, max_n_transfers=max_n_transfers
                     )
-                trap_manager.n_traps_per_pixel *= ccd.fraction_of_traps[phase]
+                trap_manager.n_traps_per_pixel *= ccd.fraction_of_traps_per_phase[phase]
                 trap_managers_this_phase.append(trap_manager)
             self.data.append(trap_managers_this_phase)
 
@@ -166,12 +171,14 @@ class TrapManager(object):
             to share watermarks - i.e. they must be similarly distributed throughout 
             the pixel volume, and all their states must be stored either by occupancy or
             by time since filling. e.g. [bulk_trap_slow,bulk_trap_fast]
+            
         max_n_transfers : int
             The number of pixels containing traps that charge will be expected to move.
             This determines the maximum number of possible capture/release events that
             could chreate new watermark levels, and is used to initialise the watermark
             array to be only as large as needed, for efficiency.
-        ccd : arctic.CCD
+            
+        ccd : arcticpy.CCD
             Configuration of the CCD in which the electrons will move. Used to access the
             number of phases per pixel, and the fractional volume of a pixel that is filled
             by a cloud of electrons.
@@ -181,12 +188,13 @@ class TrapManager(object):
         watermarks : np.ndarray
             Array of watermark fractional volumes and fill fractions to describe 
             the trap states. Lists each (active) watermark fractional volume and 
-            the corresponding fill fractions of each traps. Inactive elements 
-            are set to 0.
+            the corresponding fill fractions of each trap species. Inactive 
+            elements are set to 0.
 
             [[volume, fill, fill, ...],
              [volume, fill, fill, ...],
              ...                       ]
+             
         n_traps_per_pixel : np.ndarray
             The densities of all the trap species.
         
@@ -481,7 +489,8 @@ class TrapManager(object):
         Returns
         -------
         watermarks : np.ndarray
-            The updated watermarks. See initial_watermarks_from_n_pixels_and_total_traps().    
+            The updated watermarks. See initial_watermarks_from_n_pixels_and_total_traps().  
+              
         watermarks_copy : np.ndarray
             The updated watermarks copy, if it was provided.
         """
@@ -559,9 +568,11 @@ class TrapManager(object):
         ----------
         n_free_electrons : float
             The number of available electrons for trapping.
+            
         ccd : CCD
             The object describing the CCD. Must have only a single value for 
             each parameter, as set by CCD.extract_phase().
+            
         dwell_time : float
             The time spent in this pixel or phase, in the same units as the 
             trap timescales.
@@ -865,6 +876,7 @@ class TrapManagerInstantCapture(TrapManager):
 
         # Find the highest active watermark
         max_watermark_index = np.argmax(self.watermarks[:, 0] == 0) - 1
+
         # Release electrons from existing watermark levels
         self.watermarks[
             : max_watermark_index + 1, 1:

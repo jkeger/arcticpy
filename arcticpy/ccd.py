@@ -8,8 +8,8 @@ import arcticpy as ac
 class CCD(object):
     def __init__(
         self,
-        fraction_of_traps=[1],
-        full_well_depth=10000.0,
+        fraction_of_traps_per_phase=[1],
+        full_well_depth=1e4,
         well_notch_depth=0.0,
         well_fill_power=0.58,
         well_bloom_level=None,
@@ -20,8 +20,8 @@ class CCD(object):
         specify a multi-phase device (which will need a comparably complicated clocking
         sequence to be defined in readout electronics), specify the fraction of traps as a
         list. If the phases have different sizes, specify each full_well_depth. If the
-        trap density is  uniform, the ratio of full_well_depth to fraction_of_traps will
-        be the same in all phases. 
+        trap density is  uniform, the ratio of full_well_depth to fraction_of_traps_per_phase 
+        will be the same in all phases. 
 
         All the following are equivalent:
             detector.cloud_fractional_volume_from_n_electrons_and_phase(n_electrons, phase)
@@ -35,14 +35,14 @@ class CCD(object):
         
         Parameters
         ----------
-        fraction_of_traps : float or [float]
+        fraction_of_traps_per_phase : float or [float]
             Assuming that traps have uniform density throughout the CCD, for multi-phase 
             clocking, this specifies the physical width of each phase. This is used only to
             distribute the traps between phases. The units do not matter and can be anything 
-            from
-            microns to light years, or fractions of a pixel. Only the fractional widths are
+            from microns to light years, or fractions of a pixel. Only the fractional widths are
             ever returned. If this is an array then you can optionally also enter a list of
             different full_well_depth, well_notch_depth, and well_fill_power for each phase.
+            
         full_well_depth : float or [float]
             The maximum number of electrons that can be contained within a pixel/phase.
             For multiphase clocking, if only one value is supplied, that is (by default)
@@ -51,37 +51,42 @@ class CCD(object):
             If the potential in more than one phase is held high during any stage in the 
             clocking cycle, their full well depths are added together.
             This value is indpependent of the fraction of traps allocated to each phase.
+            
         well_notch_depth : float or [float]
             The number of electrons that fit inside a 'notch' at the bottom of a potential
             well, occupying negligible volume and therefore being immune to trapping. These
             electrons still count towards the full well depth. The notch depth can, in 
             principle, vary between phases.
+            
         well_fill_power : float or [float]
             The exponent in a power-law model of the volume occupied by a cloud of electrons.
             This can, in principle, vary between phases.
+            
         well_bloom_level : float or [float]
             Acts similarly to a notch, but for surface traps.
             Default value is full_well_depth - i.e. no blooming is possible.
         """
 
         # All parameters are returned as a list of length n_phases
-        self.fraction_of_traps = fraction_of_traps
+        self.fraction_of_traps_per_phase = fraction_of_traps_per_phase
         self.full_well_depth = full_well_depth
         self.well_fill_power = well_fill_power
         self.well_notch_depth = well_notch_depth
         self.well_bloom_level = well_bloom_level
 
     @property
-    def fraction_of_traps(self):
-        return self._fraction_of_traps
+    def fraction_of_traps_per_phase(self):
+        return self._fraction_of_traps_per_phase
 
-    @fraction_of_traps.setter
-    def fraction_of_traps(self, value):
+    @fraction_of_traps_per_phase.setter
+    def fraction_of_traps_per_phase(self, value):
         if isinstance(value, list):
-            self._fraction_of_traps = value
+            self._fraction_of_traps_per_phase = value
         else:
-            self._fraction_of_traps = [value]  # Make sure the arrays are arrays
-        self._n_phases = len(self._fraction_of_traps)
+            self._fraction_of_traps_per_phase = [
+                value
+            ]  # Make sure the arrays are arrays
+        self._n_phases = len(self._fraction_of_traps_per_phase)
 
     @property
     def n_phases(self):
@@ -191,7 +196,7 @@ class CCD(object):
             volume : float
                 The fraction of traps of this species exposed.
             """
-            fraction_of_traps = self.fraction_of_traps[phase]
+            fraction_of_traps_per_phase = self.fraction_of_traps_per_phase[phase]
             full_well_depth = self.full_well_depth[phase]
             well_fill_power = self.well_fill_power[phase]
             well_notch_depth = self.well_notch_depth[phase]
@@ -221,7 +226,7 @@ class CCDPhase(object):
     def __init__(self, ccd=CCD(), phase=0):
         """Extract just one phase from the CCD"""
 
-        self.fraction_of_traps = ccd.fraction_of_traps[phase]
+        self.fraction_of_traps_per_phase = ccd.fraction_of_traps_per_phase[phase]
         self.full_well_depth = ccd.full_well_depth[phase]
         self.well_fill_power = ccd.well_fill_power[phase]
         self.well_notch_depth = ccd.well_notch_depth[phase]

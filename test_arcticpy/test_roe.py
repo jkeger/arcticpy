@@ -405,7 +405,9 @@ class TestTrapPumpingResults:
         trap = ac.TrapInstantCapture(density=100, release_timescale=3)
         roe = ac.ROETrapPumping(dwell_times=[1] * 6, n_pumps=2)
         ccd = ac.CCD(
-            well_fill_power=0.5, full_well_depth=2e5, fraction_of_traps=[1, 0, 0]
+            well_fill_power=0.5,
+            full_well_depth=2e5,
+            fraction_of_traps_per_phase=[1, 0, 0],
         )
         image_cti = ac.add_cti(
             image=image_orig,
@@ -426,7 +428,9 @@ class TestTrapPumpingResults:
 
         # Traps under phase 2 - check for dipole
         ccd = ac.CCD(
-            well_fill_power=0.5, full_well_depth=2e5, fraction_of_traps=[0, 1, 0]
+            well_fill_power=0.5,
+            full_well_depth=2e5,
+            fraction_of_traps_per_phase=[0, 1, 0],
         )
         image_cti = ac.add_cti(
             image=image_orig,
@@ -444,7 +448,9 @@ class TestTrapPumpingResults:
 
         # Traps under phase 3 - check for dipole
         ccd = ac.CCD(
-            well_fill_power=0.5, full_well_depth=2e5, fraction_of_traps=[0, 0, 1]
+            well_fill_power=0.5,
+            full_well_depth=2e5,
+            fraction_of_traps_per_phase=[0, 0, 1],
         )
         image_cti = ac.add_cti(
             image=image_orig,
@@ -471,7 +477,9 @@ class TestTrapPumpingResults:
         trap_density = 1
         n_pumps = 20
         ccd = ac.CCD(
-            well_notch_depth=100, full_well_depth=101, fraction_of_traps=[0, 1, 0]
+            well_notch_depth=100,
+            full_well_depth=101,
+            fraction_of_traps_per_phase=[0, 1, 0],
         )
         trap = ac.TrapInstantCapture(density=trap_density, release_timescale=0.5)
         roe = ac.ROETrapPumping(dwell_times=[0.33] * 6, n_pumps=n_pumps)
@@ -571,8 +579,6 @@ class TestTrapPumpingResults:
         ) / image_orig[[trap_pixel, trap_pixel + 1]]
         assert (abs(fractional_diff) < 1e-4).all()
 
-
-class TestTrapPumpingResults:
     def test__express_is_good_approximation_for_charge_injection(self):
 
         return  ###WIP
@@ -612,7 +618,9 @@ class TestTrapPumpingResults:
         plt.yscale("log")
 
         ccd = ac.CCD(
-            well_fill_power=1, full_well_depth=2e5, fraction_of_traps=[0.33, 0.33, 0.33]
+            well_fill_power=1,
+            full_well_depth=2e5,
+            fraction_of_traps_per_phase=[0.33, 0.33, 0.33],
         )
         roe = ac.ROEChargeInjection(
             dwell_times=[0.33, 0.33, 0.33],

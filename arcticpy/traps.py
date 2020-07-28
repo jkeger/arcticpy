@@ -8,17 +8,22 @@ class Trap(object):
     def __init__(
         self, density=0.13, release_timescale=0.25, capture_timescale=0, surface=False,
     ):
-        """The parameters for a single trap species.
+        """ The parameters for a single trap species.
+        
+        ### 
 
         Parameters
         ----------
         density : float
             The density of the trap species in a pixel.
+            
         release_timescale : float
             The release timescale of the trap, in the same units as the time 
             spent in each pixel or phase (Clocker sequence).
+            
         capture_timescale : float
             The capture timescale of the trap. Default 0 for instant capture.
+            
         surface : bool
             ###
             
@@ -231,13 +236,16 @@ class TrapLifetimeContinuum(TrapInstantCapture):
         ----------
         density : float
             The density of the trap species in a pixel.
+            
         distribution_of_traps_with_lifetime : func
             The distribution of traps as a function of release_timescale, mu lifetime, 
             and lifetime sigma, such that its integral from 0 to infinity = 1.
             e.g. a log-normal probability density function.
+            
         release_timescale_mu : float
             The mu (e.g. mean or median depending on the distribution) 
             release timescale of the traps.
+            
         release_timescale_sigma : float
             The sigma of release lifetimes of the traps.
         """
@@ -358,8 +366,10 @@ class TrapLogNormalLifetimeContinuum(TrapLifetimeContinuum):
         ----------
         x : float 
             The input value.
+            
         median : float 
             The median of the distribution.
+            
         sigma : float 
             The sigma of the distribution.
             
@@ -379,8 +389,10 @@ class TrapLogNormalLifetimeContinuum(TrapLifetimeContinuum):
         ---------
         density : float
             The density of the trap species in a pixel.
+            
         release_timescale_mu : float
             The median release timescale of the traps.
+            
         release_timescale_sigma : float
             The sigma of release lifetimes of the traps.
         """

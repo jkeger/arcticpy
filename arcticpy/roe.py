@@ -343,7 +343,7 @@ class ROE(ROEAbstract):
                    in the input image are immediately lost. Because the first 
                    pixel-to-pixel transfer is inherently different from the rest,
                    that transfer for every pixel is modelled first. In most 
-                   situations, this makes it a factor ~(E+3)/(E+1) slower to run..
+                   situations, this makes it a factor ~(E+3)/(E+1) slower to run.
             False: that happens in some pixels but not all (the fractions depend
                    upon EXPRESS.
                    

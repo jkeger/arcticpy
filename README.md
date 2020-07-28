@@ -4,13 +4,14 @@ ArCTIC python
 AlgoRithm for Charge Transfer Inefficiency (CTI) Correction
 -----------------------------------------------------------
 
-Add or remove image trails due to charge transfer inefficiency in CCD detectors.
-    
+Add or remove image trails due to charge transfer inefficiency in CCD detectors
+by modelling the trapping, releasing, and moving of charge along pixels.
+
 https://github.com/jkeger/arcticpy
 
-Jacob Kegerreis: jacob.kegerreis@durham.ac.uk
-Richard Massey: r.j.massey@durham.ac.uk
-James Nightingale
+Jacob Kegerreis: jacob.kegerreis@durham.ac.uk  
+Richard Massey: r.j.massey@durham.ac.uk  
+James Nightingale  
 
 This file contains general documentation and some examples. See also the 
 docstrings and comments throughout the code for further details, and the unit 
@@ -27,6 +28,7 @@ Contents
     + CCD
     + ROE
     + Trap species
+    + Trap managers
 + Examples 
     + Correcting HST images
 
@@ -39,10 +41,10 @@ import arcticpy as ac
 
 image_pre_cti = ... # Initial image
 
-# Trap, CCD, and ROE parameters
-traps = [ac.Trap(density=3.141, release_timescale=1.234)]
+# CCD, ROE, and trap species parameters
 ccd = ac.CCD(well_fill_power=0.8, full_well_depth=1e5)
 roe = ac.ROE()
+traps = [ac.Trap(density=3.141, release_timescale=1.234)]
 
 image_post_cti = ac.add_cti(
     image=image_pre_cti,
@@ -61,9 +63,12 @@ image_undo_cti = ac.remove_cti(
 ```
 
 
+
 Files
 -----
-A summary of the code files and their content.
+A summary of the code files and their content for reference. 
+
+See the documentation below and the code docstrings for more details.
 
 + `arcticpy/` Main code directory
     + `main.py` 
@@ -86,9 +91,8 @@ A summary of the code files and their content.
         species of traps.
         
         Contains the core function `n_electrons_released_and_captured()` called
-        by `_clock_charge_in_one_direction()` to modelling the capture and 
-        release of electrons and to track the trapped electrons using the 
-        "watermark" algorithm.
+        by `_clock_charge_in_one_direction()` to model the capture and release
+        of electrons and to track the trapped electrons using the "watermarks".
     + `util.py`  
         Miscellaneous internal utilities.
 + `test_arcticpy/` Unit test directory
@@ -96,6 +100,7 @@ A summary of the code files and their content.
     + `test_ccd.py` CCD tests
     + `test_roe.py` ROE tests
     + `test_traps.py` Traps and trap manager tests
+
 
 
 Installation
@@ -114,23 +119,107 @@ Documentation
 The code docstrings contain the full documentation. This section provides an 
 overview of the basic functions and different options available for reference.
 
+It is aimed at general users with a few extra details for anyone wanting to
+navigate or work on the code itself.
 
 
 Add/remove CTI
 --------------
+### Add CTI
+To add (and remove) CTI trails, the primary inputs are the initial image and the 
+properties of the CCD, readout electronics (ROE), and trap species, for either 
+or both parallel and serial clocking:
+```python
+image_with_cti = ac.add_cti(
+    image,
+    parallel_ccd=None,
+    parallel_roe=None,
+    parallel_traps=None,
+    parallel_express=0,
+    parallel_offset=0,
+    parallel_window=None,
+    serial_ccd=None,
+    serial_roe=None,
+    serial_traps=None,
+    serial_express=0,
+    serial_offset=0,
+    serial_window=None,
+    time_window=[0, 1],
+)
+```
+These are input using the `CCD`, `ROE`, and `Trap` classes, which are described 
+in the sections below.
+
+
+### Image
+The input image should be a 2D array of (float) charge values, where the first 
+dimension runs over the separate columns and the second inner dimension runs 
+over the rows of pixels within each column.
+
+By default, charge is clocked towards element 0, such that the charge in the 
+first element/pixel 0 undergoes 1 transfer, and the final row N is furthest from 
+the readout register so undergoes N+1 transfers.
+
+Parallel clocking is the transfer along each independent column, while serial 
+clocking is across the columns and is performed after parallel clocking, if the 
+parameters for both are not `None`.
+
+Note that instead of actually moving the charges past the traps in each pixel,
+as happens in the real hardware, the code tracks the occupancies of the traps 
+(see Watermarks below) and updates them by scanning over each pixel. This 
+simplifies the code structure and keeps the image array conveniently static.
+
+
+### Express
+As described in Massey et al. (2014) section 2.1.5 in more detail, the effect of 
+each individual pixel-to-pixel transfer can be similar, so multiple transfers 
+can be computed efficiently at once.
+
+This allows faster computation with a mild decrease in accuracy. 
+
+For example, the electrons in the pixel closest to the readout have only one 
+transfer, those in the 2nd pixel undergo 2, those in the 3rd have 3, and so on.
+
+The `express` input sets the number of times the transfers are calculated. 
+`express = 1` is the fastest and least accurate, `express = 2` means the 
+transfers are re-computed half-way through the readout, up to `express = N` 
+where `N` is the total number of pixels for the full computation of every step
+without assumptions.
+
+The default `express = 0` is a convenient alternative input for `express = N`.
+
+
+### Offsets and windows
 ...
+
+
+### Remove CTI
+Removing CTI trails is done by iteratively modelling the addition of CTI, as 
+described in Massey et al. (2010) section 3.2 and Table 1.
+
+The `remove_cti()` function takes all the same parameters as `add_cti()`
+plus the number of iterations for the forward modelling:
+```python
+image_remove_cti = ac.remove_cti(
+    image=image_with_cti,
+    iterations=5,
+    # Same as add_cti()
+)
+```
+More iterations provide higher accuracy at the cost of longer runtime. 
+In practice, just 1 to 3 iterations are usually sufficient.
 
 
 
 CCD
 ---
-How electrons fill the volume inside each (phase of a) pixel in a CCD.
+How electrons fill the volume inside each (phase of a) pixel.
 
 See the `CCD` class docstring in `ccd.py` for the full documentation.
 
 By default, charge is assumed to move instantly from one pixel to another, but 
 multiple phases per pixel can be used in the CCD and ROE classes for more 
-complicated multi-phase clocking and modelling of trap pumping etc.
+complicated multi-phase clocking or modelling of trap pumping etc.
 
 ### Default CCD
 ```python
@@ -162,6 +251,7 @@ ccd = ac.CCD(
 ```
 
 
+
 ROE
 ---
 The properties of readout electronics (ROE) used to operate a CCD.
@@ -189,18 +279,19 @@ roe = ac.roe(
 For multi-phase clocking, `dwell_times` should be the same length as the CCD's
 `fraction_of_traps_per_phase`.
 
+
 ### Charge injection  
 ...
+
 
 ### Trap pumping  
 ...
 
+
 ### Express matrix  
 The `ROE` class also contains the `express_matrix_from_pixels_and_express()` 
-function used to generate the express matrix to speed up the runtime with a mild 
-loss in accuracy. 
+function used to generate the express matrix.
 
-See Massey et al. (2014) section 2.1.5, and the function docstring.
 
 
 Trap species
@@ -225,12 +316,14 @@ trap = ac.Trap(
 Combined release and capture, allowing for instant or non-zero capture times,
 following Lindegren (1998) section 3.2.
 
+
 ### Instant capture
 For the old algorithm of release first then instant-capture, used in previous 
 versions of ArCTIC.
 ```python
-trap = ac.TrapInstantCapture(density=0.13, release_timescale=0.25, surface=False)
+trap = ac.TrapInstantCapture(density=0.13, release_timescale=0.25)
 ```
+
 
 ### Continuum distributions of lifetimes
 For a trap species with a log-normal distribution of release lifetimes.
@@ -245,33 +338,36 @@ trap = ac.TrapLogNormalLifetimeContinuum(
 )
 ```
 This is a special case of the `TrapLifetimeContinuum` class which allows 
-any arbitrary distribution to be used.
+any arbitrary distribution to be used instead of log-normal.
 
 Uses the same combined release and capture algorithm as the default traps.
 
 
-Trap manager
-------------
+
+Trap managers
+-------------
 This is not relevant for typical users, but is key to the internal structure of 
 the code and the "watermark" approach to tracking the trap occupancies.
 
 The different trap managers also implement the different algorithms required for
-the corresponding types of trap species listed above, primarily with their 
+the corresponding types of trap species described above, primarily with their 
 `n_electrons_released_and_captured()` method.
 
 See the `TrapManager` and child class docstrings in `trap_managers.py` for the 
 full documentation.
 
 ### Watermarks 
-A 2D array of fractional volumes -- the "watermark" levels -- and the 
+A 2D array of fractional volumes -- the watermark levels -- and the 
 corresponding fill fractions of each trap species:  
-`[ [volume, fill, fill, ...], [volume, fill, fill, ...], ... ]`  
+`[[volume, fill, fill, ...], [volume, fill, fill, ...], ... ]`  
 This way, the proportion of filled traps can be tracked efficiently through the 
 release and capture processes, including for multiple trap species.
 
-In the simplest sense, capture of electrons creates a new watermark level and 
-can overwrite lower ones as the traps are filled up, while release lowers the 
-fraction of filled traps in each watermark level.
+In the simplest sense, capture of electrons creates a new watermark level at the 
+"height" of the charge cloud and can overwrite lower ones as the traps are 
+filled up, while release lowers the fraction of filled traps in each watermark 
+level. Note that the stored volumes give the size of that level, not the 
+cumulative total.
 
 The details can vary for different trap managers, e.g. `TrapManagerTrackTime`,
 which stores the time elapsed since the traps were filled instead of the fill 

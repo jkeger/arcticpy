@@ -130,18 +130,21 @@ class ROEAbstract(object):
 
             The dictionaries can be referenced as roe.clock_sequence[clocking_step] 
             or roe.clock_sequence[clocking_step][phase] and contain: 
-                high: bool                
+                high : bool                
                     Is the potential held high, i.e. able to contain free electrons?
-                    
-                adjacent_phases_high: [int]
+                                        
+                adjacent_phases_high : [int]
                     ###
                                 
-                capture_from_which_pixel: int or np.array of integers
+                capture_from_which_pixel : int or np.array of integers
                     The relative row number of the charge cloud to capture from
                     
-                release_to_which_pixel: int         
+                release_to_which_pixel : int         
                     The relative row number of the charge cloud to release to, at
                     the end of the time step
+                
+                release_fraction_to_pixel : ?
+                    
         
         Assumptions:
          * instant transfer between phases; no traps en route.
@@ -338,14 +341,14 @@ class ROE(ROEAbstract):
             pixel-to-pixel transfer differently to the rest. Physically, this may be
             because the first pixel that a charge cloud finds itself in is
             guaranteed to start with empty traps; whereas every other pixel's traps
-            may  have been filled by other charge.
+            may have been filled by other charge.
             True:  begin the readout process with empty traps, so some electrons
                    in the input image are immediately lost. Because the first 
                    pixel-to-pixel transfer is inherently different from the rest,
                    that transfer for every pixel is modelled first. In most 
                    situations, this makes it a factor ~(E+3)/(E+1) slower to run.
             False: that happens in some pixels but not all (the fractions depend
-                   upon EXPRESS.
+                   upon EXPRESS).
                    
         empty_traps_between_columns : bool
             True:  each column has independent traps (appropriate for parallel 

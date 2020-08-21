@@ -3,12 +3,6 @@ from copy import deepcopy
 
 from arcticpy.roe import ROE
 from arcticpy.ccd import CCD, CCDPhase
-from arcticpy.traps import (
-    Trap,
-    TrapLifetimeContinuum,
-    TrapLogNormalLifetimeContinuum,
-    TrapInstantCapture,
-)
 from arcticpy.trap_managers import AllTrapManager
 from arcticpy import util
 
@@ -103,7 +97,6 @@ def _clock_charge_in_one_direction(
             # Each pixel
             for row_index in range(len(window_row)):
                 express_multiplier = express_matrix[express_index, row_index]
-                # if express_multiplier == 0:
                 if not when_to_monitor_traps[express_index, row_index]:
                     continue
 
@@ -111,7 +104,6 @@ def _clock_charge_in_one_direction(
                     n_electrons_trapped = 0
 
                     for phase in phases_with_traps:
-
                         # Extract initial number of electrons from the relevant charge cloud
                         roe_potential_dict = roe.clock_sequence[clocking_step][phase]
                         row_read = (

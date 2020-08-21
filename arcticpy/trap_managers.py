@@ -335,6 +335,7 @@ class TrapManager(object):
 
         # New fill fraction for empty traps (Eqn. 20)
         fill_probabilities_from_empty = self.capture_rates * exponential_factor
+        ### ^^^ gives RuntimeWarning: invalid value encountered in multiply
         # Fix for instant capture
         fill_probabilities_from_empty[np.isnan(fill_probabilities_from_empty)] = 1
 
@@ -849,7 +850,7 @@ class TrapManagerInstantCapture(TrapManager):
 
         return n_electrons_released - n_electrons_captured
 
-    def n_electrons_released(self, dwell_time=1, express_multiplier=1):
+    def n_electrons_released(self, dwell_time=1):
         """ 
         Release electrons from traps and update the trap watermarks.
 
@@ -962,6 +963,7 @@ class TrapManagerInstantCapture(TrapManager):
             # Not enough available electrons to capture
             if n_trapped_electrons_final == 0:
                 return 0.0
+            # Also ensure the final number of electrons in the pixel is positive
             enough = n_free_electrons / (express_multiplier * n_trapped_electrons_final)
             if enough < 1:
                 # For watermark fill fractions that increased, tweak them such that
@@ -1381,7 +1383,8 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
         ----------
         watermark_values : np.ndarray
             The relevant subarray of the watermarks to update. i.e. not the 
-            fractional volumes, and only the levels that are doing release. 
+            fractional volumes, and only the elapsed times of the levels that 
+            are doing release. 
 
         Returns
         -------

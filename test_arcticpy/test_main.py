@@ -12,177 +12,477 @@ import arcticpy as ac
 # Bookkeeping - conservation of initial n_electrons
 
 
-###
 import matplotlib.pyplot as plt
 
 
-def format_array_string(array, format):
-    """ Return a print-ready string of an array's contents in a given format.
+class TestCompareOldArCTIC:
+    def test__add_cti_express__single_pixel__vary_express__compare_old_arctic(self):
 
-        Args:
-            array ([])
-                An array of values that can be printed with the given format.
+        # Manually set True to make the plot
+        do_plot = False
+        # do_plot = True
 
-            format (str)
-                A printing format, e.g. "%d", "%.5g".
-                
-                Custom options:
-                    "string":   Include quotation marks around each string.
-                    "dorf":     Int or float if decimal places are needed.
+        image_pre_cti = np.zeros((20, 1))
+        image_pre_cti[2, 0] = 800
 
-        Returns:
-            string (str)
-                The formatted string.
-    """
-    string = ""
-
-    # Append each element
-    # 1D
-    if len(np.shape(array)) == 1:
-        for x in array:
-            if x is None:
-                string += "None, "
-            else:
-                # Custom formats
-                if format == "string":
-                    string += '"%s", ' % x
-                elif format == "dorf":
-                    string += "{0}, ".format(str(round(x, 1) if x % 1 else int(x)))
-                # Standard formats
-                else:
-                    string += "%s, " % (format % x)
-    # Recursive for higher dimensions
-    else:
-        for arr in array:
-            string += "%s, " % format_array_string(arr, format)
-
-    # Add brackets and remove the trailing comma
-    return "[%s]" % string[:-2]
-
-
-def plot_counts(image_A, image_B, output_name=None):
-    """ Plot the counts of the output and input images. """
-    pixels = np.arange(len(image_A))
-
-    plt.figure(figsize=(10, 6))
-
-    plt.plot(pixels, image_A, lw=1, alpha=0.8, label="1 py")
-    plt.plot(pixels, image_B, lw=1, ls="--", alpha=0.8, label="1 C++")
-
-    # plt.legend()
-    plt.yscale("log")
-    plt.xlabel("Pixel")
-    plt.ylabel("Counts")
-    plt.tight_layout()
-
-    # Save or show the figure
-    if output_name is not None:
-        Fp_save = "test_arcticpy/%s_counts.png" % output_name
-        plt.savefig(Fp_save, dpi=600)
-        print("Saved %s" % Fp_save)
-    # else:
-    #     plt.show()
-    # plt.close()
-
-
-def plot_difference(image_A, image_B, output_name=None):
-    """ Plot the difference between the output and input images. """
-    pixels = np.arange(len(image_A))
-
-    plt.figure(figsize=(10, 6))
-
-    plt.plot(pixels, image_B - image_A, lw=1, alpha=0.8)
-
-    plt.xlabel("Pixel")
-    plt.ylabel("Count Difference")
-    plt.tight_layout()
-
-    # Save or show the figure
-    if output_name is not None:
-        Fp_save = "test_arcticpy/%s_diff.png" % output_name
-        plt.savefig(Fp_save, dpi=600)
-        print("Saved %s" % Fp_save)
-    # else:
-    #     plt.show()
-    # plt.close()
-
-
-###
-
-
-class TestGeneral:
-    def test__add_cti__parallel_only__single_pixel__compare_cplusplus_version(self,):
-        image = np.zeros((6, 2))
-        image[2, 1] = 1000
-
-        # Default traps, similar but slightly different algorithm to the C++
-        traps = [ac.Trap(density=10, release_timescale=-1 / np.log(0.5))]
-
-        ccd = ac.CCD(well_fill_power=0.8, full_well_depth=8.47e4, well_notch_depth=1e-7)
-
-        image = ac.add_cti(image=image, parallel_traps=traps, parallel_ccd=ccd)
-
-        assert image == pytest.approx(
-            np.array(
-                [
-                    [0, 0],
-                    [0, 0],
-                    [0, 999.1396],
-                    [0, 0.4292094],
-                    [0, 0.2149715],
-                    [0, 0.1077534],
-                ]
-            ),
-            abs=1e-3,
+        # Nice numbers for easy manual checking
+        traps = [ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))]
+        ccd = ac.CCD(well_fill_power=1, full_well_depth=1000, well_notch_depth=0)
+        roe = ac.ROE(
+            empty_traps_at_start=False,
+            empty_traps_between_columns=True,
+            express_matrix_dtype=int,
         )
 
-        # Instant-capture traps, same release-then-capture algorithm as the C++
-        image = np.zeros((6, 2))
-        image[2, 1] = 1000
+        if do_plot:
+            pixels = np.arange(len(image_pre_cti))
+            colours = ["#1199ff", "#ee4400", "#7711dd", "#44dd44", "#775533"]
+            plt.figure(figsize=(10, 6))
+
+        for i, (express, image_idl) in enumerate(
+            zip(
+                [1, 2, 5, 10, 20],
+                [
+                    [
+                        0.00000,
+                        0.00000,
+                        776.000,
+                        15.3718,
+                        9.65316,
+                        5.81950,
+                        3.41087,
+                        1.95889,
+                        1.10817,
+                        0.619169,
+                        0.342489,
+                        0.187879,
+                        0.102351,
+                        0.0554257,
+                        0.0298603,
+                        0.0160170,
+                        0.00855758,
+                        0.00455620,
+                        0.00241824,
+                        0.00128579,
+                    ],
+                    [
+                        0.00000,
+                        0.00000,
+                        776.000,
+                        15.3718,
+                        9.65316,
+                        5.81950,
+                        3.41087,
+                        1.95889,
+                        1.10817,
+                        0.619169,
+                        0.348832,
+                        0.196128,
+                        0.109984,
+                        0.0614910,
+                        0.0340331,
+                        0.0187090,
+                        0.0102421,
+                        0.00558406,
+                        0.00303254,
+                        0.00164384,
+                    ],
+                    [
+                        0.00000,
+                        0.00000,
+                        776.000,
+                        15.3718,
+                        9.59381,
+                        5.80216,
+                        3.43231,
+                        1.99611,
+                        1.15104,
+                        0.658983,
+                        0.374685,
+                        0.211807,
+                        0.119441,
+                        0.0670274,
+                        0.0373170,
+                        0.0205845,
+                        0.0113179,
+                        0.00621127,
+                        0.00341018,
+                        0.00187955,
+                    ],
+                    [
+                        0.00000,
+                        0.00000,
+                        776.160,
+                        15.1432,
+                        9.51562,
+                        5.78087,
+                        3.43630,
+                        2.01144,
+                        1.16452,
+                        0.668743,
+                        0.381432,
+                        0.216600,
+                        0.122556,
+                        0.0689036,
+                        0.0383241,
+                        0.0211914,
+                        0.0116758,
+                        0.00641045,
+                        0.00352960,
+                        0.00195050,
+                    ],
+                    [
+                        0.00000,
+                        0.00000,
+                        776.239,
+                        15.0315,
+                        9.47714,
+                        5.77145,
+                        3.43952,
+                        2.01754,
+                        1.17049,
+                        0.673351,
+                        0.384773,
+                        0.218860,
+                        0.124046,
+                        0.0697859,
+                        0.0388253,
+                        0.0214799,
+                        0.0118373,
+                        0.00650488,
+                        0.00358827,
+                        0.00198517,
+                    ],
+                ],
+            )
+        ):
+            image_post_cti = ac.add_cti(
+                image=image_pre_cti,
+                parallel_traps=traps,
+                parallel_ccd=ccd,
+                parallel_roe=roe,
+                parallel_express=express,
+            ).T[0]
+
+            image_idl = np.array(image_idl)
+
+            if do_plot:
+                c = colours[i]
+
+                if i == 0:
+                    plt.plot(
+                        image_post_cti,
+                        image_A,
+                        alpha=0.7,
+                        c=c,
+                        label="%d (py)" % express,
+                    )
+                    plt.plot(
+                        image_idl,
+                        image_B,
+                        ls="--",
+                        alpha=0.7,
+                        c=c,
+                        label="%d (idl)" % express,
+                    )
+                else:
+                    plt.plot(
+                        pixels, image_post_cti, alpha=0.7, c=c, label="%d" % express,
+                    )
+                    plt.plot(
+                        pixels, image_idl, alpha=0.7, c=c, ls="--",
+                    )
+
+            assert image_post_cti == pytest.approx(image_idl, rel=0.05, abs=0.05)
+
+        if do_plot:
+            plt.legend(title="express")
+            plt.yscale("log")
+            plt.xlabel("Pixel")
+            plt.ylabel("Counts")
+            plt.tight_layout()
+            plt.show()
+
+    def test__add_cti_express__single_pixel__vary_express_2__compare_old_arctic(self):
+
+        # Manually set True to make the plot
+        do_plot = False
+        # do_plot = True
+
+        image_pre_cti = np.zeros((120, 1))
+        image_pre_cti[102, 0] = 800
 
         traps = [ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))]
-
-        ccd = ac.CCD(well_fill_power=0.8, full_well_depth=8.47e4, well_notch_depth=1e-7)
-
-        image = ac.add_cti(image=image, parallel_traps=traps, parallel_ccd=ccd)
-
-        assert image == pytest.approx(
-            np.array(
-                [
-                    [0, 0],
-                    [0, 0],
-                    [0, 999.1396],
-                    [0, 0.4292094],
-                    [0, 0.2149715],
-                    [0, 0.1077534],
-                ]
-            ),
-            abs=1e-3,
+        ccd = ac.CCD(well_fill_power=0.5, full_well_depth=1000, well_notch_depth=0)
+        roe = ac.ROE(
+            empty_traps_at_start=False,
+            empty_traps_between_columns=True,
+            express_matrix_dtype=int,
         )
 
-    def test__multiple_trap_managers(self):
-        image = np.zeros((6, 2))
-        image[2, 1] = 1000
+        if do_plot:
+            pixels = np.arange(len(image_pre_cti))
+            colours = ["#1199ff", "#ee4400", "#7711dd", "#44dd44", "#775533"]
+            plt.figure(figsize=(10, 6))
 
-        # Single trap manager
-        traps = [
-            ac.Trap(density=10, release_timescale=-1 / np.log(0.5)),
-            ac.Trap(density=5, release_timescale=-1 / np.log(0.5)),
-        ]
+        for i, (express, image_idl) in enumerate(
+            zip(
+                [20],
+                [
+                    # [ # express = 2, but doesn't have express-modified not-enough
+                    #     0.00000,
+                    #     0.00000,
+                    #     42.6722,
+                    #     250.952,
+                    #     161.782,
+                    #     107.450,
+                    #     73.0897,
+                    #     50.6914,
+                    #     35.6441,
+                    #     25.3839,
+                    #     18.2665,
+                    #     13.2970,
+                    #     9.79078,
+                    #     7.30555,
+                    #     5.52511,
+                    #     4.24364,
+                    #     3.30829,
+                    #     2.61813,
+                    #     2.09710,
+                    #     1.70752,
+                    # ],
+                    [
+                        0.00000,
+                        0.00000,
+                        134.103,
+                        163.783,
+                        117.887,
+                        85.8632,
+                        63.6406,
+                        47.9437,
+                        36.6625,
+                        28.4648,
+                        22.4259,
+                        17.9131,
+                        14.4976,
+                        11.8789,
+                        9.84568,
+                        8.25520,
+                        6.98939,
+                        5.97310,
+                        5.14856,
+                        4.47386,
+                    ],
+                ],
+            )
+        ):
+            image_post_cti = ac.add_cti(
+                image=image_pre_cti,
+                parallel_traps=traps,
+                parallel_ccd=ccd,
+                parallel_roe=roe,
+                parallel_express=express,
+            ).T[0]
 
-        ccd = ac.CCD(well_fill_power=0.8, full_well_depth=8.47e4, well_notch_depth=1e-7)
+            image_idl = np.append(np.zeros(100), image_idl)
 
-        image_single = ac.add_cti(image=image, parallel_traps=traps, parallel_ccd=ccd)
+            if do_plot:
+                c = colours[i]
 
-        # Multiple trap managers
-        traps = [
-            [ac.Trap(density=10, release_timescale=-1 / np.log(0.5))],
-            [ac.Trap(density=5, release_timescale=-1 / np.log(0.5))],
-        ]
+                if i == 0:
+                    plt.plot(
+                        pixels,
+                        image_post_cti,
+                        alpha=0.7,
+                        c=c,
+                        label="%d (py)" % express,
+                    )
+                    plt.plot(
+                        pixels,
+                        image_idl,
+                        ls="--",
+                        alpha=0.7,
+                        c=c,
+                        label="%d (idl)" % express,
+                    )
+                else:
+                    plt.plot(
+                        pixels, image_post_cti, alpha=0.7, c=c, label="%d" % express,
+                    )
+                    plt.plot(
+                        pixels, image_idl, alpha=0.7, c=c, ls="--",
+                    )
 
-        image_multi = ac.add_cti(image=image, parallel_traps=traps, parallel_ccd=ccd)
+            assert image_post_cti == pytest.approx(image_idl, rel=0.05, abs=0.05)
 
-        assert (image_single == image_multi).all
+        if do_plot:
+            plt.legend(title="express")
+            plt.yscale("log")
+            plt.xlabel("Pixel")
+            plt.xlim(100, 121)
+            plt.ylabel("Counts")
+            plt.tight_layout()
+            plt.show()
+
+    def test__add_cti_express__single_pixel__vary_express_3__compare_old_arctic(self):
+
+        # Manually set True to make the plot
+        do_plot = False
+        # do_plot = True
+
+        image_pre_cti = np.zeros((40, 1))
+        image_pre_cti[2, 0] = 800
+
+        traps = [ac.TrapInstantCapture(density=10, release_timescale=5)]
+        ccd = ac.CCD(well_fill_power=0.5, full_well_depth=1000, well_notch_depth=0)
+        roe = ac.ROE(
+            empty_traps_at_start=False,
+            empty_traps_between_columns=True,
+            express_matrix_dtype=int,
+        )
+
+        if do_plot:
+            pixels = np.arange(len(image_pre_cti))
+            colours = ["#1199ff", "#ee4400", "#7711dd", "#44dd44", "#775533"]
+            plt.figure(figsize=(10, 6))
+
+        for i, (express, image_idl) in enumerate(
+            zip(
+                [40],
+                [
+                    # [ # express = 2, but doesn't have express-modified not-enough
+                    #     0.00000,
+                    #     0.00000,
+                    #     773.167,
+                    #     6.19194,
+                    #     6.36844,
+                    #     6.29799,
+                    #     6.05079,
+                    #     5.70287,
+                    #     5.29153,
+                    #     4.85392,
+                    #     4.41157,
+                    #     3.97939,
+                    #     3.56817,
+                    #     3.18550,
+                    #     2.82974,
+                    #     2.50704,
+                    #     2.21499,
+                    #     1.95246,
+                    #     1.71821,
+                    #     1.51033,
+                    #     1.32627,
+                    #     1.16384,
+                    #     1.02143,
+                    #     0.896752,
+                    #     0.786375,
+                    #     0.690698,
+                    #     0.607423,
+                    #     0.534261,
+                    #     0.471099,
+                    #     0.415056,
+                    #     0.366609,
+                    #     0.323860,
+                    #     0.287210,
+                    #     0.254417,
+                    #     0.225742,
+                    #     0.201299,
+                    #     0.179598,
+                    #     0.160210,
+                    #     0.143067,
+                    #     0.128163,
+                    # ],
+                    [
+                        0.00000,
+                        0.00000,
+                        773.317,
+                        5.98876,
+                        6.13135,
+                        6.05125,
+                        5.81397,
+                        5.49105,
+                        5.11484,
+                        4.71890,
+                        4.32139,
+                        3.93756,
+                        3.57154,
+                        3.23464,
+                        2.91884,
+                        2.63640,
+                        2.37872,
+                        2.14545,
+                        1.93805,
+                        1.75299,
+                        1.58590,
+                        1.43964,
+                        1.30883,
+                        1.19327,
+                        1.09000,
+                        0.996036,
+                        0.915593,
+                        0.841285,
+                        0.775049,
+                        0.718157,
+                        0.664892,
+                        0.617069,
+                        0.574792,
+                        0.537046,
+                        0.502112,
+                        0.471202,
+                        0.442614,
+                        0.417600,
+                        0.394439,
+                        0.373072,
+                    ],
+                ],
+            )
+        ):
+            image_post_cti = ac.add_cti(
+                image=image_pre_cti,
+                parallel_traps=traps,
+                parallel_ccd=ccd,
+                parallel_roe=roe,
+                parallel_express=express,
+            ).T[0]
+
+            image_idl = np.array(image_idl)
+
+            if do_plot:
+                c = colours[i]
+
+                if i == 0:
+                    plt.plot(
+                        pixels,
+                        image_post_cti,
+                        alpha=0.7,
+                        c=c,
+                        label="%d (py)" % express,
+                    )
+                    plt.plot(
+                        pixels,
+                        image_idl,
+                        ls="--",
+                        alpha=0.7,
+                        c=c,
+                        label="%d (idl)" % express,
+                    )
+                else:
+                    plt.plot(
+                        pixels, image_post_cti, alpha=0.7, c=c, label="%d" % express,
+                    )
+                    plt.plot(
+                        pixels, image_idl, alpha=0.7, c=c, ls="--",
+                    )
+
+            assert image_post_cti == pytest.approx(image_idl, rel=0.05, abs=0.05)
+
+        if do_plot:
+            plt.legend(title="express")
+            plt.yscale("log")
+            plt.xlabel("Pixel")
+            plt.ylabel("Counts")
+            plt.tight_layout()
+            plt.show()
 
 
 class TestAddCTIParallelOnly:
@@ -1078,7 +1378,7 @@ class TestAddCTIParallelMultiPhase:
             well_notch_depth=0.01,
             well_fill_power=0.8,
             full_well_depth=84700,
-            fraction_of_traps=[0.5, 0.2, 0.2, 0.1],
+            fraction_of_traps_per_phase=[0.5, 0.2, 0.2, 0.1],
         )
 
         roe = ac.ROE(dwell_times=[0.5, 0.2, 0.2, 0.1])

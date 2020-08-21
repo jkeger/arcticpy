@@ -104,18 +104,21 @@ def _clock_charge_in_one_direction(
                     n_electrons_trapped = 0
 
                     for phase in phases_with_traps:
-                        # Extract initial number of electrons from the relevant charge cloud
-                        roe_potential_dict = roe.clock_sequence[clocking_step][phase]
+                        # Information about the potentials in this phase
+                        roe_phase = roe.clock_sequence[clocking_step][phase]
+
+                        # Select the relevant pixel (and phase) for the initial charge
                         row_read = (
-                            window_row[row_index]
-                            + roe_potential_dict["capture_from_which_pixel"]
-                        )
-                        n_free_electrons = (
-                            image[row_read, window_column[column_index]]
-                            * roe_potential_dict["high"]
+                            window_row[row_index] + roe_phase.capture_from_which_pixels
                         )
 
-                        # Allow electrons to be released from and captured by charge traps
+                        # Initial charge (0 if this phase's potential is not high)
+                        n_free_electrons = (
+                            image[row_read, window_column[column_index]]
+                            * roe_phase.is_high
+                        )
+
+                        # Allow electrons to be released from and captured by traps
                         n_electrons_released_and_captured = 0
                         for trap_manager in trap_managers[phase]:
                             n_electrons_released_and_captured += trap_manager.n_electrons_released_and_captured(
@@ -127,14 +130,17 @@ def _clock_charge_in_one_direction(
                                 express_multiplier=express_multiplier,
                             )
 
-                        # Return the released electrons back to the relevant charge cloud
+                        # Select the relevant pixel (and phase) for the returned charge
                         row_write = (
-                            window_row[row_index]
-                            + roe_potential_dict["release_to_which_pixel"]
+                            window_row[row_index] + roe_phase.release_to_which_pixels
                         )
+
+                        # Return the electrons back to the relevant charge
+                        # cloud, or a fraction if they are being returned to
+                        # multiple phases
                         image[row_write, window_column[column_index]] += (
                             n_electrons_released_and_captured
-                            * roe_potential_dict["release_fraction_to_pixel"]
+                            * roe_phase.release_fraction_to_pixel
                             * express_multiplier
                         )
 

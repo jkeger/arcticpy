@@ -5,79 +5,6 @@ import arcticpy as ac
 
 
 class TestExpress:
-    def test__split_parallel_and_serial_readout_by_time(self):
-
-        return  ###WIP
-
-        image_pre_cti = np.zeros((20, 15))
-        image_pre_cti[1, 1] += 10000
-
-        trap = ac.Trap(density=10, release_timescale=10.0)
-        ccd = ac.CCD(well_notch_depth=0.0, well_fill_power=0.8, full_well_depth=100000)
-        roe = ac.ROE(empty_traps_at_start=False, empty_traps_between_columns=True)
-
-        express = 2
-        offset = 0
-        split_point = 0.25
-
-        # Run in two halves
-        image_post_cti_firsthalf = ac.add_cti(
-            image=image_pre_cti,
-            parallel_traps=[trap],
-            parallel_ccd=ccd,
-            parallel_roe=roe,
-            parallel_express=express,
-            parallel_offset=offset,
-            serial_traps=[trap],
-            serial_ccd=ccd,
-            serial_roe=roe,
-            serial_express=express,
-            serial_offset=offset,
-            time_window=[0, split_point],
-        )
-        trail_firsthalf = image_post_cti_firsthalf - image_pre_cti
-        image_post_cti_secondhalf = ac.add_cti(
-            image=image_pre_cti,
-            serial_traps=[trap],
-            serial_ccd=ccd,
-            serial_roe=roe,
-            serial_express=express,
-            serial_offset=offset,
-            parallel_traps=[trap],
-            parallel_ccd=ccd,
-            parallel_roe=roe,
-            parallel_express=express,
-            parallel_offset=offset,
-            time_window=[split_point, 1],
-        )
-        image_post_cti_split = (
-            image_post_cti_firsthalf + image_post_cti_secondhalf - image_pre_cti
-        )
-        trail_split = image_post_cti_split - image_pre_cti
-
-        # Run all in one go
-        image_post_cti = ac.add_cti(
-            image=image_pre_cti,
-            serial_traps=[trap],
-            serial_ccd=ccd,
-            serial_roe=roe,
-            serial_express=express,
-            serial_offset=offset,
-            parallel_traps=[trap],
-            parallel_ccd=ccd,
-            parallel_roe=roe,
-            parallel_express=express,
-            parallel_offset=offset,
-        )
-        trail = image_post_cti - image_pre_cti
-
-        # diff = trail_split - trail
-        # print(trail)
-        # print(trail_firsthalf)
-        # print(trail_split)
-
-        assert (abs(trail_split - trail) < 2e-4).all()
-
     def test__express_matrix_from_pixels(self):
 
         roe = ac.ROE(empty_traps_at_start=False, express_matrix_dtype=int)
@@ -161,238 +88,301 @@ class TestExpress:
             == express_multipliera
         ).all()
 
+    def test__split_parallel_and_serial_readout_by_time(self):
+
+        return  ###WIP
+
+        image_pre_cti = np.zeros((20, 15))
+        image_pre_cti[1, 1] += 10000
+
+        trap = ac.Trap(density=10, release_timescale=10.0)
+        ccd = ac.CCD(well_notch_depth=0.0, well_fill_power=0.8, full_well_depth=100000)
+        roe = ac.ROE(empty_traps_at_start=False, empty_traps_between_columns=True)
+
+        express = 2
+        offset = 0
+        split_point = 0.25
+
+        # Run in two halves
+        image_post_cti_firsthalf = ac.add_cti(
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd=ccd,
+            parallel_roe=roe,
+            parallel_express=express,
+            parallel_offset=offset,
+            serial_traps=[trap],
+            serial_ccd=ccd,
+            serial_roe=roe,
+            serial_express=express,
+            serial_offset=offset,
+            time_window=[0, split_point],
+        )
+        trail_firsthalf = image_post_cti_firsthalf - image_pre_cti
+        image_post_cti_secondhalf = ac.add_cti(
+            image=image_pre_cti,
+            serial_traps=[trap],
+            serial_ccd=ccd,
+            serial_roe=roe,
+            serial_express=express,
+            serial_offset=offset,
+            parallel_traps=[trap],
+            parallel_ccd=ccd,
+            parallel_roe=roe,
+            parallel_express=express,
+            parallel_offset=offset,
+            time_window=[split_point, 1],
+        )
+        image_post_cti_split = (
+            image_post_cti_firsthalf + image_post_cti_secondhalf - image_pre_cti
+        )
+        trail_split = image_post_cti_split - image_pre_cti
+
+        # Run all in one go
+        image_post_cti = ac.add_cti(
+            image=image_pre_cti,
+            serial_traps=[trap],
+            serial_ccd=ccd,
+            serial_roe=roe,
+            serial_express=express,
+            serial_offset=offset,
+            parallel_traps=[trap],
+            parallel_ccd=ccd,
+            parallel_roe=roe,
+            parallel_express=express,
+            parallel_offset=offset,
+        )
+        trail = image_post_cti - image_pre_cti
+
+        assert (abs(trail_split - trail) < 2e-4).all()
+
 
 class TestClockingSequences:
     def test__release_fractions_sum_to_unity(self):
 
-        for n_phases in [1, 2, 3, 4]:
-            roe = ac.ROETrapPumping([1] * (n_phases * 2))
+        for n_phases in [1, 2, 3, 5, 8]:
+            roe = ac.ROE([1] * n_phases)
             for step in roe.clock_sequence:
                 for phase in step:
-                    assert sum(phase["release_fraction_to_pixel"]) == 1
+                    assert sum(phase.release_fraction_to_pixel) == 1
 
     def test__readout_sequence_single_phase_single_phase_high(self):
 
         for force_downstream_release in [True, False]:
             roe = ac.ROE([1], force_downstream_release=force_downstream_release)
-            assert roe.pixels_accessed_during_clocking == [0]
-            assert min(roe.pixels_accessed_during_clocking) == 0
-            assert max(roe.pixels_accessed_during_clocking) == 0
+            assert roe.pixels_accessed_during_clocking == pytest.approx([0])
             assert roe.n_phases == 1
             assert roe.n_steps == 1
-            assert roe.clock_sequence[0][0]["high"], "Highness"
-            assert roe.clock_sequence[0][0]["capture_from_which_pixel"] == 0
-            assert roe.clock_sequence[0][0]["release_to_which_pixel"] == 0
+            assert roe.clock_sequence[0][0].is_high
+            assert roe.clock_sequence[0][0].capture_from_which_pixels == 0
+            assert roe.clock_sequence[0][0].release_to_which_pixels == 0
 
     def test__readout_sequence_two_phase_single_phase_high(self):
 
         n_phases = 2
 
         roe = ac.ROE([1] * n_phases, force_downstream_release=False)
-        assert roe.pixels_accessed_during_clocking == [-1, 0, 1]
+        assert roe.pixels_accessed_during_clocking == pytest.approx([-1, 0, 1])
         assert roe.n_phases == n_phases
         assert roe.n_steps == n_phases
 
         for step in range(n_phases):
             phase = step
-            assert roe.clock_sequence[step][phase]["high"], "Highness"
+            assert roe.clock_sequence[step][phase].is_high
             assert (
-                roe.clock_sequence[step][phase]["capture_from_which_pixel"] == 0
+                roe.clock_sequence[step][phase].capture_from_which_pixels == 0
             ), "Step {}, phase {}, capture".format(step, phase)
             assert (
-                roe.clock_sequence[step][phase]["release_to_which_pixel"] == 0
+                roe.clock_sequence[step][phase].release_to_which_pixels == 0
             ), "Step {}, phase {}, release".format(step, phase)
 
         # Check other phases
         assert all(
-            roe.clock_sequence[0][1]["release_to_which_pixel"] == np.array([-1, 0])
+            roe.clock_sequence[0][1].release_to_which_pixels == np.array([-1, 0])
         )
-        assert all(
-            roe.clock_sequence[1][0]["release_to_which_pixel"] == np.array([0, 1])
-        )
+        assert all(roe.clock_sequence[1][0].release_to_which_pixels == np.array([0, 1]))
 
         roe = ac.ROE([1] * n_phases, force_downstream_release=True)
-        assert roe.pixels_accessed_during_clocking == [0, 1]
+        assert roe.pixels_accessed_during_clocking == pytest.approx([0, 1])
         assert roe.n_phases == n_phases
         assert roe.n_steps == n_phases
 
         for step in range(n_phases):
             phase = step
-            assert roe.clock_sequence[step][phase]["high"], "Highness"
+            assert roe.clock_sequence[step][phase].is_high
             assert (
-                roe.clock_sequence[step][phase]["capture_from_which_pixel"] == 0
+                roe.clock_sequence[step][phase].capture_from_which_pixels == 0
             ), "Step {}, phase {}, capture".format(step, phase)
             assert (
-                roe.clock_sequence[step][phase]["release_to_which_pixel"] == 0
+                roe.clock_sequence[step][phase].release_to_which_pixels == 0
             ), "Step {}, phase {}, release".format(step, phase)
 
         # Check other phases
-        assert all(
-            roe.clock_sequence[0][1]["release_to_which_pixel"] == np.array([0, 1])
-        )
-        assert all(
-            roe.clock_sequence[1][0]["release_to_which_pixel"] == np.array([0, 1])
-        )
+        assert all(roe.clock_sequence[0][1].release_to_which_pixels == np.array([0, 1]))
+        assert all(roe.clock_sequence[1][0].release_to_which_pixels == np.array([0, 1]))
 
     def test__readout_sequence_three_phase_single_phase_high(self):
 
         n_phases = 3
 
         roe = ac.ROE([1] * n_phases, force_downstream_release=False)
-        assert roe.pixels_accessed_during_clocking == [-1, 0, 1]
+        assert roe.pixels_accessed_during_clocking == pytest.approx([-1, 0, 1])
         assert roe.n_phases == n_phases
         assert roe.n_steps == n_phases
 
         for step in range(n_phases):
             phase = step
-            assert roe.clock_sequence[step][phase]["high"], "Highness"
+            assert roe.clock_sequence[step][phase].is_high
             assert (
-                roe.clock_sequence[step][phase]["capture_from_which_pixel"] == 0
+                roe.clock_sequence[step][phase].capture_from_which_pixels == 0
             ), "Step {}, phase {}, capture".format(step, phase)
             assert (
-                roe.clock_sequence[step][phase]["release_to_which_pixel"] == 0
+                roe.clock_sequence[step][phase].release_to_which_pixels == 0
             ), "Step {}, phase {}, release".format(step, phase)
 
         # Check other phases
-        assert roe.clock_sequence[0][1]["release_to_which_pixel"] == 0
-        assert roe.clock_sequence[0][2]["release_to_which_pixel"] == -1
-        assert roe.clock_sequence[1][0]["release_to_which_pixel"] == 0
-        assert roe.clock_sequence[1][2]["release_to_which_pixel"] == 0
-        assert roe.clock_sequence[2][0]["release_to_which_pixel"] == 1
-        assert roe.clock_sequence[2][1]["release_to_which_pixel"] == 0
+        assert roe.clock_sequence[0][1].release_to_which_pixels == 0
+        assert roe.clock_sequence[0][2].release_to_which_pixels == -1
+        assert roe.clock_sequence[1][0].release_to_which_pixels == 0
+        assert roe.clock_sequence[1][2].release_to_which_pixels == 0
+        assert roe.clock_sequence[2][0].release_to_which_pixels == 1
+        assert roe.clock_sequence[2][1].release_to_which_pixels == 0
 
         # Never move electrons ahead of the trap
         roe = ac.ROE([1] * n_phases, force_downstream_release=True)
-        assert roe.pixels_accessed_during_clocking == [0, 1]
+        assert roe.pixels_accessed_during_clocking == pytest.approx([0, 1])
         assert roe.n_phases == n_phases
         assert roe.n_steps == n_phases
 
         # Check all high phases
         for step in range(n_phases):
             phase = step
-            assert roe.clock_sequence[step][phase]["high"], "Highness"
+            assert roe.clock_sequence[step][phase].is_high
             assert (
-                roe.clock_sequence[step][phase]["capture_from_which_pixel"] == 0
+                roe.clock_sequence[step][phase].capture_from_which_pixels == 0
             ), "Step {}, phase {}, capture".format(step, phase)
             assert (
-                roe.clock_sequence[step][phase]["release_to_which_pixel"] == 0
+                roe.clock_sequence[step][phase].release_to_which_pixels == 0
             ), "Step {}, phase {}, release".format(step, phase)
 
         # Check other phases
-        assert roe.clock_sequence[0][1]["release_to_which_pixel"] == 1
-        assert roe.clock_sequence[0][2]["release_to_which_pixel"] == 0
-        assert roe.clock_sequence[1][0]["release_to_which_pixel"] == 0
-        assert roe.clock_sequence[1][2]["release_to_which_pixel"] == 1
-        assert roe.clock_sequence[2][0]["release_to_which_pixel"] == 1
-        assert roe.clock_sequence[2][1]["release_to_which_pixel"] == 0
+        assert roe.clock_sequence[0][1].release_to_which_pixels == 1
+        assert roe.clock_sequence[0][2].release_to_which_pixels == 0
+        assert roe.clock_sequence[1][0].release_to_which_pixels == 0
+        assert roe.clock_sequence[1][2].release_to_which_pixels == 1
+        assert roe.clock_sequence[2][0].release_to_which_pixels == 1
+        assert roe.clock_sequence[2][1].release_to_which_pixels == 0
 
     def test__trappumping_sequence_three_phase_single_phase_high(self):
 
         n_phases = 3
 
-        roe = ac.ROETrapPumping([1] * (2 * n_phases))
-        assert roe.pixels_accessed_during_clocking == [-1, 0, 1]
+        roe = ac.ROETrapPumping([1] * 2 * n_phases)
+        assert roe.pixels_accessed_during_clocking == pytest.approx([-1, 0, 1])
         assert roe.n_phases == n_phases
         assert roe.n_steps == 2 * n_phases
 
         for step in range(roe.n_steps):
             phase = ([0, 1, 2, 0, 2, 1])[step]
-            assert roe.clock_sequence[step][phase]["high"], "Highness"
-        assert roe.clock_sequence[3][0]["release_to_which_pixel"] == 1
-        assert roe.clock_sequence[3][1]["release_to_which_pixel"] == 1
-        assert roe.clock_sequence[3][2]["release_to_which_pixel"] == 0
-        assert roe.clock_sequence[4] == roe.clock_sequence[2]
-        assert roe.clock_sequence[5] == roe.clock_sequence[1]
+            assert roe.clock_sequence[step][phase].is_high
+        assert roe.clock_sequence[3][0].release_to_which_pixels == 1
+        assert roe.clock_sequence[3][1].release_to_which_pixels == 1
+        assert roe.clock_sequence[3][2].release_to_which_pixels == 0
+        for phase in [0, 1, 2]:
+            assert (
+                roe.clock_sequence[4][phase].release_to_which_pixels
+                == roe.clock_sequence[2][phase].release_to_which_pixels
+            )
+            assert (
+                roe.clock_sequence[4][phase].capture_from_which_pixels
+                == roe.clock_sequence[2][phase].capture_from_which_pixels
+            )
+            assert (
+                roe.clock_sequence[5][phase].release_to_which_pixels
+                == roe.clock_sequence[1][phase].release_to_which_pixels
+            )
+            assert (
+                roe.clock_sequence[5][phase].capture_from_which_pixels
+                == roe.clock_sequence[1][phase].capture_from_which_pixels
+            )
 
     def test__readout_sequence_four_phase_single_phase_high(self):
 
         n_phases = 4
 
         roe = ac.ROE([1] * n_phases, force_downstream_release=False)
-        assert roe.pixels_accessed_during_clocking == [-1, 0, 1]
+        assert roe.pixels_accessed_during_clocking == pytest.approx([-1, 0, 1])
         assert roe.n_phases == n_phases
         assert roe.n_steps == n_phases
 
         for step in range(n_phases):
             phase = step
-            assert roe.clock_sequence[step][phase]["high"], "Highness"
+            assert roe.clock_sequence[step][phase].is_high
             assert (
-                roe.clock_sequence[step][phase]["capture_from_which_pixel"] == 0
+                roe.clock_sequence[step][phase].capture_from_which_pixels == 0
             ), "Step {}, phase {}, capture".format(step, phase)
             assert (
-                roe.clock_sequence[step][phase]["release_to_which_pixel"] == 0
+                roe.clock_sequence[step][phase].release_to_which_pixels == 0
             ), "Step {}, phase {}, release".format(step, phase)
 
         # Check other phases
-        assert roe.clock_sequence[0][1]["release_to_which_pixel"] == 0
+        assert roe.clock_sequence[0][1].release_to_which_pixels == 0
         assert all(
-            roe.clock_sequence[0][2]["release_to_which_pixel"] == np.array([-1, 0])
+            roe.clock_sequence[0][2].release_to_which_pixels == np.array([-1, 0])
         )
-        assert roe.clock_sequence[0][3]["release_to_which_pixel"] == -1
-        assert roe.clock_sequence[1][0]["release_to_which_pixel"] == 0
-        assert roe.clock_sequence[1][2]["release_to_which_pixel"] == 0
+        assert roe.clock_sequence[0][3].release_to_which_pixels == -1
+        assert roe.clock_sequence[1][0].release_to_which_pixels == 0
+        assert roe.clock_sequence[1][2].release_to_which_pixels == 0
         assert all(
-            roe.clock_sequence[1][3]["release_to_which_pixel"] == np.array([-1, 0])
+            roe.clock_sequence[1][3].release_to_which_pixels == np.array([-1, 0])
         )
-        assert all(
-            roe.clock_sequence[2][0]["release_to_which_pixel"] == np.array([0, 1])
-        )
-        assert roe.clock_sequence[2][1]["release_to_which_pixel"] == 0
-        assert roe.clock_sequence[2][3]["release_to_which_pixel"] == 0
-        assert roe.clock_sequence[3][0]["release_to_which_pixel"] == 1
-        assert all(
-            roe.clock_sequence[3][1]["release_to_which_pixel"] == np.array([0, 1])
-        )
-        assert roe.clock_sequence[3][2]["release_to_which_pixel"] == 0
+        assert all(roe.clock_sequence[2][0].release_to_which_pixels == np.array([0, 1]))
+        assert roe.clock_sequence[2][1].release_to_which_pixels == 0
+        assert roe.clock_sequence[2][3].release_to_which_pixels == 0
+        assert roe.clock_sequence[3][0].release_to_which_pixels == 1
+        assert all(roe.clock_sequence[3][1].release_to_which_pixels == np.array([0, 1]))
+        assert roe.clock_sequence[3][2].release_to_which_pixels == 0
 
         roe = ac.ROE([1] * n_phases, force_downstream_release=True)
-        assert roe.pixels_accessed_during_clocking == [0, 1]
+        assert roe.pixels_accessed_during_clocking == pytest.approx([0, 1])
         assert roe.n_phases == n_phases
         assert roe.n_steps == n_phases
 
         for step in range(n_phases):
             phase = step
-            assert roe.clock_sequence[step][phase]["high"], "Highness"
+            assert roe.clock_sequence[step][phase].is_high
             assert (
-                roe.clock_sequence[step][phase]["capture_from_which_pixel"] == 0
+                roe.clock_sequence[step][phase].capture_from_which_pixels == 0
             ), "Step {}, phase {}, capture".format(step, phase)
             assert (
-                roe.clock_sequence[step][phase]["release_to_which_pixel"] == 0
+                roe.clock_sequence[step][phase].release_to_which_pixels == 0
             ), "Step {}, phase {}, release".format(step, phase)
 
         # Check other phases
-        assert roe.clock_sequence[0][1]["release_to_which_pixel"] == 1
-        assert all(
-            roe.clock_sequence[0][2]["release_to_which_pixel"] == np.array([0, 1])
-        )
-        assert roe.clock_sequence[0][3]["release_to_which_pixel"] == 0
-        assert roe.clock_sequence[1][0]["release_to_which_pixel"] == 0
-        assert roe.clock_sequence[1][2]["release_to_which_pixel"] == 1
-        assert all(
-            roe.clock_sequence[1][3]["release_to_which_pixel"] == np.array([0, 1])
-        )
-        assert all(
-            roe.clock_sequence[2][0]["release_to_which_pixel"] == np.array([0, 1])
-        )
-        assert roe.clock_sequence[2][1]["release_to_which_pixel"] == 0
-        assert roe.clock_sequence[2][3]["release_to_which_pixel"] == 1
-        assert roe.clock_sequence[3][0]["release_to_which_pixel"] == 1
-        assert all(
-            roe.clock_sequence[3][1]["release_to_which_pixel"] == np.array([0, 1])
-        )
-        assert roe.clock_sequence[3][2]["release_to_which_pixel"] == 0
+        assert roe.clock_sequence[0][1].release_to_which_pixels == 1
+        assert all(roe.clock_sequence[0][2].release_to_which_pixels == np.array([0, 1]))
+        assert roe.clock_sequence[0][3].release_to_which_pixels == 0
+        assert roe.clock_sequence[1][0].release_to_which_pixels == 0
+        assert roe.clock_sequence[1][2].release_to_which_pixels == 1
+        assert all(roe.clock_sequence[1][3].release_to_which_pixels == np.array([0, 1]))
+        assert all(roe.clock_sequence[2][0].release_to_which_pixels == np.array([0, 1]))
+        assert roe.clock_sequence[2][1].release_to_which_pixels == 0
+        assert roe.clock_sequence[2][3].release_to_which_pixels == 1
+        assert roe.clock_sequence[3][0].release_to_which_pixels == 1
+        assert all(roe.clock_sequence[3][1].release_to_which_pixels == np.array([0, 1]))
+        assert roe.clock_sequence[3][2].release_to_which_pixels == 0
 
     def test__trappumping_sequence_four_phase_single_phase_high(self):
 
         n_phases = 4
-        roe = ac.ROETrapPumping([1] * (2 * n_phases))
-        assert roe.pixels_accessed_during_clocking == [-1, 0, 1]
+        roe = ac.ROETrapPumping([1] * 2 * n_phases)
+        assert roe.pixels_accessed_during_clocking == pytest.approx([-1, 0, 1])
         assert roe.n_phases == n_phases
         assert roe.n_steps == 2 * n_phases
 
         for step in range(roe.n_steps):
             phase = ([0, 1, 2, 3, 0, 3, 2, 1])[step]
-            assert roe.clock_sequence[step][phase]["high"], "Highness"
+            assert roe.clock_sequence[step][phase].is_high
 
 
 class TestTrapPumpingResults:

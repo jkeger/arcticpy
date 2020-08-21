@@ -54,23 +54,27 @@ def _clock_charge_in_one_direction(
         The output array of pixel values.
     """
 
-    # Calculate the number of times that the effect of each pixel-to-pixel
-    # transfer can be replicated
+    # Generate the arrays over each step for: the number of of times that the
+    # effect of each pixel-to-pixel transfer can be multiplied for the express
+    # algorithm; whether the traps must be monitored (usually whenever express
+    # matrix > 0); and whether the trap occupancy states must be saved for the
+    # next express pass
     (
         express_matrix,
-        when_to_monitor_traps,
-        when_to_store_traps,
+        monitor_traps_matrix,
+        save_trap_states_matrix,
     ) = roe.express_matrix_from_pixels_and_express(
         window_row, express=express, offset=offset, window_express=window_express
     )
     (n_express, n_rows_to_process) = express_matrix.shape
 
-    # Decide in advance which steps need to be evaluated, and which can be skipped
+    # Decide in advance which steps need to be evaluated and which can be skipped
     phases_with_traps = [
-        i for i, x in enumerate(ccd.fraction_of_traps_per_phase) if x > 0
+        i for i, frac in enumerate(ccd.fraction_of_traps_per_phase) if frac > 0
     ]
-    steps_with_nonzero_dwell_time = [i for i, x in enumerate(roe.dwell_times) if x > 0]
-    express_with_nonzero_effect = (np.sum(express_matrix, axis=1) > 0).nonzero()
+    steps_with_nonzero_dwell_time = [
+        i for i, time in enumerate(roe.dwell_times) if time > 0
+    ]
 
     # Set up an array of trap managers able to monitor the occupancy of (all types of) traps
     max_n_transfers = n_rows_to_process * len(steps_with_nonzero_dwell_time)
@@ -84,20 +88,21 @@ def _clock_charge_in_one_direction(
     zero_padding = np.zeros((n_rows_zero_padding, image.shape[1]), dtype=image.dtype)
     image = np.concatenate((image, zero_padding), axis=0)
 
-    # Read out one column of pixels through one (column of) traps
+    # Read out one column of pixels through the (column of) traps
     for column_index in range(len(window_column)):
 
         # Monitor the traps in every pixel, or just one (express=1) or a few
         # (express=a few) then replicate their effect
         for express_index in range(n_express):
-            # Reset trap occupancy levels
+            # Restore the trap occupancy levels (to empty, or to a saved state
+            # from a previous express pass)
             trap_managers.restore()
-            checksum = np.sum(image[:, window_column[column_index]])
 
             # Each pixel
             for row_index in range(len(window_row)):
                 express_multiplier = express_matrix[express_index, row_index]
-                if not when_to_monitor_traps[express_index, row_index]:
+                # Skip this step if not needed to be evaluated
+                if not monitor_traps_matrix[express_index, row_index]:
                     continue
 
                 for clocking_step in steps_with_nonzero_dwell_time:
@@ -144,17 +149,16 @@ def _clock_charge_in_one_direction(
                             * express_multiplier
                         )
 
-                # At end of (each express pass on) each row, check whether trap
-                # occupancy will be required for next express pass
-                if when_to_store_traps[express_index, row_index]:
+                # Save the trap occupancy states if required for the next express pass
+                if save_trap_states_matrix[express_index, row_index]:
                     trap_managers.save()
 
-        # At end of each column, reset watermarks, effectively setting trap occupancy to zero
+        # Reset the watermarks, effectively setting the trap occupancies to zero
         if roe.empty_traps_between_columns:
             trap_managers.empty_all_traps()
         trap_managers.save()
 
-    # Unexpand image
+    # Unexpand the image to its original dimensions
     if n_rows_zero_padding > 0:
         image = image[0:-n_rows_zero_padding, :]
 

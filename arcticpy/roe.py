@@ -494,13 +494,16 @@ class ROE(ROEAbstract):
         Returns
         -------
         express_matrix : [[float]]
-            The express multiplier values for each pixel-to-pixel transfer.   
+            The express multiplier value for each pixel-to-pixel transfer.
                      
-        when_to_monitor_traps : 
-            ###   
+        monitor_traps_matrix : [[bool]]
+            For each pixel-to-pixel transfer, set True if the release and 
+            capture of charge needs to be monitored, based on express_matrix.
                  
-        when_to_store_traps : 
-            ###
+        save_trap_states_matrix : [[bool]]
+            For each pixel-to-pixel transfer, set True to store the trap 
+            occupancy levels, so the next express iteration can continue from an 
+            (approximately) suitable configuration.
         """
 
         # Parse inputs
@@ -548,9 +551,9 @@ class ROE(ROEAbstract):
             n_nonzero = np.sum(express_matrix_small > 0, axis=1)
             express_matrix[n_nonzero, 1:] += express_matrix_small
 
-        when_to_monitor_traps = express_matrix > 0
-        when_to_monitor_traps = when_to_monitor_traps[:, offset:]
-        when_to_monitor_traps = when_to_monitor_traps[:, window]
+        monitor_traps_matrix = express_matrix > 0
+        monitor_traps_matrix = monitor_traps_matrix[:, offset:]
+        monitor_traps_matrix = monitor_traps_matrix[:, window]
 
         # Extract the desired section of the array
         # Keep only the temporal region of interest (do this last because a: it
@@ -566,19 +569,23 @@ class ROE(ROEAbstract):
 
         return (
             express_matrix,
-            when_to_monitor_traps,
-            self.when_to_store_traps_from_express_matrix(express_matrix),
+            monitor_traps_matrix,
+            self.save_trap_states_matrix_from_express_matrix(express_matrix),
         )
 
     def restrict_time_span_of_express_matrix(self, express_matrix, window_express):
         """
-        Remove rows of an express_multiplier matrix that are outside a temporal region of interest
-        if express were zero, could just remove all other rows; this method is more general
+        Remove rows of an express_multiplier matrix that are outside a temporal 
+        region of interest if express were zero. 
+        
+        Could just remove all other rows; this method is more general.
 
-        Parameters:
-            window_express : [int, int]
-            The first of the transfers to implement, and the one after the last transfer to implement
-            (like specifying range(0,n+1) includes entries for 0 and n)
+        Parameters
+        ----------
+        window_express : [int, int]
+            The first of the transfers to implement, and the one after the last 
+            transfer to implement (like specifying range(0,n+1) includes entries 
+            for 0 and n).
         """
 
         if window_express is not None:
@@ -593,10 +600,10 @@ class ROE(ROEAbstract):
 
         return express_matrix
 
-    def when_to_store_traps_from_express_matrix(self, express_matrix):
+    def save_trap_states_matrix_from_express_matrix(self, express_matrix):
         """
-        Decide appropriate moments to store trap occupancy levels, so the next
-        express iteration can continue from an (approximately) suitable 
+        Decide appropriate moments to store the trap occupancy levels, so the 
+        next express iteration can continue from an (approximately) suitable 
         configuration.
         
         If the traps are empty (rather than restored), the first capture in each 
@@ -608,14 +615,14 @@ class ROE(ROEAbstract):
         is multiplied up, replicated throughout many.
         """
         (n_express, n_pixels) = express_matrix.shape
-        when_to_store_traps = np.zeros((n_express, n_pixels), dtype=bool)
+        save_trap_states_matrix = np.zeros((n_express, n_pixels), dtype=bool)
         if not self.empty_traps_at_start:
             for express_index in range(n_express - 1):
                 for row_index in range(n_pixels - 1):
                     if express_matrix[express_index + 1, row_index + 1] > 0:
                         break
-                when_to_store_traps[express_index, row_index] = True
-        return when_to_store_traps
+                save_trap_states_matrix[express_index, row_index] = True
+        return save_trap_states_matrix
 
 
 class ROEChargeInjection(ROE):
@@ -698,18 +705,18 @@ class ROEChargeInjection(ROE):
             express_matrix[:] = max_multiplier
 
         # Keep only the temporal region of interest
-        when_to_monitor_traps = express_matrix > 0
+        monitor_traps_matrix = express_matrix > 0
         express_matrix = self.restrict_time_span_of_express_matrix(
             express_matrix, window_express
         )
 
         return (
             express_matrix,
-            when_to_monitor_traps,
-            self.when_to_store_traps_from_express_matrix(express_matrix),
+            monitor_traps_matrix,
+            self.save_trap_states_matrix_from_express_matrix(express_matrix),
         )
 
-    def when_to_store_traps_from_express_matrix(self, express_matrix):
+    def save_trap_states_matrix_from_express_matrix(self, express_matrix):
         """
         The first pixel in each column will always encounter empty traps, after 
         every pixel-to-pixel transfer. So never save any trap occupancy between 
@@ -872,15 +879,15 @@ class ROETrapPumping(ROEAbstract):
             for i in range(n_express):
                 express_matrix[j * n_express + i, j] = express_multipliers[i]
 
-        when_to_monitor_traps = express_matrix > 0
+        monitor_traps_matrix = express_matrix > 0
 
         return (
             express_matrix,
-            when_to_monitor_traps,
-            self.when_to_store_traps_from_express_matrix(express_matrix),
+            monitor_traps_matrix,
+            self.save_trap_states_matrix_from_express_matrix(express_matrix),
         )
 
-    def when_to_store_traps_from_express_matrix(self, express_matrix):
+    def save_trap_states_matrix_from_express_matrix(self, express_matrix):
         """
         Decide appropriate moments to store trap occupancy levels, so the next
         express iteration can continue from an (approximately) suitable 
@@ -899,13 +906,13 @@ class ROETrapPumping(ROEAbstract):
         ###
         """
         (n_express, n_pixels) = express_matrix.shape
-        when_to_store_traps = np.zeros((n_express, n_pixels), dtype=bool)
+        save_trap_states_matrix = np.zeros((n_express, n_pixels), dtype=bool)
         for j in range(n_pixels):
             for i in range(n_express):
                 # Save trap occupancy between pumps of same trap
-                when_to_store_traps[j * n_express + i, j] = True
+                save_trap_states_matrix[j * n_express + i, j] = True
             # But don't save trap occupancy after the final pump of a particular
             # trap, because we will be about to move on to the next trap (or
             # have reached the end).
-            when_to_store_traps[(j + 1) * n_express - 1, j] = False
-        return when_to_store_traps
+            save_trap_states_matrix[(j + 1) * n_express - 1, j] = False
+        return save_trap_states_matrix

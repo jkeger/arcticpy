@@ -8,17 +8,17 @@ class TestExpress:
     def test__express_matrix_from_pixels(self):
 
         roe = ac.ROE(empty_traps_at_start=False, express_matrix_dtype=int)
-        express_multiplier, _, _ = roe.express_matrix_from_pixels_and_express(
+        express_matrix, _, _ = roe.express_matrix_from_pixels_and_express(
             pixels=12, express=1
         )
 
-        assert express_multiplier == pytest.approx(np.array([np.arange(1, 13)]))
+        assert express_matrix == pytest.approx(np.array([np.arange(1, 13)]))
 
-        express_multiplier, _, _ = roe.express_matrix_from_pixels_and_express(
+        express_matrix, _, _ = roe.express_matrix_from_pixels_and_express(
             pixels=12, express=4
         )
 
-        assert express_multiplier == pytest.approx(
+        assert express_matrix == pytest.approx(
             np.array(
                 [
                     [1, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3],
@@ -29,11 +29,11 @@ class TestExpress:
             )
         )
 
-        express_multiplier, _, _ = roe.express_matrix_from_pixels_and_express(
+        express_matrix, _, _ = roe.express_matrix_from_pixels_and_express(
             pixels=12, express=12
         )
 
-        assert express_multiplier == pytest.approx(np.triu(np.ones((12, 12))))
+        assert express_matrix == pytest.approx(np.triu(np.ones((12, 12))))
 
     def test__express_matrix_always_sums_to_n_transfers(self):
         for pixels in [5, 7, 17]:
@@ -46,13 +46,13 @@ class TestExpress:
                                 express_matrix_dtype=dtype,
                             )
                             (
-                                express_multiplier,
+                                express_matrix,
                                 _,
                                 _,
                             ) = roe.express_matrix_from_pixels_and_express(
                                 pixels=pixels, express=express, offset=offset
                             )
-                            assert np.sum(express_multiplier, axis=0) == pytest.approx(
+                            assert np.sum(express_matrix, axis=0) == pytest.approx(
                                 np.arange(1, pixels + 1) + offset
                             )
 
@@ -62,31 +62,44 @@ class TestExpress:
         offset = 2
         pixels = 8
         total_pixels = pixels + offset
-        express_multiplier1, when1, _ = roe.express_matrix_from_pixels_and_express(
+        (
+            express_matrix_a,
+            monitor_traps_matrix_a,
+            _,
+        ) = roe.express_matrix_from_pixels_and_express(
             pixels, express, offset=offset, window_express=range(0, 6)
         )
-        express_multiplier2, when2, _ = roe.express_matrix_from_pixels_and_express(
+        (
+            express_matrix_b,
+            monitor_traps_matrix_b,
+            _,
+        ) = roe.express_matrix_from_pixels_and_express(
             pixels, express, offset=offset, window_express=range(6, 9)
         )
-        express_multiplier3, when3, _ = roe.express_matrix_from_pixels_and_express(
+        (
+            express_matrix_c,
+            monitor_traps_matrix_c,
+            _,
+        ) = roe.express_matrix_from_pixels_and_express(
             pixels, express, offset=offset, window_express=range(9, total_pixels)
         )
-        express_multipliera, whena, _ = roe.express_matrix_from_pixels_and_express(
-            pixels, express, offset=offset
-        )
+        (
+            express_matrix_d,
+            monitor_traps_matrix_d,
+            _,
+        ) = roe.express_matrix_from_pixels_and_express(pixels, express, offset=offset)
         total_transfers = (
-            np.sum(express_multiplier1, axis=0)
-            + np.sum(express_multiplier2, axis=0)
-            + np.sum(express_multiplier3, axis=0)
+            np.sum(express_matrix_a, axis=0)
+            + np.sum(express_matrix_b, axis=0)
+            + np.sum(express_matrix_c, axis=0)
         )
         assert total_transfers == pytest.approx(np.arange(1, pixels + 1) + offset)
-        assert (when1 == when2).all()
-        assert (when1 == when3).all()
-        assert (when1 == whena).all()
-        assert (
-            (express_multiplier1 + express_multiplier2 + express_multiplier3)
-            == express_multipliera
-        ).all()
+        assert monitor_traps_matrix_a == pytest.approx(monitor_traps_matrix_b)
+        assert monitor_traps_matrix_a == pytest.approx(monitor_traps_matrix_c)
+        assert monitor_traps_matrix_a == pytest.approx(monitor_traps_matrix_d)
+        assert express_matrix_a + express_matrix_b + express_matrix_c == pytest.approx(
+            express_matrix_d
+        )
 
     def test__split_parallel_and_serial_readout_by_time(self):
 
@@ -574,7 +587,7 @@ class TestTrapPumpingResults:
         return  ###WIP
 
         roe = ac.ROEChargeInjection(n_active_pixels=2)
-        express_matrix, _ = roe.express_matrix_from_pixels_and_express(10, 0)
+        express_matrix, _, _ = roe.express_matrix_from_pixels_and_express(10, 0)
         express_matrix.shape
 
         ccd = ac.CCD(well_fill_power=0.5, full_well_depth=2e5)

@@ -41,7 +41,17 @@ def _clock_charge_in_one_direction(
         list containing lists of one or more traps for each type. 
         
     express : int
-        The factor by which pixel-to-pixel transfers are combined for efficiency.
+        The number of times the pixel-to-pixel transfers are computed, 
+        determining the balance between accuracy (high values) and speed 
+        (low values) (Massey et al. 2014, section 2.1.5).
+            n_pix   (slower, accurate) Compute every pixel-to-pixel 
+                    transfer. The default 0 = alias for n_pix.
+            k       Recompute on k occasions the effect of each transfer.  
+                    After a few transfers (and e.g. eroded leading edges),  
+                    the incremental effect of subsequent transfers can change.
+            1       (faster, approximate) Compute the effect of each 
+                    transfer only once.
+        Runtime scales approximately as O(express^0.5). ###WIP
         
     offset : int
         The number of (e.g. prescan) pixels separating the supplied image from 
@@ -218,8 +228,9 @@ def add_cti(
         The input array of pixel values, assumed to be in units of electrons.
         
     parallel_express : int
-        The factor by which pixel-to-pixel transfers are combined for
-        efficiency for parallel clocking.
+        The number of times the transfers are computed, determining the 
+        balance between accuracy (high values) and speed (low values), for 
+        parallel clocking (Massey et al. 2014, section 2.1.5).
         
     parallel_roe : ROE
         The object describing the clocking read-out electronics for parallel
@@ -386,8 +397,9 @@ def remove_cti(
         via forward modelling. 
         
     parallel_express : int
-        The factor by which pixel-to-pixel transfers are combined for 
-        efficiency for parallel clocking.
+        The number of times the pixel-to-pixel transfers are computed, 
+        determining the balance between accuracy (high values) and speed 
+        (low values), for parallel clocking (Massey et al. 2014, section 2.1.5).
         
     parallel_roe : ROE
         The object describing the clocking read-out electronics for parallel 

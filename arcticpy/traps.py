@@ -238,9 +238,9 @@ class TrapLifetimeContinuum(TrapInstantCapture):
             The density of the trap species in a pixel.
             
         distribution_of_traps_with_lifetime : func
-            The distribution of traps as a function of release_timescale, mu lifetime, 
-            and lifetime sigma, such that its integral from 0 to infinity = 1.
-            e.g. a log-normal probability density function.
+            The distribution of traps as a function of release_timescale, mu 
+            lifetime, and lifetime sigma, such that its integral from 0 to 
+            infinity = 1. e.g. a log-normal probability density function.
             
         release_timescale_mu : float
             The mu (e.g. mean or median depending on the distribution) 

@@ -44,7 +44,7 @@ def update_fits_header_info(
     parallel_ccd_volume=None,
     serial_ccd_volume=None,
 ):
-    """Update a fits header to include the parallel CTI settings.
+    """ Update a fits header to include the parallel CTI settings.
 
     Params
     -----------

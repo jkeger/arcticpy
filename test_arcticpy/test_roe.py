@@ -4,6 +4,11 @@ import numpy as np
 import arcticpy as ac
 
 
+###
+# Need tests for monitor_traps_matrix, save_trap_states_matrix, and windowing
+###
+
+
 class TestExpress:
     def test__express_matrix_from_pixels(self):
 

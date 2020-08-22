@@ -16,38 +16,43 @@ class AllTrapManager(UserList):
     def __init__(self, traps, max_n_transfers, ccd=None):
         """
         A list (of a list) of trap managers.
-        Each trap manager handles a group of trap species that shares watermark levels;
-        these are joined in a list. The list is then repeated for each phase in the CCD
-        pixels. Can be accessed as
+        
+        Each trap manager handles a group of trap species that shares watermark 
+        levels; these are joined in a list. The list is then repeated for each 
+        phase in the CCD pixels. Can be accessed as 
         TrapManagers[trap_group_id][phase]
         They are created with all traps initially empty.
         
         Parameters
         ----------
         traps : Trap or [Trap] or [[Trap]]
-            A list of one or more trap species. Species listed together in the inner list
-            must be able to share watermarks - i.e. they are distributed in the same way 
-            throughout the pixel volume, and their state is stored either by occupancy or
-            time since filling. e.g. [[bulk_trap_slow,bulk_trap_fast],[surface_trap]]
+            A list of one or more trap species. Species listed together in the 
+            inner list must be able to share watermarks - i.e. they are 
+            distributed in the same way throughout the pixel volume, and their 
+            state is stored either by occupancy or time since filling. 
+            e.g. [[bulk_trap_slow,bulk_trap_fast],[surface_trap]]
             
         max_n_transfers : int
-            The number of pixels containing traps that charge will be expected to move.
-            This determines the maximum number of possible capture/release events that
-            could chreate new watermark levels, and is used to initialise the watermark
-            array to be only as large as needed, for efficiency.
+            The number of pixels containing traps that charge will be expected 
+            to move. This determines the maximum number of possible capture/
+            release events that could chreate new watermark levels, and is used 
+            to initialise the watermark array to be only as large as needed, for 
+            efficiency.
             
         ccd : CCD
-            Configuration of the CCD in which the electrons will move. Used to access the
-            number of phases per pixel, and the fractional volume of a pixel that is filled
-            by a cloud of electrons.
+            Configuration of the CCD in which the electrons will move. Used to 
+            access the number of phases per pixel, and the fractional volume of 
+            a pixel that is filled by a cloud of electrons.
             
         Attributes
         ----------
         n_electrons_trapped : float
-            The number of electrons in traps that are being or have been monitored.
+            The number of electrons in traps that are being or have been 
+            monitored.
             
         n_electrons_trapped_currently : float
-            The number of electrons in traps that are currently being actively monitored.
+            The number of electrons in traps that are currently being actively 
+            monitored.
         
         Methods
         -------
@@ -164,21 +169,23 @@ class TrapManager(object):
         Parameters
         ----------
         traps : Trap or [Trap]
-            A list of one or more trap species. Species listed together must be able 
-            to share watermarks - i.e. they must be similarly distributed throughout 
-            the pixel volume, and all their states must be stored either by occupancy or
-            by time since filling. e.g. [bulk_trap_slow,bulk_trap_fast]
+            A list of one or more trap species. Species listed together must be 
+            able to share watermarks - i.e. they must be similarly distributed 
+            throughout the pixel volume, and all their states must be stored 
+            either by occupancy or by time since filling. 
+            e.g. [bulk_trap_slow,bulk_trap_fast]
             
         max_n_transfers : int
-            The number of pixels containing traps that charge will be expected to move.
-            This determines the maximum number of possible capture/release events that
-            could chreate new watermark levels, and is used to initialise the watermark
-            array to be only as large as needed, for efficiency.
+            The number of pixels containing traps that charge will be expected 
+            to move. This determines the maximum number of possible capture/
+            release events that could chreate new watermark levels, and is used 
+            to initialise the watermark array to be only as large as needed, for 
+            efficiency.
             
         ccd : arcticpy.CCD
-            Configuration of the CCD in which the electrons will move. Used to access the
-            number of phases per pixel, and the fractional volume of a pixel that is filled
-            by a cloud of electrons.
+            Configuration of the CCD in which the electrons will move. Used to 
+            access the number of phases per pixel, and the fractional volume of 
+            a pixel that is filled by a cloud of electrons.
                 
         Attributes
         ----------
@@ -358,15 +365,15 @@ class TrapManager(object):
         Parameters
         ----------
         watermarks : np.ndarray
-            The watermarks. See initial_watermarks_from_n_pixels_and_total_traps().
+            The watermarks. See 
+            initial_watermarks_from_n_pixels_and_total_traps().
         """
         return np.sum(
             (watermarks[:, 0] * watermarks[:, 1:].T).T * self.n_traps_per_pixel
         )
 
     def empty_all_traps(self):
-        """Reset the trap watermarks for the next run of release and capture.
-        """
+        """ Reset the trap watermarks for the next run of release and capture. """
         self.watermarks.fill(0)
 
     def watermark_index_above_cloud_from_cloud_fractional_volume(
@@ -378,8 +385,11 @@ class TrapManager(object):
         ----------
         cloud_fractional_volume : float
             The fractional volume of the electron cloud in the pixel.
+            
         watermarks : np.ndarray
-            The initial watermarks. See initial_watermarks_from_n_pixels_and_total_traps().
+            The initial watermarks. See 
+            initial_watermarks_from_n_pixels_and_total_traps().
+            
         max_watermark_index : int
             The index of the highest existing watermark.
             
@@ -405,16 +415,20 @@ class TrapManager(object):
         Parameters
         ----------
         watermarks : np.ndarray
-            The initial watermarks. See initial_watermarks_from_n_pixels_and_total_traps().
+            The initial watermarks. See 
+            initial_watermarks_from_n_pixels_and_total_traps().
+            
         cloud_fractional_volume : float
             The fractional volume of the electron cloud in the pixel.
+            
         watermark_index_above_cloud : int
             The index of the first watermark above the cloud.
             
         Returns
         -------
         watermarks : np.ndarray
-            The updated watermarks. See initial_watermarks_from_n_pixels_and_total_traps().
+            The updated watermarks. See 
+            initial_watermarks_from_n_pixels_and_total_traps().
         """
         # The volume and cumulative volume of the watermark around the cloud volume
         watermark_fractional_volume = watermarks[watermark_index_above_cloud, 0]
@@ -456,16 +470,20 @@ class TrapManager(object):
         watermarks : np.ndarray
             The current watermarks after attempted capture. See 
             initial_watermarks_from_n_pixels_and_total_traps().
+            
         watermarks_initial : np.ndarray
             The initial watermarks before capture, but with updated fractional 
             volumes to match the current watermarks.
+            
         enough : float
-            The ratio of available electrons to traps up to this fractional volume.
+            The ratio of available electrons to traps up to this fractional 
+            volume.
 
         Returns
         -------
         watermarks : np.ndarray
-            The updated watermarks. See initial_watermarks_from_n_pixels_and_total_traps().
+            The updated watermarks. See 
+            initial_watermarks_from_n_pixels_and_total_traps().
         """
 
         # Limit the increase to the `enough` fraction of the original
@@ -482,7 +500,8 @@ class TrapManager(object):
         Parameters
         ----------
         watermarks : np.ndarray
-            The current watermarks. See initial_watermarks_from_n_pixels_and_total_traps().            
+            The current watermarks. See 
+            initial_watermarks_from_n_pixels_and_total_traps().            
             
         watermarks_copy : np.ndarray
             A copy of the watermarks array that should be edited in the same way 
@@ -491,7 +510,8 @@ class TrapManager(object):
         Returns
         -------
         watermarks : np.ndarray
-            The updated watermarks. See initial_watermarks_from_n_pixels_and_total_traps().  
+            The updated watermarks. See 
+            initial_watermarks_from_n_pixels_and_total_traps().  
               
         watermarks_copy : np.ndarray
             The updated watermarks copy, if it was provided.
@@ -587,7 +607,8 @@ class TrapManager(object):
         Updates
         -------
         watermarks : np.ndarray
-            The updated watermarks. See initial_watermarks_from_n_pixels_and_total_traps().
+            The updated watermarks. See 
+            initial_watermarks_from_n_pixels_and_total_traps().
         """
         # Initial watermarks and number of electrons in traps
         watermarks_initial = deepcopy(self.watermarks)
@@ -836,7 +857,8 @@ class TrapManagerInstantCapture(TrapManager):
         Updates
         -------
         watermarks : np.ndarray
-            The updated watermarks. See initial_watermarks_from_n_pixels_and_total_traps().
+            The updated watermarks. See 
+            initial_watermarks_from_n_pixels_and_total_traps().
         """
         # Release
         n_electrons_released = self.n_electrons_released(dwell_time=dwell_time)
@@ -869,7 +891,8 @@ class TrapManagerInstantCapture(TrapManager):
         Updates
         -------
         watermarks : np.ndarray
-            The updated watermarks. See initial_watermarks_from_n_pixels_and_total_traps().
+            The updated watermarks. See 
+            initial_watermarks_from_n_pixels_and_total_traps().
         """
         # Initial watermarks and number of electrons in traps
         n_trapped_electrons_initial = self.n_trapped_electrons_from_watermarks(
@@ -922,7 +945,8 @@ class TrapManagerInstantCapture(TrapManager):
         Updates
         -------
         watermarks : np.ndarray
-            The updated watermarks. See initial_watermarks_from_n_pixels_and_total_traps().
+            The updated watermarks. See 
+            initial_watermarks_from_n_pixels_and_total_traps().
         """
         # Save the initial watermarks and number of electrons in traps, in case
         # there aren't enough free electrons to fill all the identified traps
@@ -967,8 +991,9 @@ class TrapManagerInstantCapture(TrapManager):
             # Also ensure the final number of electrons in the pixel is positive
             enough = n_free_electrons / (express_multiplier * n_trapped_electrons_final)
             if enough < 1:
-                # For watermark fill fractions that increased, tweak them such that
-                # the resulting increase instead matches the available electrons
+                # For watermark fill fractions that increased, tweak them such
+                # that the resulting increase instead matches the available
+                # electrons
                 self.watermarks = self.updated_watermarks_from_capture_not_enough(
                     self.watermarks, watermarks_initial, enough
                 )
@@ -1069,8 +1094,8 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
         
         Note the different watermark contents:        
         watermarks : np.ndarray
-            Array of watermark fractional volumes and times to describe the trap states. 
-            Lists each (active) watermark fractional volume and and the 
+            Array of watermark fractional volumes and times to describe the trap 
+            states. Lists each (active) watermark fractional volume and and the 
             corresponding total time elapsed since the traps were filled for 
             each trap species. Inactive elements are set to 0.
 
@@ -1090,7 +1115,8 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
         Parameters
         ----------
         watermarks : np.ndarray
-            The watermarks. See initial_watermarks_from_n_pixels_and_total_traps().
+            The watermarks. See 
+            initial_watermarks_from_n_pixels_and_total_traps().
         """
         watermarks = deepcopy(watermarks)
 
@@ -1109,7 +1135,8 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
         Parameters
         ----------
         watermarks : np.ndarray
-            The watermarks. See initial_watermarks_from_n_pixels_and_total_traps().
+            The watermarks. See 
+            initial_watermarks_from_n_pixels_and_total_traps().
         """
         watermarks = deepcopy(watermarks)
 
@@ -1128,7 +1155,8 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
         Parameters
         ----------
         watermarks : np.ndarray
-            The watermarks. See initial_watermarks_from_n_pixels_and_total_traps().
+            The watermarks. See 
+            initial_watermarks_from_n_pixels_and_total_traps().
         """
         # Convert to fill fractions
         watermarks = self.watermarks_converted_to_fill_fractions_from_elapsed_times(
@@ -1151,16 +1179,20 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
         watermarks : np.ndarray
             The current watermarks after attempted capture. See 
             initial_watermarks_from_n_pixels_and_total_traps().
+            
         watermarks_initial : np.ndarray
             The initial watermarks before capture, but with updated fractional 
             volumes to match the current watermarks.
+            
         enough : float
-            The ratio of available electrons to traps up to this fractional volume.
+            The ratio of available electrons to traps up to this fractional 
+            volume.
 
         Returns
         -------
         watermarks : np.ndarray
-            The updated watermarks. See initial_watermarks_from_n_pixels_and_total_traps().
+            The updated watermarks. See 
+            initial_watermarks_from_n_pixels_and_total_traps().
         """
         # Convert to fill fractions
         for level in range(np.argmax(watermarks[:, 0] == 0)):

@@ -15,18 +15,23 @@ class CCD(object):
         well_bloom_level=None,
     ):
         """
-        A model describing how electrons fill the volume inside each (phase of a) pixel in
-        a CCD detector. By default, each pixel is assumed to have only a single phase. To
-        specify a multi-phase device (which will need a comparably complicated clocking
-        sequence to be defined in readout electronics), specify the fraction of traps as a
-        list. If the phases have different sizes, specify each full_well_depth. If the
-        trap density is  uniform, the ratio of full_well_depth to fraction_of_traps_per_phase 
+        A model describing how electrons fill the volume inside each (phase of 
+        a) pixel in a CCD detector. By default, each pixel is assumed to have 
+        only a single phase. To specify a multi-phase device (which will need a 
+        comparably complicated clocking sequence to be defined in readout 
+        electronics), specify the fraction of traps as a list. If the phases 
+        have different sizes, specify each full_well_depth. If the trap density 
+        is uniform, the ratio of full_well_depth to fraction_of_traps_per_phase 
         will be the same in all phases. 
 
         All the following are equivalent:
-            detector.cloud_fractional_volume_from_n_electrons_and_phase(n_electrons, phase)
+            detector.cloud_fractional_volume_from_n_electrons_and_phase(
+                n_electrons, phase
+            )
 
-            f = detector.cloud_fractional_volume_from_n_electrons_in_phase(phase)
+            f = detector.cloud_fractional_volume_from_n_electrons_in_phase(
+                phase
+            )
             f(n_electrons)
 
             p = ac.CCDPhase(detector, phase)
@@ -36,31 +41,34 @@ class CCD(object):
         Parameters
         ----------
         fraction_of_traps_per_phase : float or [float]
-            Assuming that traps have uniform density throughout the CCD, for multi-phase 
-            clocking, this specifies the physical width of each phase. This is used only to
-            distribute the traps between phases. The units do not matter and can be anything 
-            from microns to light years, or fractions of a pixel. Only the fractional widths are
-            ever returned. If this is an array then you can optionally also enter a list of
-            different full_well_depth, well_notch_depth, and well_fill_power for each phase.
+            Assuming that traps have uniform density throughout the CCD, for 
+            multi-phase clocking, this specifies the physical width of each 
+            phase. This is used only to distribute the traps between phases. 
+            The units do not matter and can be anything from microns to light 
+            years, or fractions of a pixel. Only the fractional widths are ever 
+            returned. If this is an array then you can optionally also enter a 
+            list of different full_well_depth, well_notch_depth, and 
+            well_fill_power for each phase.
             
         full_well_depth : float or [float]
-            The maximum number of electrons that can be contained within a pixel/phase.
-            For multiphase clocking, if only one value is supplied, that is (by default)
-            replicated to all phases. However, different physical widths of phases can be
-            set by specifying the full well depth as a list containing different values.
-            If the potential in more than one phase is held high during any stage in the 
-            clocking cycle, their full well depths are added together.
-            This value is indpependent of the fraction of traps allocated to each phase.
+            The maximum number of electrons that can be contained within a 
+            pixel/phase. For multiphase clocking, if only one value is supplied, 
+            that is (by default) replicated to all phases. However, different 
+            physical widths of phases can be set by specifying the full well 
+            depth as a list containing different values. If the potential in 
+            more than one phase is held high during any stage in the clocking 
+            cycle, their full well depths are added together. This value is 
+            indpependent of the fraction of traps allocated to each phase.
             
         well_notch_depth : float or [float]
-            The number of electrons that fit inside a 'notch' at the bottom of a potential
-            well, occupying negligible volume and therefore being immune to trapping. These
-            electrons still count towards the full well depth. The notch depth can, in 
-            principle, vary between phases.
+            The number of electrons that fit inside a 'notch' at the bottom of a 
+            potential well, occupying negligible volume and therefore being 
+            immune to trapping. These electrons still count towards the full 
+            well depth. The notch depth can, in  principle, vary between phases.
             
         well_fill_power : float or [float]
-            The exponent in a power-law model of the volume occupied by a cloud of electrons.
-            This can, in principle, vary between phases.
+            The exponent in a power-law model of the volume occupied by a cloud 
+            of electrons. This can, in principle, vary between phases.
             
         well_bloom_level : float or [float]
             Acts similarly to a notch, but for surface traps.

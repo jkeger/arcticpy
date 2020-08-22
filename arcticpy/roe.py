@@ -503,8 +503,9 @@ class ROE(ROEAbstract):
                     the entire image).
                     
         express : int
-            The number of times the transfers are computed, determining the 
-            balance between accuracy (high values) and speed (low values).
+            The number of times the pixel-to-pixel transfers are computed, 
+            determining the balance between accuracy (high values) and speed 
+            (low values).
                 n_pix   (slower, accurate) Compute every pixel-to-pixel 
                         transfer. The default 0 = alias for n_pix.
                 k       Recompute on k occasions the effect of each transfer.  

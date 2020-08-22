@@ -147,14 +147,6 @@ class Trap(object):
             )
         )
 
-    def __repr__(self):
-        return "\n".join(
-            (
-                "Trap Density: {}".format(self.density),
-                "Trap Lifetime: {}".format(self.release_timescale),
-            )
-        )
-
     @classmethod
     def poisson_trap(cls, trap, shape, seed=0):
         """

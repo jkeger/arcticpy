@@ -13,24 +13,28 @@ from arcticpy.ccd import CCD, CCDPhase
 
 
 class AllTrapManager(UserList):
-    def __init__(self, traps, max_n_transfers, ccd=None):
+    def __init__(self, traps, max_n_transfers, ccd):
         """
         A list (of a list) of trap managers.
         
         Each trap manager handles a group of trap species that shares watermark 
         levels; these are joined in a list. The list is then repeated for each 
-        phase in the CCD pixels. Can be accessed as 
-        TrapManagers[trap_group_id][phase]
-        They are created with all traps initially empty.
+        phase in the CCD pixels (default only 1). Can be accessed as 
+        TrapManagers[trap_group_index][phase].
         
         Parameters
         ----------
-        traps : Trap or [Trap] or [[Trap]]
-            A list of one or more trap species. Species listed together in the 
-            inner list must be able to share watermarks - i.e. they are 
-            distributed in the same way throughout the pixel volume, and their 
-            state is stored either by occupancy or time since filling. 
-            e.g. [[bulk_trap_slow,bulk_trap_fast],[surface_trap]]
+        traps : [[Trap]] (or Trap or [Trap])
+            A list of one or more trap species. Species listed together in each 
+            innermost list must be able to share watermarks - i.e. they are 
+            distributed in the same way throughout the pixel volume and their 
+            state is stored in the same way by occupancy or time since filling, 
+            e.g. 
+            [
+                [slow_trap, fast_trap], 
+                [continuum_lifetime_trap], 
+                [surface_trap],
+            ]
             
         max_n_transfers : int
             The number of pixels containing traps that charge will be expected 
@@ -45,11 +49,7 @@ class AllTrapManager(UserList):
             a pixel that is filled by a cloud of electrons.
             
         Attributes
-        ----------
-        n_electrons_trapped : float
-            The number of electrons in traps that are being or have been 
-            monitored.
-            
+        ----------            
         n_electrons_trapped_currently : float
             The number of electrons in traps that are currently being actively 
             monitored.
@@ -98,54 +98,42 @@ class AllTrapManager(UserList):
                     )
                 trap_manager.n_traps_per_pixel *= ccd.fraction_of_traps_per_phase[phase]
                 trap_managers_this_phase.append(trap_manager)
+
             self.data.append(trap_managers_this_phase)
 
-        # Store empty trap state, for future reference
+        # Initialise the empty trap state for future reference
         self._saved_data = None
         self._n_electrons_trapped_in_save = 0.0
         self._n_electrons_trapped_previously = 0.0
 
     @property
-    def n_electrons_trapped(self):
-        """
-        The number of electrons in traps that are being or have been monitored.
-        """
-        return self.n_electrons_trapped_currently + self.n_electrons_trapped_previously
-
-    @property
     def n_electrons_trapped_currently(self):
-        """
-        The number of electrons in traps that are currently being actively monitored.
-        """
+        """ The number of electrons in traps that are currently being actively monitored. """
         n_electrons_trapped_currently = 0
+
         for trap_manager_phase in self.data:
             for trap_manager in trap_manager_phase:
                 n_electrons_trapped_currently += trap_manager.n_trapped_electrons_from_watermarks(
                     trap_manager.watermarks
                 )
+
         return n_electrons_trapped_currently
 
     def empty_all_traps(self):
-        """
-        Set all trap occupancies to zero
-        """
+        """ Set all trap occupancies to zero """
         for trap_manager_phase in self.data:
             for trap_manager_group in trap_manager_phase:
                 trap_manager_group.empty_all_traps()
 
     def save(self):
-        """
-        Save trap occupancy levels for future reference
-        """
+        """ Save trap occupancy levels for future reference """
         # This stores far more than necessary. But extracting only the watermark
         # arrays requires overhead.
         self._saved_data = deepcopy(self.data)
         self._n_electrons_trapped_in_save = self.n_electrons_trapped_currently
 
     def restore(self):
-        """
-        Restore trap occupancy levels from memory
-        """
+        """ Restore trap occupancy levels """
         # Book keeping, of how many electrons have ended up where.
         # About to forget about those currently in traps, so add them to previous total.
         # About to recall the ones in save back to current account, so remove them
@@ -327,8 +315,10 @@ class TrapManager(object):
         -------
         fill_probabilities_from_empty : float
             The fraction of traps that were empty that become full.
+            
         fill_probabilities_from_full : float
             The fraction of traps that were full that stay full.
+            
         fill_probabilities_from_release : float
             The fraction of traps that were full that stay full after release.
         """

@@ -16,25 +16,27 @@ class CCD(object):
     ):
         """
         A model describing how electrons fill the volume inside each (phase of 
-        a) pixel in a CCD detector. By default, each pixel is assumed to have 
-        only a single phase. To specify a multi-phase device (which will need a 
-        comparably complicated clocking sequence to be defined in readout 
-        electronics), specify the fraction of traps as a list. If the phases 
-        have different sizes, specify each full_well_depth. If the trap density 
-        is uniform, the ratio of full_well_depth to fraction_of_traps_per_phase 
-        will be the same in all phases. 
+        a) pixel in a CCD detector. 
+        
+        By default, each pixel is assumed to have only a single phase. To 
+        specify a multi-phase device (which will need a corresponding clocking 
+        sequence to be defined in readout electronics) specify the fraction of 
+        traps as a list, and optionally different values for the other 
+        parameters as lists too. If the trap density is uniform, then the ratio 
+        of full_well_depth to fraction_of_traps_per_phase will be the same in 
+        all phases. 
 
         All the following are equivalent:
-            detector.cloud_fractional_volume_from_n_electrons_and_phase(
+            ccd.cloud_fractional_volume_from_n_electrons_and_phase(
                 n_electrons, phase
             )
 
-            f = detector.cloud_fractional_volume_from_n_electrons_in_phase(
+            f = ccd.cloud_fractional_volume_from_n_electrons_in_phase(
                 phase
             )
             f(n_electrons)
 
-            p = ac.CCDPhase(detector, phase)
+            p = ac.CCDPhase(ccd, phase)
             p.cloud_fractional_volume_from_n_electrons(n_electrons)
         
         
@@ -46,9 +48,8 @@ class CCD(object):
             phase. This is used only to distribute the traps between phases. 
             The units do not matter and can be anything from microns to light 
             years, or fractions of a pixel. Only the fractional widths are ever 
-            returned. If this is an array then you can optionally also enter a 
-            list of different full_well_depth, well_notch_depth, and 
-            well_fill_power for each phase.
+            returned. If this is an array then you can optionally also enter 
+            lists of any/all of the other parameters for each phase.
             
         full_well_depth : float or [float]
             The maximum number of electrons that can be contained within a 
@@ -198,18 +199,15 @@ class CCD(object):
             n_electrons : float
                 The size of a charge cloud in a pixel, in units of the number of 
                 electrons.
+                
+            surface : bool
+                ###
            
             Returns
             -------
             volume : float
                 The fraction of traps of this species exposed.
             """
-            fraction_of_traps_per_phase = self.fraction_of_traps_per_phase[phase]
-            full_well_depth = self.full_well_depth[phase]
-            well_fill_power = self.well_fill_power[phase]
-            well_notch_depth = self.well_notch_depth[phase]
-            well_bloom_level = self.well_bloom_level[phase]
-
             if n_electrons == 0:
                 return 0
 

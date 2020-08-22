@@ -345,26 +345,6 @@ class TestElectronsReleasedAndCapturedInstantCapture:
             np.array([[0.5, 0.4], [0.2, 0.2], [0.1, 0.1], [0, 0], [0, 0], [0, 0]])
         )
 
-    #
-    # FRACTIONAL_WIDTH deprecated since it is redundant with full_well_depth
-    #
-    #    def test__single_trap_release__change_fractional_width(self):
-    #
-    #        # Half the time, double the density --> same result
-    #        traps = [ac.TrapInstantCapture(density=20, release_timescale=-1 / np.log(0.5))] #1.4426950408889634
-    #        trap_manager = ac.TrapManagerInstantCapture(traps=traps, max_n_transfers=6)
-    #
-    #        trap_manager.watermarks = np.array(
-    #            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]]
-    #        )
-    #
-    #        n_electrons_released = trap_manager.n_electrons_released(fractional_width=0.5)
-    #
-    #        assert n_electrons_released == pytest.approx(2.5)
-    #        assert trap_manager.watermarks == pytest.approx(
-    #            np.array([[0.5, 0.4], [0.2, 0.2], [0.1, 0.1], [0, 0], [0, 0], [0, 0]])
-    #        )
-
     def test__first_capture(self):
 
         n_free_electrons = 2500  # --> cloud_fractional_volume = 0.5
@@ -527,7 +507,7 @@ class TestElectronsReleasedAndCapturedInstantCapture:
         )
         trap_manager_2 = deepcopy(trap_manager_1)
 
-        # Deprecated separate functions
+        # Old-style separate functions
         n_electrons_released = trap_manager_1.n_electrons_released()
         n_electrons_captured = trap_manager_1.n_electrons_captured(
             n_free_electrons=n_free_electrons + n_electrons_released,

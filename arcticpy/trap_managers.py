@@ -565,6 +565,135 @@ class TrapManager(object):
         else:
             return watermarks
 
+    def _n_electrons_released_and_captured__first_capture(
+        self,
+        n_free_electrons,
+        cloud_fractional_volume,
+        watermarks_initial,
+        fill_probabilities_from_empty,
+        express_multiplier,
+    ):
+        """ For n_electrons_released_and_captured(), for the first capture.
+        
+        Make the new watermark then can return immediately.
+        """
+
+        # Update the watermark volume, duplicated for the initial watermarks
+        self.watermarks[0, 0] = cloud_fractional_volume
+        watermarks_initial[0, 0] = self.watermarks[0, 0]
+
+        # Update the fill fractions
+        self.watermarks[0, 1:] = fill_probabilities_from_empty
+
+        # Final number of electrons in traps
+        n_trapped_electrons_final = self.n_trapped_electrons_from_watermarks(
+            watermarks=self.watermarks
+        )
+
+        # Not enough available electrons to capture
+        if n_trapped_electrons_final == 0:
+            return 0
+
+        enough = n_free_electrons / (express_multiplier * n_trapped_electrons_final)
+        if enough < 1:
+            # For watermark fill fractions that increased, tweak them such that
+            # the resulting increase instead matches the available electrons
+            self.watermarks = self.updated_watermarks_from_capture_not_enough(
+                self.watermarks, watermarks_initial, enough
+            )
+
+            # Final number of electrons in traps
+            n_trapped_electrons_final = self.n_trapped_electrons_from_watermarks(
+                watermarks=self.watermarks
+            )
+
+        return -n_trapped_electrons_final
+
+    def _n_electrons_released_and_captured__cloud_below_watermarks(
+        self,
+        n_free_electrons,
+        cloud_fractional_volume,
+        watermarks_initial,
+        watermark_index_above_cloud,
+        max_watermark_index,
+        fill_probabilities_from_release,
+        n_trapped_electrons_initial,
+        ccd_filling_function,
+    ):
+        """ For n_electrons_released_and_captured(), for capture from a cloud 
+            below the existing watermarks.
+        
+        Create a new watermark at the cloud fractional volume then release 
+        electrons from watermarks above the cloud.
+        """
+        # Create the new watermark at the cloud fractional volume
+        if cloud_fractional_volume > 0 and cloud_fractional_volume not in np.cumsum(
+            self.watermarks[:, 0]
+        ):
+
+            # Update the watermark volumes, duplicated for the initial watermarks
+            self.watermarks = self.update_watermark_volumes_for_cloud_below_highest(
+                watermarks=self.watermarks,
+                cloud_fractional_volume=cloud_fractional_volume,
+                watermark_index_above_cloud=watermark_index_above_cloud,
+            )
+            watermarks_initial = self.update_watermark_volumes_for_cloud_below_highest(
+                watermarks=watermarks_initial,
+                cloud_fractional_volume=cloud_fractional_volume,
+                watermark_index_above_cloud=watermark_index_above_cloud,
+            )
+
+            # Increment the index now that an extra watermark has been set
+            max_watermark_index += 1
+
+        # Release electrons from existing watermark levels above the cloud
+        # Update the fill fractions
+        self.watermarks[
+            watermark_index_above_cloud + 1 : max_watermark_index + 1, 1:
+        ] *= fill_probabilities_from_release
+
+        # Current numbers of electrons temporarily in traps and now available
+        n_trapped_electrons_tmp = self.n_trapped_electrons_from_watermarks(
+            watermarks=self.watermarks
+        )
+        n_free_electrons += n_trapped_electrons_initial - n_trapped_electrons_tmp
+
+        # Re-calculate the fractional volume of the electron cloud
+        cloud_fractional_volume = self.fraction_of_traps_exposed_from_n_electrons(
+            n_electrons=n_free_electrons, ccd_filling_function=ccd_filling_function
+        )
+        watermark_index_above_cloud = self.watermark_index_above_cloud_from_cloud_fractional_volume(
+            cloud_fractional_volume=cloud_fractional_volume,
+            watermarks=self.watermarks,
+            max_watermark_index=max_watermark_index,
+        )
+
+        # Update the watermark volumes, duplicated for the initial watermarks
+        if cloud_fractional_volume > 0 and cloud_fractional_volume not in np.cumsum(
+            self.watermarks[:, 0]
+        ):
+            self.watermarks = self.update_watermark_volumes_for_cloud_below_highest(
+                watermarks=self.watermarks,
+                cloud_fractional_volume=cloud_fractional_volume,
+                watermark_index_above_cloud=watermark_index_above_cloud,
+            )
+            watermarks_initial = self.update_watermark_volumes_for_cloud_below_highest(
+                watermarks=watermarks_initial,
+                cloud_fractional_volume=cloud_fractional_volume,
+                watermark_index_above_cloud=watermark_index_above_cloud,
+            )
+
+            # Increment the index now that an extra watermark has been set
+            max_watermark_index += 1
+
+        return (
+            n_free_electrons,
+            watermarks_initial,
+            cloud_fractional_volume,
+            watermark_index_above_cloud,
+            max_watermark_index,
+        )
+
     def n_electrons_released_and_captured(
         self,
         n_free_electrons,
@@ -628,118 +757,58 @@ class TrapManager(object):
             max_watermark_index=max_watermark_index,
         )
 
-        # First capture: make the new watermark then can return immediately
+        # Proceed with capture depending on the volume of the cloud compared
+        # with the existing watermark levels:
+
+        # First capture (no existing watermarks)
         if max_watermark_index == -1 and n_free_electrons > 0:
-            # Update the watermark volume, duplicated for the initial watermarks
-            self.watermarks[0, 0] = cloud_fractional_volume
-            watermarks_initial[0, 0] = self.watermarks[0, 0]
-
-            # Update the fill fractions
-            self.watermarks[0, 1:] = fill_probabilities_from_empty
-
-            # Final number of electrons in traps
-            n_trapped_electrons_final = self.n_trapped_electrons_from_watermarks(
-                watermarks=self.watermarks
+            # Make the new watermark then can return immediately
+            n_trapped_electrons_final = self._n_electrons_released_and_captured__first_capture(
+                n_free_electrons,
+                cloud_fractional_volume,
+                watermarks_initial,
+                fill_probabilities_from_empty,
+                express_multiplier,
             )
 
-            # Not enough available electrons to capture
-            if n_trapped_electrons_final == 0:
-                return 0
+            return n_trapped_electrons_final
 
-            enough = n_free_electrons / (express_multiplier * n_trapped_electrons_final)
-            if enough < 1:
-                # For watermark fill fractions that increased, tweak them such that
-                # the resulting increase instead matches the available electrons
-                self.watermarks = self.updated_watermarks_from_capture_not_enough(
-                    self.watermarks, watermarks_initial, enough
-                )
-
-                # Final number of electrons in traps
-                n_trapped_electrons_final = self.n_trapped_electrons_from_watermarks(
-                    watermarks=self.watermarks
-                )
-
-            return -n_trapped_electrons_final
-
-        # Cloud fractional volume below existing watermarks (or 0): create a new
-        # watermark at the cloud fractional volume then release electrons from
-        # watermarks above the cloud
+        # Cloud fractional volume below existing watermarks (or 0)
         elif (
             watermark_index_above_cloud <= max_watermark_index
             or max_watermark_index == -1
         ):
-
-            # Create the new watermark at the cloud fractional volume
-            if (
-                cloud_fractional_volume > 0
-                and cloud_fractional_volume not in np.cumsum(self.watermarks[:, 0])
-            ):
-
-                # Update the watermark volumes, duplicated for the initial watermarks
-                self.watermarks = self.update_watermark_volumes_for_cloud_below_highest(
-                    watermarks=self.watermarks,
-                    cloud_fractional_volume=cloud_fractional_volume,
-                    watermark_index_above_cloud=watermark_index_above_cloud,
-                )
-                watermarks_initial = self.update_watermark_volumes_for_cloud_below_highest(
-                    watermarks=watermarks_initial,
-                    cloud_fractional_volume=cloud_fractional_volume,
-                    watermark_index_above_cloud=watermark_index_above_cloud,
-                )
-
-                # Increment the index now that an extra watermark has been set
-                max_watermark_index += 1
-
-            # Release electrons from existing watermark levels above the cloud
-            # Update the fill fractions
-            self.watermarks[
-                watermark_index_above_cloud + 1 : max_watermark_index + 1, 1:
-            ] *= fill_probabilities_from_release
-
-            # Current numbers of electrons temporarily in traps and now available
-            n_trapped_electrons_tmp = self.n_trapped_electrons_from_watermarks(
-                watermarks=self.watermarks
-            )
-            n_free_electrons += n_trapped_electrons_initial - n_trapped_electrons_tmp
-
-            # Re-calculate the fractional volume of the electron cloud
-            cloud_fractional_volume = self.fraction_of_traps_exposed_from_n_electrons(
-                n_electrons=n_free_electrons, ccd_filling_function=ccd_filling_function
-            )
-            watermark_index_above_cloud = self.watermark_index_above_cloud_from_cloud_fractional_volume(
-                cloud_fractional_volume=cloud_fractional_volume,
-                watermarks=self.watermarks,
-                max_watermark_index=max_watermark_index,
+            # Create a new watermark at the cloud fractional volume then release
+            # electrons from watermarks above the cloud
+            (
+                n_free_electrons,
+                watermarks_initial,
+                cloud_fractional_volume,
+                watermark_index_above_cloud,
+                max_watermark_index,
+            ) = self._n_electrons_released_and_captured__cloud_below_watermarks(
+                n_free_electrons,
+                cloud_fractional_volume,
+                watermarks_initial,
+                watermark_index_above_cloud,
+                max_watermark_index,
+                fill_probabilities_from_release,
+                n_trapped_electrons_initial,
+                ccd_filling_function,
             )
 
-            # Update the watermark volumes, duplicated for the initial watermarks
-            if (
-                cloud_fractional_volume > 0
-                and cloud_fractional_volume not in np.cumsum(self.watermarks[:, 0])
-            ):
-                self.watermarks = self.update_watermark_volumes_for_cloud_below_highest(
-                    watermarks=self.watermarks,
-                    cloud_fractional_volume=cloud_fractional_volume,
-                    watermark_index_above_cloud=watermark_index_above_cloud,
-                )
-                watermarks_initial = self.update_watermark_volumes_for_cloud_below_highest(
-                    watermarks=watermarks_initial,
-                    cloud_fractional_volume=cloud_fractional_volume,
-                    watermark_index_above_cloud=watermark_index_above_cloud,
-                )
-
-                # Increment the index now that an extra watermark has been set
-                max_watermark_index += 1
-
-        # Cloud fractional volume above existing watermarks: initialise the new watermark
+        # Cloud fractional volume above existing watermarks
         else:
-            # Update the watermark volume, duplicated for the initial watermarks
+            # Initialise the new watermark, duplicated for the initial watermarks
             self.watermarks[
                 watermark_index_above_cloud, 0
             ] = cloud_fractional_volume - np.sum(self.watermarks[:, 0])
             watermarks_initial[watermark_index_above_cloud, 0] = self.watermarks[
                 watermark_index_above_cloud, 0
             ]
+
+        # Continue with capture having prepared the new watermark at the cloud
+        # and released from any watermarks above the cloud
 
         # Release and capture electrons all the way to watermarks below the cloud
         fill_fractions_old = self.watermarks[: watermark_index_above_cloud + 1, 1:]
@@ -819,50 +888,6 @@ class TrapManagerInstantCapture(TrapManager):
         # Update the fill fractions
         return watermark_values * fill_probabilities_from_release
 
-    def n_electrons_released_and_captured(
-        self,
-        n_free_electrons,
-        ccd_filling_function=None,
-        dwell_time=1,
-        express_multiplier=1,
-    ):
-        """ Release and capture electrons and update the trap watermarks.
-
-        Parameters
-        ----------
-        n_free_electrons : float
-            The number of available electrons for trapping.
-        ccd : CCD
-            The object describing the CCD. Must have only a single value for 
-            each parameter, as set by CCD.extract_phase().
-        dwell_time : float
-            The time spent in this pixel or phase, in the same units as the 
-            trap timescales.
-            
-        Returns
-        -------
-        net_n_electrons_released_and_captured : float
-            The net number of released (if +ve) and captured (if -ve) electrons.
-        
-        Updates
-        -------
-        watermarks : np.ndarray
-            The updated watermarks. See 
-            initial_watermarks_from_n_pixels_and_total_traps().
-        """
-        # Release
-        n_electrons_released = self.n_electrons_released(dwell_time=dwell_time)
-        n_free_electrons += n_electrons_released
-
-        # Capture
-        n_electrons_captured = self.n_electrons_captured(
-            n_free_electrons,
-            ccd_filling_function=ccd_filling_function,
-            express_multiplier=express_multiplier,
-        )
-
-        return n_electrons_released - n_electrons_captured
-
     def n_electrons_released(self, dwell_time=1):
         """ 
         Release electrons from traps and update the trap watermarks.
@@ -908,6 +933,82 @@ class TrapManagerInstantCapture(TrapManager):
         n_electrons_released = n_trapped_electrons_initial - n_trapped_electrons_final
 
         return n_trapped_electrons_initial - n_trapped_electrons_final
+
+    def _n_electrons_captured__first_capture(
+        self,
+        n_free_electrons,
+        cloud_fractional_volume,
+        watermarks_initial,
+        express_multiplier,
+    ):
+        """ For n_electrons_captured(), for the first capture.
+        
+        Make the new watermark then can return immediately.
+        """
+        # Update the watermark volume, duplicated for the initial watermarks
+        self.watermarks[0, 0] = cloud_fractional_volume
+        watermarks_initial[0, 0] = self.watermarks[0, 0]
+
+        # Update the fill fractions
+        self.watermarks[0, 1:] = self.filled_watermark_value
+
+        # Final number of electrons in traps
+        n_trapped_electrons_final = self.n_trapped_electrons_from_watermarks(
+            watermarks=self.watermarks
+        )
+
+        # Not enough available electrons to capture
+        if n_trapped_electrons_final == 0:
+            return 0.0
+        # Also ensure the final number of electrons in the pixel is positive
+        enough = n_free_electrons / (express_multiplier * n_trapped_electrons_final)
+        if enough < 1:
+            # For watermark fill fractions that increased, tweak them such
+            # that the resulting increase instead matches the available
+            # electrons
+            self.watermarks = self.updated_watermarks_from_capture_not_enough(
+                self.watermarks, watermarks_initial, enough
+            )
+
+            # Final number of electrons in traps
+            n_trapped_electrons_final = self.n_trapped_electrons_from_watermarks(
+                watermarks=self.watermarks
+            )
+
+        return n_trapped_electrons_final
+
+    def _n_electrons_captured__cloud_below_watermarks(
+        self,
+        cloud_fractional_volume,
+        watermarks_initial,
+        watermark_index_above_cloud,
+        max_watermark_index,
+    ):
+        """ For n_electrons_captured(), for capture from a cloud below the 
+            existing watermarks.
+        
+        Create a new watermark at the cloud fractional volume.
+        """
+        # Create the new watermark at the cloud fractional volume
+        if cloud_fractional_volume > 0 and cloud_fractional_volume not in np.cumsum(
+            self.watermarks[:, 0]
+        ):
+            # Update the watermark volumes, duplicated for the initial watermarks
+            self.watermarks = self.update_watermark_volumes_for_cloud_below_highest(
+                watermarks=self.watermarks,
+                cloud_fractional_volume=cloud_fractional_volume,
+                watermark_index_above_cloud=watermark_index_above_cloud,
+            )
+            watermarks_initial = self.update_watermark_volumes_for_cloud_below_highest(
+                watermarks=watermarks_initial,
+                cloud_fractional_volume=cloud_fractional_volume,
+                watermark_index_above_cloud=watermark_index_above_cloud,
+            )
+
+            # Increment the index now that an extra watermark has been set
+            max_watermark_index += 1
+
+        return watermarks_initial, max_watermark_index
 
     def n_electrons_captured(
         self,
@@ -960,78 +1061,49 @@ class TrapManagerInstantCapture(TrapManager):
             max_watermark_index=max_watermark_index,
         )
 
-        # First capture: make the new watermark then can return immediately
+        # Proceed with capture depending on the volume of the cloud compared
+        # with the existing watermark levels:
+
+        # First capture (no existing watermarks)
         if max_watermark_index == -1 and n_free_electrons > 0:
-
-            # Update the watermark volume, duplicated for the initial watermarks
-            self.watermarks[0, 0] = cloud_fractional_volume
-            watermarks_initial[0, 0] = self.watermarks[0, 0]
-
-            # Update the fill fractions
-            self.watermarks[0, 1:] = self.filled_watermark_value
-
-            # Final number of electrons in traps
-            n_trapped_electrons_final = self.n_trapped_electrons_from_watermarks(
-                watermarks=self.watermarks
+            # Make the new watermark then can return immediately
+            n_trapped_electrons_final = self._n_electrons_captured__first_capture(
+                n_free_electrons,
+                cloud_fractional_volume,
+                watermarks_initial,
+                express_multiplier,
             )
-
-            # Not enough available electrons to capture
-            if n_trapped_electrons_final == 0:
-                return 0.0
-            # Also ensure the final number of electrons in the pixel is positive
-            enough = n_free_electrons / (express_multiplier * n_trapped_electrons_final)
-            if enough < 1:
-                # For watermark fill fractions that increased, tweak them such
-                # that the resulting increase instead matches the available
-                # electrons
-                self.watermarks = self.updated_watermarks_from_capture_not_enough(
-                    self.watermarks, watermarks_initial, enough
-                )
-
-                # Final number of electrons in traps
-                n_trapped_electrons_final = self.n_trapped_electrons_from_watermarks(
-                    watermarks=self.watermarks
-                )
 
             return n_trapped_electrons_final
 
-        # Cloud fractional volume below existing watermarks (or 0): create a new
-        # watermark at the cloud fractional volume
+        # Cloud fractional volume below existing watermarks (or 0)
         elif (
             watermark_index_above_cloud <= max_watermark_index
             or max_watermark_index == -1
         ):
+            # Create a new watermark at the cloud fractional volume
+            (
+                watermarks_initial,
+                max_watermark_index,
+            ) = self._n_electrons_captured__cloud_below_watermarks(
+                cloud_fractional_volume,
+                watermarks_initial,
+                watermark_index_above_cloud,
+                max_watermark_index,
+            )
 
-            # Create the new watermark at the cloud fractional volume
-            if (
-                cloud_fractional_volume > 0
-                and cloud_fractional_volume not in np.cumsum(self.watermarks[:, 0])
-            ):
-
-                # Update the watermark volumes, duplicated for the initial watermarks
-                self.watermarks = self.update_watermark_volumes_for_cloud_below_highest(
-                    watermarks=self.watermarks,
-                    cloud_fractional_volume=cloud_fractional_volume,
-                    watermark_index_above_cloud=watermark_index_above_cloud,
-                )
-                watermarks_initial = self.update_watermark_volumes_for_cloud_below_highest(
-                    watermarks=watermarks_initial,
-                    cloud_fractional_volume=cloud_fractional_volume,
-                    watermark_index_above_cloud=watermark_index_above_cloud,
-                )
-
-                # Increment the index now that an extra watermark has been set
-                max_watermark_index += 1
-
-        # Cloud fractional volume above existing watermarks: initialise the new watermark
+        # Cloud fractional volume above existing watermarks
         else:
-            # Update the watermark volume, duplicated for the initial watermarks
+            # Initialise the new watermark, duplicated for the initial watermarks
             self.watermarks[
                 watermark_index_above_cloud, 0
             ] = cloud_fractional_volume - np.sum(self.watermarks[:, 0])
             watermarks_initial[watermark_index_above_cloud, 0] = self.watermarks[
                 watermark_index_above_cloud, 0
             ]
+
+        # Continue with capture having prepared the new watermark at the cloud
+        # and released from any watermarks above the cloud
 
         # Capture electrons all the way to watermarks below the cloud
         self.watermarks[
@@ -1076,6 +1148,50 @@ class TrapManagerInstantCapture(TrapManager):
 
         return n_trapped_electrons_final - n_trapped_electrons_initial
 
+    def n_electrons_released_and_captured(
+        self,
+        n_free_electrons,
+        ccd_filling_function=None,
+        dwell_time=1,
+        express_multiplier=1,
+    ):
+        """ Release and capture electrons and update the trap watermarks.
+
+        Parameters
+        ----------
+        n_free_electrons : float
+            The number of available electrons for trapping.
+        ccd : CCD
+            The object describing the CCD. Must have only a single value for 
+            each parameter, as set by CCD.extract_phase().
+        dwell_time : float
+            The time spent in this pixel or phase, in the same units as the 
+            trap timescales.
+            
+        Returns
+        -------
+        net_n_electrons_released_and_captured : float
+            The net number of released (if +ve) and captured (if -ve) electrons.
+        
+        Updates
+        -------
+        watermarks : np.ndarray
+            The updated watermarks. See 
+            initial_watermarks_from_n_pixels_and_total_traps().
+        """
+        # Release
+        n_electrons_released = self.n_electrons_released(dwell_time=dwell_time)
+        n_free_electrons += n_electrons_released
+
+        # Capture
+        n_electrons_captured = self.n_electrons_captured(
+            n_free_electrons,
+            ccd_filling_function=ccd_filling_function,
+            express_multiplier=express_multiplier,
+        )
+
+        return n_electrons_released - n_electrons_captured
+
 
 class TrapManagerTrackTime(TrapManagerInstantCapture):
     """ Track the time elapsed since capture instead of the fill fraction. 
@@ -1092,7 +1208,7 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
 
         [[volume, time_elapsed, time_elapsed, ...],
          [volume, time_elapsed, time_elapsed, ...],
-         ...                        ]
+         ...                                       ]
     """
 
     @property

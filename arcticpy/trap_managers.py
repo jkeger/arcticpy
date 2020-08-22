@@ -2,6 +2,7 @@ import numpy as np
 from collections import UserList
 from scipy import integrate, optimize
 from copy import deepcopy
+import warnings
 from arcticpy.traps import (
     Trap,
     TrapLifetimeContinuum,
@@ -334,8 +335,12 @@ class TrapManager(object):
         ) / self.total_rates
 
         # New fill fraction for empty traps (Eqn. 20)
-        fill_probabilities_from_empty = self.capture_rates * exponential_factor
-        ### ^^^ gives RuntimeWarning: invalid value encountered in multiply
+        # Ignore unnecessary warning from instant capture
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                "ignore", message="invalid value encountered in multiply"
+            )
+            fill_probabilities_from_empty = self.capture_rates * exponential_factor
         # Fix for instant capture
         fill_probabilities_from_empty[np.isnan(fill_probabilities_from_empty)] = 1
 

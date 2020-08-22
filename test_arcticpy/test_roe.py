@@ -8,13 +8,19 @@ class TestExpress:
     def test__express_matrix_from_pixels(self):
 
         roe = ac.ROE(empty_traps_at_start=False, express_matrix_dtype=int)
-        express_matrix, _, _ = roe.express_matrix_from_pixels_and_express(
+        (
+            express_matrix,
+            _,
+        ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
             pixels=12, express=1
         )
 
         assert express_matrix == pytest.approx(np.array([np.arange(1, 13)]))
 
-        express_matrix, _, _ = roe.express_matrix_from_pixels_and_express(
+        (
+            express_matrix,
+            _,
+        ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
             pixels=12, express=4
         )
 
@@ -29,7 +35,10 @@ class TestExpress:
             )
         )
 
-        express_matrix, _, _ = roe.express_matrix_from_pixels_and_express(
+        (
+            express_matrix,
+            _,
+        ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
             pixels=12, express=12
         )
 
@@ -48,8 +57,7 @@ class TestExpress:
                             (
                                 express_matrix,
                                 _,
-                                _,
-                            ) = roe.express_matrix_from_pixels_and_express(
+                            ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
                                 pixels=pixels, express=express, offset=offset
                             )
                             assert np.sum(express_matrix, axis=0) == pytest.approx(
@@ -65,29 +73,27 @@ class TestExpress:
         (
             express_matrix_a,
             monitor_traps_matrix_a,
-            _,
-        ) = roe.express_matrix_from_pixels_and_express(
-            pixels, express, offset=offset, window_express=range(0, 6)
+        ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
+            pixels, express, offset=offset, window_express_range=range(0, 6)
         )
         (
             express_matrix_b,
             monitor_traps_matrix_b,
-            _,
-        ) = roe.express_matrix_from_pixels_and_express(
-            pixels, express, offset=offset, window_express=range(6, 9)
+        ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
+            pixels, express, offset=offset, window_express_range=range(6, 9)
         )
         (
             express_matrix_c,
             monitor_traps_matrix_c,
-            _,
-        ) = roe.express_matrix_from_pixels_and_express(
-            pixels, express, offset=offset, window_express=range(9, total_pixels)
+        ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
+            pixels, express, offset=offset, window_express_range=range(9, total_pixels)
         )
         (
             express_matrix_d,
             monitor_traps_matrix_d,
-            _,
-        ) = roe.express_matrix_from_pixels_and_express(pixels, express, offset=offset)
+        ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
+            pixels, express, offset=offset
+        )
         total_transfers = (
             np.sum(express_matrix_a, axis=0)
             + np.sum(express_matrix_b, axis=0)
@@ -417,7 +423,7 @@ class TestTrapPumpingResults:
             parallel_traps=[trap],
             parallel_ccd=ccd,
             parallel_roe=roe,
-            parallel_window=trap_pixel,
+            parallel_window_range=trap_pixel,
         )
         assert (
             image_cti[trap_pixel] < image_orig[trap_pixel]
@@ -440,7 +446,7 @@ class TestTrapPumpingResults:
             parallel_traps=[trap],
             parallel_ccd=ccd,
             parallel_roe=roe,
-            parallel_window=trap_pixel,
+            parallel_window_range=trap_pixel,
         )
         assert (
             image_cti[trap_pixel] < image_orig[trap_pixel]
@@ -460,7 +466,7 @@ class TestTrapPumpingResults:
             parallel_traps=[trap],
             parallel_ccd=ccd,
             parallel_roe=roe,
-            parallel_window=trap_pixel,
+            parallel_window_range=trap_pixel,
         )
         assert (
             image_cti[trap_pixel] < image_orig[trap_pixel]
@@ -492,7 +498,7 @@ class TestTrapPumpingResults:
             parallel_traps=[trap],
             parallel_ccd=ccd,
             parallel_roe=roe,
-            parallel_window=trap_pixel,
+            parallel_window_range=trap_pixel,
             parallel_express=0,
         )
 
@@ -501,7 +507,7 @@ class TestTrapPumpingResults:
             parallel_traps=[trap],
             parallel_ccd=ccd,
             parallel_roe=roe,
-            parallel_window=trap_pixel,
+            parallel_window_range=trap_pixel,
             parallel_express=1,
         )
 
@@ -510,7 +516,7 @@ class TestTrapPumpingResults:
             parallel_traps=[trap],
             parallel_ccd=ccd,
             parallel_roe=roe,
-            parallel_window=trap_pixel,
+            parallel_window_range=trap_pixel,
             parallel_express=3,
         )
 
@@ -540,7 +546,7 @@ class TestTrapPumpingResults:
             parallel_traps=[traphighrho],
             parallel_ccd=ccd,
             parallel_roe=roe,
-            parallel_window=trap_pixel,
+            parallel_window_range=trap_pixel,
             parallel_express=1,
         )
         fractional_diff = (
@@ -566,7 +572,7 @@ class TestTrapPumpingResults:
             parallel_traps=[trap],
             parallel_ccd=ccd,
             parallel_roe=roehighpumps,
-            parallel_window=trap_pixel,
+            parallel_window_range=trap_pixel,
             parallel_express=1,
         )
         fractional_diff = (
@@ -587,8 +593,10 @@ class TestTrapPumpingResults:
         return  ###WIP
 
         roe = ac.ROEChargeInjection(n_active_pixels=2)
-        express_matrix, _, _ = roe.express_matrix_from_pixels_and_express(10, 0)
-        express_matrix.shape
+        (
+            express_matrix,
+            _,
+        ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(10, 0)
 
         ccd = ac.CCD(well_fill_power=0.5, full_well_depth=2e5)
         roe = ac.ROEChargeInjection(n_active_pixels=2000)

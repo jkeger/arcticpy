@@ -8,7 +8,15 @@ from arcticpy import util
 
 
 def _clock_charge_in_one_direction(
-    image, roe, ccd, traps, express, offset, window_row, window_column, window_express
+    image,
+    roe,
+    ccd,
+    traps,
+    express,
+    offset,
+    window_row_range,
+    window_column_range,
+    window_express_range,
 ):
     """
     Add CTI trails to an image by trapping, releasing, and moving electrons 
@@ -16,7 +24,7 @@ def _clock_charge_in_one_direction(
 
     Parameters
     ----------
-    image : np.ndarray
+    image : [[float]]
         The input array of pixel values.
         
     roe : ROE
@@ -39,34 +47,51 @@ def _clock_charge_in_one_direction(
         The number of (e.g. prescan) pixels separating the supplied image from 
         the readout node.
         
-    window_row :
+    window_row_range : range
+        For speed, calculate only the effect on this subset of pixels.
+        Note that, because of edge effects, you should start the range several
+        pixels before the actual region of interest.
         ###
     
-    window_column :
-        ### 
+    window_column_range : range
+        For speed, calculate only the effect on this subset of pixels.
+        Note that, because of edge effects, you should start the range several
+        pixels before the actual region of interest.
+        ###
         
-    window_express :
+    window_express_range : range
+        To process the entire readout, set to None or range(0,n_pixels).
+        The first of the transfers to implement, and the one after the last 
+        transfer to implement (like specifying range(0,n+1) includes entries 
+        for 0 and n).
         ###
 
     Returns
     -------
-    image : np.ndarray
+    image : [[float]]
         The output array of pixel values.
     """
 
     # Generate the arrays over each step for: the number of of times that the
     # effect of each pixel-to-pixel transfer can be multiplied for the express
-    # algorithm; whether the traps must be monitored (usually whenever express
-    # matrix > 0); and whether the trap occupancy states must be saved for the
-    # next express pass
+    # algorithm; and whether the traps must be monitored (usually whenever
+    # express matrix > 0)
     (
         express_matrix,
         monitor_traps_matrix,
-        save_trap_states_matrix,
-    ) = roe.express_matrix_from_pixels_and_express(
-        window_row, express=express, offset=offset, window_express=window_express
+    ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
+        pixels=window_row_range,
+        express=express,
+        offset=offset,
+        window_express_range=window_express_range,
     )
-    (n_express, n_rows_to_process) = express_matrix.shape
+    # ; and whether the trap occupancy states must be saved for the next express
+    # pass rather than being reset (usually at the end of each express pass)
+    save_trap_states_matrix = roe.save_trap_states_matrix_from_express_matrix(
+        express_matrix=express_matrix
+    )
+
+    n_express, n_rows_to_process = express_matrix.shape
 
     # Decide in advance which steps need to be evaluated and which can be skipped
     phases_with_traps = [
@@ -89,7 +114,7 @@ def _clock_charge_in_one_direction(
     image = np.concatenate((image, zero_padding), axis=0)
 
     # Read out one column of pixels through the (column of) traps
-    for column_index in range(len(window_column)):
+    for column_index in range(len(window_column_range)):
 
         # Monitor the traps in every pixel, or just one (express=1) or a few
         # (express=a few) then replicate their effect
@@ -99,7 +124,7 @@ def _clock_charge_in_one_direction(
             trap_managers.restore()
 
             # Each pixel
-            for row_index in range(len(window_row)):
+            for row_index in range(len(window_row_range)):
                 express_multiplier = express_matrix[express_index, row_index]
                 # Skip this step if not needed to be evaluated
                 if not monitor_traps_matrix[express_index, row_index]:
@@ -114,12 +139,13 @@ def _clock_charge_in_one_direction(
 
                         # Select the relevant pixel (and phase) for the initial charge
                         row_read = (
-                            window_row[row_index] + roe_phase.capture_from_which_pixels
+                            window_row_range[row_index]
+                            + roe_phase.capture_from_which_pixels
                         )
 
                         # Initial charge (0 if this phase's potential is not high)
                         n_free_electrons = (
-                            image[row_read, window_column[column_index]]
+                            image[row_read, window_column_range[column_index]]
                             * roe_phase.is_high
                         )
 
@@ -137,13 +163,14 @@ def _clock_charge_in_one_direction(
 
                         # Select the relevant pixel (and phase) for the returned charge
                         row_write = (
-                            window_row[row_index] + roe_phase.release_to_which_pixels
+                            window_row_range[row_index]
+                            + roe_phase.release_to_which_pixels
                         )
 
                         # Return the electrons back to the relevant charge
                         # cloud, or a fraction if they are being returned to
                         # multiple phases
-                        image[row_write, window_column[column_index]] += (
+                        image[row_write, window_column_range[column_index]] += (
                             n_electrons_released_and_captured
                             * roe_phase.release_fraction_to_pixel
                             * express_multiplier
@@ -172,13 +199,13 @@ def add_cti(
     parallel_traps=None,
     parallel_express=0,
     parallel_offset=0,
-    parallel_window=None,
+    parallel_window_range=None,
     serial_ccd=None,
     serial_roe=None,
     serial_traps=None,
     serial_express=0,
     serial_offset=0,
-    serial_window=None,
+    serial_window_range=None,
     time_window=[0, 1],
 ):
     """
@@ -187,7 +214,7 @@ def add_cti(
 
     Parameters
     ----------
-    image : np.ndarray
+    image : [[float]]
         The input array of pixel values, assumed to be in units of electrons.
         
     parallel_express : int
@@ -215,7 +242,7 @@ def add_cti(
         pixel-to-pixel transfers assumed if readout is normal (and has no
         effect for other types of clocking).
         
-    parallel_window : range()
+    parallel_window_range : range
         For speed, calculate only the effect on this subset of pixels.
         Note that, because of edge effects, you should start the range several
         pixels before the actual region of interest.
@@ -225,11 +252,13 @@ def add_cti(
         clocking instead.
         
     time_window : [float, float]
-        The beginning and end of the time during readout to be calculated.
-        This could be used to add cosmic rays during readout of simulated
+        The beginning and end of the time during readout to be calculated, as a 
+        fraction of the total readout from 0 to 1.###right?
+        
+        This could be used to e.g. add cosmic rays during readout of simulated
         images. Successive calls to complete the readout should start at
         the same value that the previous one ended, e.g. [0, 0.5] then
-        [0.5, 1]. Be careful not to divide readout too finely, as there is
+        [0.5, 1]. Be careful not to divide the readout too finely, as there is
         only as much temporal resolution as there are rows (not rows * phases)
         in the image. Also, for each time that readout is split between
         successive calls to this function, the output in one row of pixels
@@ -238,35 +267,41 @@ def add_cti(
 
     Returns
     -------
-    image : np.ndarray
+    image : [[float]]
         The output array of pixel values.
     """
 
     # Parse inputs
     n_rows_in_image, n_columns_in_image = image.shape
-    if parallel_window is None:
-        parallel_window = range(n_rows_in_image)
-    elif isinstance(parallel_window, int):
-        parallel_window = range(parallel_window, parallel_window + 1)
-    if serial_window is None:
-        serial_window = range(n_columns_in_image)
-    elif isinstance(serial_window, int):
-        serial_window = range(serial_window, serial_window + 1)
+    if parallel_window_range is None:
+        parallel_window_range = range(n_rows_in_image)
+    elif isinstance(parallel_window_range, int):
+        parallel_window_range = range(parallel_window_range, parallel_window_range + 1)
+    if serial_window_range is None:
+        serial_window_range = range(n_columns_in_image)
+    elif isinstance(serial_window_range, int):
+        serial_window_range = range(serial_window_range, serial_window_range + 1)
     if time_window == [0, 1]:
-        express_window = None
-        window_column_serial = parallel_window
+        window_express_range = None
+        window_column_range_serial = parallel_window_range
     else:
-        express_window = range(
+        window_express_range = range(
             int(time_window[0] * (n_rows_in_image + parallel_offset)),
             int(time_window[1] * (n_rows_in_image + parallel_offset)),
         )
-        if len(express_window) == 0:
-            window_column_serial = range(0)
+        if len(window_express_range) == 0:
+            window_column_range_serial = range(0)
         else:
             # Intersection of spatial and temporal windows of interest
-            window_column_serial = range(
-                max(parallel_window[0], express_window[0] - parallel_offset),
-                min(parallel_window[-1], express_window[-1] - parallel_offset) + 1,
+            window_column_range_serial = range(
+                max(
+                    parallel_window_range[0], window_express_range[0] - parallel_offset
+                ),
+                min(
+                    parallel_window_range[-1],
+                    window_express_range[-1] - parallel_offset,
+                )
+                + 1,
             )
 
     # If ROE not provided then assume simple, single-phase clocking in imaging mode
@@ -288,9 +323,9 @@ def add_cti(
             traps=parallel_traps,
             express=parallel_express,
             offset=parallel_offset,
-            window_row=parallel_window,
-            window_column=serial_window,
-            window_express=express_window,
+            window_row_range=parallel_window_range,
+            window_column_range=serial_window_range,
+            window_express_range=window_express_range,
         )
 
     # Serial clocking
@@ -307,9 +342,9 @@ def add_cti(
             traps=serial_traps,
             express=serial_express,
             offset=serial_offset,
-            window_row=serial_window,
-            window_column=window_column_serial,
-            window_express=None,
+            window_row_range=serial_window_range,
+            window_column_range=window_column_range_serial,
+            window_express_range=None,
         )
 
         # Switch axes back
@@ -327,13 +362,13 @@ def remove_cti(
     parallel_traps=None,
     parallel_express=0,
     parallel_offset=0,
-    parallel_window=None,
+    parallel_window_range=None,
     serial_ccd=None,
     serial_roe=None,
     serial_traps=None,
     serial_express=0,
     serial_offset=0,
-    serial_window=None,
+    serial_window_range=None,
     time_window=[0, 1],
 ):
     """
@@ -343,7 +378,7 @@ def remove_cti(
 
     Parameters
     ----------
-    image : np.ndarray
+    image : [[float]]
         The input array of pixel values.
         
     iterations : int
@@ -375,7 +410,7 @@ def remove_cti(
         pixel-to-pixel transfers assumed if readout is normal (and has no
         effect for other types of clocking).
         
-    parallel_window : range() or list
+    parallel_window_range : range() or list
         For speed, calculate only the effect on this subset of pixels. 
         Note that, because of edge effects, you should start the range several 
         pixels before the actual region of interest.
@@ -386,7 +421,7 @@ def remove_cti(
 
     Returns
     -------
-    image : np.ndarray
+    image : [[float]]
         The output array of pixel values with CTI removed.
     """
 
@@ -403,13 +438,13 @@ def remove_cti(
             parallel_traps=parallel_traps,
             parallel_express=parallel_express,
             parallel_offset=parallel_offset,
-            parallel_window=parallel_window,
+            parallel_window_range=parallel_window_range,
             serial_ccd=serial_ccd,
             serial_roe=serial_roe,
             serial_traps=serial_traps,
             serial_express=serial_express,
             serial_offset=serial_offset,
-            serial_window=serial_window,
+            serial_window_range=serial_window_range,
             time_window=time_window,
         )
 

@@ -450,8 +450,41 @@ class ROE(ROEAbstract):
         """
         return self.n_steps
 
-    def express_matrix_from_pixels_and_express(
-        self, pixels, express=0, offset=0, window_express=None
+    def restrict_time_span_of_express_matrix(
+        self, express_matrix, window_express_range
+    ):
+        """
+        Remove rows of an express_multiplier matrix that are outside a temporal 
+        region of interest if express were zero. 
+        
+        Could just remove all other rows; this method is more general.
+
+        Parameters
+        ----------
+        express_matrix : [[float]]
+            The express multiplier value for each pixel-to-pixel transfer.
+            
+        window_express_range : range
+            The first of the transfers to implement, and the one after the last 
+            transfer to implement (like specifying range(0,n+1) includes entries 
+            for 0 and n).
+            ###
+        """
+
+        if window_express_range is not None:
+            # Work out which pixel-to-pixel transfers a temporal window corresponds to
+            window_express_span = window_express_range[-1] - window_express_range[0] + 1
+
+            # Set to zero entries in all other rows
+            express_matrix = np.cumsum(express_matrix, axis=0) - window_express_range[0]
+            express_matrix[express_matrix < 0] = 0
+            express_matrix[express_matrix > window_express_span] = window_express_span
+            express_matrix[1:] -= express_matrix[:-1].copy()  # undo a cumulative sum
+
+        return express_matrix
+
+    def express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
+        self, pixels, express=0, offset=0, window_express_range=None
     ):
         """ 
         To reduce runtime, instead of calculating the effects of every 
@@ -465,45 +498,41 @@ class ROE(ROEAbstract):
         Parameters
         ----------
         pixels : int or range
-            int:    The number of pixels in an image (should be called n_pixels).
-            range:  Pixels in the image to be processed (can be a subset of the 
-                    entire image).
+            int:    The number of pixels in the image.
+            range:  The pixels in the image to be processed (can be a subset of 
+                    the entire image).
                     
         express : int
-            Parameter determining balance between accuracy (high values or zero)  
-            and speed (low values).
-                express = 0 (default, alias for express = n_pixels)
-                express = 1 (fastest) --> compute the effect of each transfer once
-                express = 2 --> compute n times the effect of those transfers that 
-                          happen many times. After a few transfers (and e.g. eroded 
-                          leading edges), the incremental effect of subsequent 
-                          transfers can change.
-                express = n_pixels (slowest) --> compute every pixel-to-pixel transfer
-                
-            Runtime scales approximately as O(express^0.5). The C++ version 
-            scales as O(express). ###wip
+            The number of times the transfers are computed, determining the 
+            balance between accuracy (high values) and speed (low values).
+                n_pix   (slower, accurate) Compute every pixel-to-pixel 
+                        transfer. The default 0 = alias for n_pix.
+                k       Recompute on k occasions the effect of each transfer.  
+                        After a few transfers (and e.g. eroded leading edges),  
+                        the incremental effect of subsequent transfers can 
+                        change.
+                1       (faster, approximate) Compute the effect of each 
+                        transfer only once.
+            Runtime scales approximately as O(express^0.5). ###WIP
         
         offset : int >= 0
             Consider all pixels to be offset by this number of pixels from the 
-            readout register. Useful if working out the matrix for a postage stamp 
-            image, or to account for prescan pixels whose data is not stored.
+            readout register. Useful if working out the matrix for a postage  
+            stamp image, or to account for prescan pixels whose data is not 
+            stored.
             
-        window_express : range
+        window_express_range : range
             To process the entire readout, set to None or range(0,n_pixels).
+            ###
 
         Returns
         -------
         express_matrix : [[float]]
             The express multiplier value for each pixel-to-pixel transfer.
-                     
+        
         monitor_traps_matrix : [[bool]]
             For each pixel-to-pixel transfer, set True if the release and 
             capture of charge needs to be monitored, based on express_matrix.
-                 
-        save_trap_states_matrix : [[bool]]
-            For each pixel-to-pixel transfer, set True to store the trap 
-            occupancy levels, so the next express iteration can continue from an 
-            (approximately) suitable configuration.
         """
 
         # Parse inputs
@@ -551,6 +580,7 @@ class ROE(ROEAbstract):
             n_nonzero = np.sum(express_matrix_small > 0, axis=1)
             express_matrix[n_nonzero, 1:] += express_matrix_small
 
+        # When to monitor traps
         monitor_traps_matrix = express_matrix > 0
         monitor_traps_matrix = monitor_traps_matrix[:, offset:]
         monitor_traps_matrix = monitor_traps_matrix[:, window]
@@ -560,51 +590,22 @@ class ROE(ROEAbstract):
         # is faster if operating on a smaller array, and b: it includes the
         # removal of lines that are all zero, some of which might already exist)
         express_matrix = self.restrict_time_span_of_express_matrix(
-            express_matrix, window_express
+            express_matrix, window_express_range
         )
         # Remove the offset (which is not represented in the image pixels)
         express_matrix = express_matrix[:, offset:]
         # Keep only the spatial region of interest
         express_matrix = express_matrix[:, window]
 
-        return (
-            express_matrix,
-            monitor_traps_matrix,
-            self.save_trap_states_matrix_from_express_matrix(express_matrix),
-        )
-
-    def restrict_time_span_of_express_matrix(self, express_matrix, window_express):
-        """
-        Remove rows of an express_multiplier matrix that are outside a temporal 
-        region of interest if express were zero. 
-        
-        Could just remove all other rows; this method is more general.
-
-        Parameters
-        ----------
-        window_express : [int, int]
-            The first of the transfers to implement, and the one after the last 
-            transfer to implement (like specifying range(0,n+1) includes entries 
-            for 0 and n).
-        """
-
-        if window_express is not None:
-            # Work out which pixel-to-pixel transfers a temporal window corresponds to
-            window_express_span = window_express[-1] - window_express[0] + 1
-
-            # Set to zero entries in all other rows
-            express_matrix = np.cumsum(express_matrix, axis=0) - window_express[0]
-            express_matrix[express_matrix < 0] = 0
-            express_matrix[express_matrix > window_express_span] = window_express_span
-            express_matrix[1:] -= express_matrix[:-1].copy()  # undo a cumulative sum
-
-        return express_matrix
+        return express_matrix, monitor_traps_matrix
 
     def save_trap_states_matrix_from_express_matrix(self, express_matrix):
         """
-        Decide appropriate moments to store the trap occupancy levels, so the 
-        next express iteration can continue from an (approximately) suitable 
-        configuration.
+        Return the accompanying array to the express matrix of when to save 
+        trap occupancy states.
+        
+        Allows the next express iteration can continue from an (approximately) 
+        suitable configuration.
         
         If the traps are empty (rather than restored), the first capture in each 
         express loop is different from the rest: many electrons are lost. This 
@@ -613,15 +614,30 @@ class ROE(ROEAbstract):
         causes problems if the first transfer is used to represent many 
         transfers, through the express mechanism, as the large loss of electrons 
         is multiplied up, replicated throughout many.
+
+        Parameters
+        ----------
+        express_matrix : [[float]]
+            The express multiplier value for each pixel-to-pixel transfer.
+         
+        Returns
+        -------
+        save_trap_states_matrix : [[bool]]
+            For each pixel-to-pixel transfer, set True to store the trap 
+            occupancy levels, so the next express iteration can continue from an 
+            (approximately) suitable configuration.
         """
         (n_express, n_pixels) = express_matrix.shape
         save_trap_states_matrix = np.zeros((n_express, n_pixels), dtype=bool)
+
         if not self.empty_traps_at_start:
             for express_index in range(n_express - 1):
                 for row_index in range(n_pixels - 1):
                     if express_matrix[express_index + 1, row_index + 1] > 0:
                         break
+
                 save_trap_states_matrix[express_index, row_index] = True
+
         return save_trap_states_matrix
 
 
@@ -663,21 +679,13 @@ class ROEChargeInjection(ROE):
             self._generate_pixels_accessed_during_clocking()
         )
 
-    def express_matrix_from_pixels_and_express(
-        self,
-        pixels,
-        express=0,
-        offset=0,
-        window_express=None,
-        **kwargs
-        # No other arguments are used, but may be passed by functions that call
-        # this for multiple types of ROE
+    def express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
+        self, pixels, express=0, offset=0, window_express_range=None,
     ):
         """ 
-        Returns
-        -------
-        express_matrix : [[float]]
-            The express multiplier values for each pixel-to-pixel transfer.
+        See ROE.express_matrix_from_pixels_and_express()
+        
+        ### Explain why different
         """
 
         # Parse inputs
@@ -704,20 +712,20 @@ class ROEChargeInjection(ROE):
         else:
             express_matrix[:] = max_multiplier
 
-        # Keep only the temporal region of interest
+        # When to monitor traps
         monitor_traps_matrix = express_matrix > 0
+
+        # Keep only the temporal region of interest
         express_matrix = self.restrict_time_span_of_express_matrix(
-            express_matrix, window_express
+            express_matrix, window_express_range
         )
 
-        return (
-            express_matrix,
-            monitor_traps_matrix,
-            self.save_trap_states_matrix_from_express_matrix(express_matrix),
-        )
+        return (express_matrix,)
 
     def save_trap_states_matrix_from_express_matrix(self, express_matrix):
         """
+        See ROE.save_trap_states_matrix_from_express_matrix().
+        
         The first pixel in each column will always encounter empty traps, after 
         every pixel-to-pixel transfer. So never save any trap occupancy between 
         transfers.
@@ -795,57 +803,31 @@ class ROETrapPumping(ROEAbstract):
         """
         return self.n_steps // 2
 
-    def express_matrix_from_pixels_and_express(
-        self,
-        pixels_with_traps,
-        express=0,
-        **kwargs
-        # No other arguments are used, but may be passed by functions that call
-        # this for multiple types of ROE
+    def express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
+        self, pixels, express=0, offset=None, window_express_range=None
     ):
         """ 
-        To reduce runtime, instead of calculating the effects of every 
-        pixel-to-pixel transfer, it is possible to approximate readout by 
-        processing each transfer once (Anderson et al. 2010) or a few times 
-        (Massey et al. 2014, section 2.1.5), then multiplying the effect of
-        that transfer by the number of transfers it represents. This function
-        computes the multiplicative factor, and returns it in a matrix that can 
-        be easily looped over.
-
-        Parameters
-        ----------
-        pixels_with_traps : int or [int]
-            The row number(s) of the pixel(s) containing a trap.
-        express : int
-            The number of times the transfers are computed, determining the 
-            balance between accuracy (high values) and speed (low values).
-                1       (fastest) Compute the effect of each transfer once.
-                k       Recompute on k occasions the effect of each transfer.  
-                        After a few transfers (and e.g. eroded leading edges),  
-                        the incremental effect of subsequent transfers can 
-                        change.
-                n_pix   (slowest) Compute every pixel-to-pixel transfer.
-                0       (default, alias for express = n_pix)
-            Runtime scales as O(express).
+        See ROE.express_matrix_from_pixels_and_express()
+    
+        ### Explain why different
         
-        Optional parameters
-        -------------------
-        dtype : "int" or "float"
-            Old versions of this algorithm assumed (unnecessarily) that all  
-            express multipliers must be integers. It is slightly more efficient 
-            if this requirement is dropped, but the option to force it is 
-            included for backwards compatability.
-
-        Returns
-        -------
-        express_matrix : [[float]]
-            The express multiplier values for each pixel-to-pixel transfer.
+        Parameters (if different to ROE.express_matrix_from_pixels_and_express())
+        ----------
+        pixels : int or range
+            In this case, specifically only the pixels that contain traps.
+            
+            int:    The number of pixels in the image.
+            range:  The pixels in the image to be processed (can be a subset of 
+                    the entire image).
+        
+        offset, window_express_range : None
+            Not used in this trap-pumping version of ROE.
         """
 
         # Parse inputs
-        if isinstance(pixels_with_traps, int):
-            pixels_with_traps = [pixels_with_traps]
-        n_pixels_with_traps = len(pixels_with_traps)
+        if isinstance(pixels, int):
+            pixels = [pixels]
+        n_pixels_with_traps = len(pixels)
 
         # Default to very slow but accurate behaviour
         if express == 0:
@@ -879,34 +861,20 @@ class ROETrapPumping(ROEAbstract):
             for i in range(n_express):
                 express_matrix[j * n_express + i, j] = express_multipliers[i]
 
+        # When to monitor traps
         monitor_traps_matrix = express_matrix > 0
 
-        return (
-            express_matrix,
-            monitor_traps_matrix,
-            self.save_trap_states_matrix_from_express_matrix(express_matrix),
-        )
+        return express_matrix, monitor_traps_matrix
 
     def save_trap_states_matrix_from_express_matrix(self, express_matrix):
         """
-        Decide appropriate moments to store trap occupancy levels, so the next
-        express iteration can continue from an (approximately) suitable 
-        configuration.
+        See ROE.save_trap_states_matrix_from_express_matrix()
         
-        If the traps are empty (rather than restored), the first capture in each 
-        express loop is different from the rest: many electrons are lost. This 
-        behaviour may be appropriate for the first pixel-to-pixel transfer of 
-        each charge cloud, but is not for subsequent transfers. It particularly 
-        causes problems if the first transfer is used to represent many 
-        transfers, through the express mechanism, as the large loss of electrons 
-        is multiplied up, replicated throughout many.
-        
-        Parameters 
-        ----------
-        ###
+        ### Explain why different
         """
         (n_express, n_pixels) = express_matrix.shape
         save_trap_states_matrix = np.zeros((n_express, n_pixels), dtype=bool)
+
         for j in range(n_pixels):
             for i in range(n_express):
                 # Save trap occupancy between pumps of same trap
@@ -915,4 +883,5 @@ class ROETrapPumping(ROEAbstract):
             # trap, because we will be about to move on to the next trap (or
             # have reached the end).
             save_trap_states_matrix[(j + 1) * n_express - 1, j] = False
+
         return save_trap_states_matrix

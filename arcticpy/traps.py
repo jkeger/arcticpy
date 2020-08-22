@@ -178,9 +178,9 @@ class Trap(object):
             The seed of the Poisson random number generator.
         """
         np.random.seed(seed)
-        total_trapss = tuple(map(lambda sp: sp.density * shape[0], trap))
+        total_traps = tuple(map(lambda sp: sp.density * shape[0], trap))
         poisson_densities = [
-            np.random.poisson(total_trapss) / shape[0] for _ in range(shape[1])
+            np.random.poisson(total_traps) / shape[0] for _ in range(shape[1])
         ]
         poisson_trap = []
         for densities in poisson_densities:
@@ -218,9 +218,13 @@ class TrapInstantCapture(Trap):
         )
 
 
-class TrapLifetimeContinuum(TrapInstantCapture):
-    """ For a continuum distribution of release lifetimes for the traps.
-        Must be used with TrapManagerTrackTime.
+class TrapLifetimeContinuumAbstract(TrapInstantCapture):
+    """ Base class for a continuum distribution of release lifetimes.
+    
+    Must be used with TrapManagerTrackTime.
+
+    Primarily intended to be inherited by a class that sets a particular 
+    distribution, e.g. TrapLogNormalLifetimeContinuum.
     """
 
     def __init__(
@@ -249,7 +253,7 @@ class TrapLifetimeContinuum(TrapInstantCapture):
         release_timescale_sigma : float
             The sigma of release lifetimes of the traps.
         """
-        super(TrapLifetimeContinuum, self).__init__(
+        super(TrapLifetimeContinuumAbstract, self).__init__(
             density=density, release_timescale=release_timescale_mu
         )
 
@@ -353,10 +357,8 @@ class TrapLifetimeContinuum(TrapInstantCapture):
         )[0]
 
 
-class TrapLogNormalLifetimeContinuum(TrapLifetimeContinuum):
-    """ For a log-normal continuum distribution of release lifetimes for the 
-        traps. Must be used with TrapManagerTrackTime.
-    """
+class TrapLogNormalLifetimeContinuum(TrapLifetimeContinuumAbstract):
+    """ For a log-normal continuum distribution of release lifetimes. """
 
     @staticmethod
     def log_normal_distribution(x, median, sigma):

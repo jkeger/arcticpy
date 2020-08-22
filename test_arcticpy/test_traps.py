@@ -761,7 +761,7 @@ class TestTrapLifetimeContinuum:
                 -((np.log(release_timescale) - np.log(median)) ** 2) / (2 * sigma ** 2)
             ) / (release_timescale * sigma * np.sqrt(2 * np.pi))
 
-        trap = ac.TrapLifetimeContinuum(
+        trap = ac.TrapLifetimeContinuumAbstract(
             density=10,
             distribution_of_traps_with_lifetime=trap_distribution,
             release_timescale_mu=release_timescale_mu,
@@ -792,7 +792,7 @@ class TestTrapLifetimeContinuum:
                 -((np.log(release_timescale) - np.log(median)) ** 2) / (2 * sigma ** 2)
             ) / (release_timescale * sigma * np.sqrt(2 * np.pi))
 
-        trap = ac.TrapLifetimeContinuum(
+        trap = ac.TrapLifetimeContinuumAbstract(
             density=10,
             distribution_of_traps_with_lifetime=trap_distribution,
             release_timescale_mu=release_timescale_mu,
@@ -818,7 +818,7 @@ class TestTrapLifetimeContinuum:
                 -((np.log(release_timescale) - np.log(median)) ** 2) / (2 * sigma ** 2)
             ) / (release_timescale * sigma * np.sqrt(2 * np.pi))
 
-        trap = ac.TrapLifetimeContinuum(
+        trap = ac.TrapLifetimeContinuumAbstract(
             density=10,
             distribution_of_traps_with_lifetime=trap_distribution,
             release_timescale_mu=release_timescale_mu,
@@ -838,7 +838,7 @@ class TestTrapLifetimeContinuum:
                 -((np.log(release_timescale) - np.log(median)) ** 2) / (2 * sigma ** 2)
             ) / (release_timescale * sigma * np.sqrt(2 * np.pi))
 
-        trap = ac.TrapLifetimeContinuum(
+        trap = ac.TrapLifetimeContinuumAbstract(
             density=10,
             distribution_of_traps_with_lifetime=trap_distribution,
             release_timescale_mu=release_timescale_mu,
@@ -886,7 +886,7 @@ class TestTrapLifetimeContinuum:
 
         for sigma in [0.1, 1, 2]:
             median = 1
-            trap = ac.TrapLifetimeContinuum(
+            trap = ac.TrapLifetimeContinuumAbstract(
                 density=10,
                 distribution_of_traps_with_lifetime=trap_distribution,
                 release_timescale_mu=median,
@@ -948,7 +948,7 @@ class TestTrapLifetimeContinuum:
 
         release_timescale_mu = 1
         release_timescale_sigma = 0.01
-        trap = ac.TrapLifetimeContinuum(
+        trap = ac.TrapLifetimeContinuumAbstract(
             density=10,
             distribution_of_traps_with_lifetime=trap_distribution,
             release_timescale_mu=release_timescale_mu,
@@ -975,7 +975,7 @@ class TestTrapLifetimeContinuum:
         # Continuum
         release_timescale_mu = 1
         release_timescale_sigma = 1
-        trap = ac.TrapLifetimeContinuum(
+        trap = ac.TrapLifetimeContinuumAbstract(
             density=10,
             distribution_of_traps_with_lifetime=trap_distribution,
             release_timescale_mu=release_timescale_mu,
@@ -1081,7 +1081,7 @@ class TestTrapLifetimeContinuum:
             )
 
         # Continuum traps
-        trap_continuum = ac.TrapLifetimeContinuum(
+        trap_continuum = ac.TrapLifetimeContinuumAbstract(
             density=density,
             distribution_of_traps_with_lifetime=trap_distribution,
             release_timescale_mu=release_timescale,
@@ -1101,13 +1101,13 @@ class TestTrapLifetimeContinuum:
         )
 
         # Separated continuum traps
-        trap_continuum_split_a = ac.TrapLifetimeContinuum(
+        trap_continuum_split_a = ac.TrapLifetimeContinuumAbstract(
             density=density / 2,
             distribution_of_traps_with_lifetime=trap_distribution_a,
             release_timescale_mu=release_timescale,
             release_timescale_sigma=sigma,
         )
-        trap_continuum_split_b = ac.TrapLifetimeContinuum(
+        trap_continuum_split_b = ac.TrapLifetimeContinuumAbstract(
             density=density / 2,
             distribution_of_traps_with_lifetime=trap_distribution_b,
             release_timescale_mu=release_timescale,
@@ -1223,7 +1223,7 @@ class TestTrapLifetimeContinuum:
             ) / (release_timescale * sigma * np.sqrt(2 * np.pi))
 
         # Continuum traps
-        trap_continuum = ac.TrapLifetimeContinuum(
+        trap_continuum = ac.TrapLifetimeContinuumAbstract(
             density=density,
             distribution_of_traps_with_lifetime=trap_distribution,
             release_timescale_mu=release_timescale,
@@ -1299,7 +1299,7 @@ class TestTrapLifetimeContinuum:
 
             # Different sigma scales
             for sigma in [0.1, 0.5, 1, 2]:
-                trap_continuum = ac.TrapLifetimeContinuum(
+                trap_continuum = ac.TrapLifetimeContinuumAbstract(
                     density=density,
                     distribution_of_traps_with_lifetime=trap_distribution,
                     release_timescale_mu=release_timescale,

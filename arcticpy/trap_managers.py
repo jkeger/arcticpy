@@ -5,7 +5,7 @@ from copy import deepcopy
 import warnings
 from arcticpy.traps import (
     Trap,
-    TrapLifetimeContinuum,
+    TrapLifetimeContinuumAbstract,
     TrapLogNormalLifetimeContinuum,
     TrapInstantCapture,
 )
@@ -83,7 +83,7 @@ class AllTrapManager(UserList):
                 # Use a non-default trap manager if required for the input trap species
                 if isinstance(
                     trap_group[0],
-                    (TrapLifetimeContinuum, TrapLogNormalLifetimeContinuum),
+                    (TrapLifetimeContinuumAbstract, TrapLogNormalLifetimeContinuum),
                 ):
                     trap_manager = TrapManagerTrackTime(
                         traps=trap_group, max_n_transfers=max_n_transfers
@@ -1089,19 +1089,20 @@ class TrapManagerInstantCapture(TrapManager):
 
 class TrapManagerTrackTime(TrapManagerInstantCapture):
     """ Track the time elapsed since capture instead of the fill fraction. 
-        Should give the same result for normal traps with 
-        TrapManagerInstantCapture, but required for TrapLifetimeContinuum traps.
-        
-        Note the different watermark contents:        
-        watermarks : np.ndarray
-            Array of watermark fractional volumes and times to describe the trap 
-            states. Lists each (active) watermark fractional volume and and the 
-            corresponding total time elapsed since the traps were filled for 
-            each trap species. Inactive elements are set to 0.
+    
+    Should give the same result for normal traps with TrapManagerInstantCapture, 
+    and required for TrapLifetimeContinuumAbstract traps.
+    
+    Note the different watermark contents:        
+    watermarks : np.ndarray
+        Array of watermark fractional volumes and times to describe the trap 
+        states. Lists each (active) watermark fractional volume and and the 
+        corresponding total time elapsed since the traps were filled for 
+        each trap species. Inactive elements are set to 0.
 
-            [[volume, time_elapsed, time_elapsed, ...],
-             [volume, time_elapsed, time_elapsed, ...],
-             ...                        ]
+        [[volume, time_elapsed, time_elapsed, ...],
+         [volume, time_elapsed, time_elapsed, ...],
+         ...                        ]
     """
 
     @property

@@ -38,6 +38,8 @@ class TestCompareOldArCTIC:
             pixels = np.arange(len(image_pre_cti))
             colours = ["#1199ff", "#ee4400", "#7711dd", "#44dd44", "#775533"]
             plt.figure(figsize=(10, 6))
+            ax1 = plt.gca()
+            ax2 = ax1.twinx()
 
         for i, (express, image_idl) in enumerate(
             zip(
@@ -170,36 +172,51 @@ class TestCompareOldArCTIC:
                 c = colours[i]
 
                 if i == 0:
-                    plt.plot(
+                    ax1.plot(
+                        pixels,
                         image_post_cti,
-                        image_A,
-                        alpha=0.7,
+                        alpha=0.8,
                         c=c,
                         label="%d (py)" % express,
                     )
-                    plt.plot(
+                    ax1.plot(
+                        pixels,
                         image_idl,
-                        image_B,
                         ls="--",
-                        alpha=0.7,
+                        alpha=0.8,
                         c=c,
                         label="%d (idl)" % express,
                     )
-                else:
-                    plt.plot(
-                        pixels, image_post_cti, alpha=0.7, c=c, label="%d" % express,
+                    ax2.plot(
+                        pixels,
+                        (image_post_cti - image_idl) / image_idl,
+                        alpha=0.8,
+                        ls=":",
+                        c=c,
                     )
-                    plt.plot(
-                        pixels, image_idl, alpha=0.7, c=c, ls="--",
+                else:
+                    ax1.plot(
+                        pixels, image_post_cti, alpha=0.8, c=c, label="%d" % express,
+                    )
+                    ax1.plot(
+                        pixels, image_idl, alpha=0.8, c=c, ls="--",
+                    )
+                    ax2.plot(
+                        pixels,
+                        (image_post_cti - image_idl) / image_idl,
+                        alpha=0.8,
+                        ls=":",
+                        c=c,
                     )
 
             assert image_post_cti == pytest.approx(image_idl, rel=0.05, abs=0.05)
 
         if do_plot:
-            plt.legend(title="express")
-            plt.yscale("log")
-            plt.xlabel("Pixel")
-            plt.ylabel("Counts")
+            ax1.legend(title="express", loc="lower left")
+            ax1.set_yscale("log")
+            ax1.set_xlabel("Pixel")
+            ax1.set_ylabel("Counts")
+            ax2.set_ylabel("Fractional Difference (dotted)")
             plt.tight_layout()
             plt.show()
 
@@ -224,6 +241,8 @@ class TestCompareOldArCTIC:
             pixels = np.arange(len(image_pre_cti))
             colours = ["#1199ff", "#ee4400", "#7711dd", "#44dd44", "#775533"]
             plt.figure(figsize=(10, 6))
+            ax1 = plt.gca()
+            ax2 = ax1.twinx()
 
         for i, (express, image_idl) in enumerate(
             zip(
@@ -290,37 +309,52 @@ class TestCompareOldArCTIC:
                 c = colours[i]
 
                 if i == 0:
-                    plt.plot(
+                    ax1.plot(
                         pixels,
                         image_post_cti,
-                        alpha=0.7,
+                        alpha=0.8,
                         c=c,
                         label="%d (py)" % express,
                     )
-                    plt.plot(
+                    ax1.plot(
                         pixels,
                         image_idl,
                         ls="--",
-                        alpha=0.7,
+                        alpha=0.8,
                         c=c,
                         label="%d (idl)" % express,
                     )
-                else:
-                    plt.plot(
-                        pixels, image_post_cti, alpha=0.7, c=c, label="%d" % express,
+                    ax2.plot(
+                        pixels,
+                        (image_post_cti - image_idl) / image_idl,
+                        alpha=0.8,
+                        ls=":",
+                        c=c,
                     )
-                    plt.plot(
-                        pixels, image_idl, alpha=0.7, c=c, ls="--",
+                else:
+                    ax1.plot(
+                        pixels, image_post_cti, alpha=0.8, c=c, label="%d" % express,
+                    )
+                    ax1.plot(
+                        pixels, image_idl, alpha=0.8, c=c, ls="--",
+                    )
+                    ax2.plot(
+                        pixels,
+                        (image_post_cti - image_idl) / image_idl,
+                        alpha=0.8,
+                        ls=":",
+                        c=c,
                     )
 
             assert image_post_cti == pytest.approx(image_idl, rel=0.05, abs=0.05)
 
         if do_plot:
-            plt.legend(title="express")
-            plt.yscale("log")
-            plt.xlabel("Pixel")
-            plt.xlim(100, 121)
-            plt.ylabel("Counts")
+            ax1.legend(title="express", loc="lower left")
+            ax1.set_yscale("log")
+            ax1.set_xlabel("Pixel")
+            ax1.set_xlim(100, 121)
+            ax1.set_ylabel("Counts")
+            ax2.set_ylabel("Fractional Difference (dotted)")
             plt.tight_layout()
             plt.show()
 
@@ -345,6 +379,8 @@ class TestCompareOldArCTIC:
             pixels = np.arange(len(image_pre_cti))
             colours = ["#1199ff", "#ee4400", "#7711dd", "#44dd44", "#775533"]
             plt.figure(figsize=(10, 6))
+            ax1 = plt.gca()
+            ax2 = ax1.twinx()
 
         for i, (express, image_idl) in enumerate(
             zip(
@@ -451,36 +487,51 @@ class TestCompareOldArCTIC:
                 c = colours[i]
 
                 if i == 0:
-                    plt.plot(
+                    ax1.plot(
                         pixels,
                         image_post_cti,
-                        alpha=0.7,
+                        alpha=0.8,
                         c=c,
                         label="%d (py)" % express,
                     )
-                    plt.plot(
+                    ax1.plot(
                         pixels,
                         image_idl,
                         ls="--",
-                        alpha=0.7,
+                        alpha=0.8,
                         c=c,
                         label="%d (idl)" % express,
                     )
-                else:
-                    plt.plot(
-                        pixels, image_post_cti, alpha=0.7, c=c, label="%d" % express,
+                    ax2.plot(
+                        pixels,
+                        (image_post_cti - image_idl) / image_idl,
+                        alpha=0.8,
+                        ls=":",
+                        c=c,
                     )
-                    plt.plot(
-                        pixels, image_idl, alpha=0.7, c=c, ls="--",
+                else:
+                    ax1.plot(
+                        pixels, image_post_cti, alpha=0.8, c=c, label="%d" % express,
+                    )
+                    ax1.plot(
+                        pixels, image_idl, alpha=0.8, c=c, ls="--",
+                    )
+                    ax2.plot(
+                        pixels,
+                        (image_post_cti - image_idl) / image_idl,
+                        alpha=0.8,
+                        ls=":",
+                        c=c,
                     )
 
             assert image_post_cti == pytest.approx(image_idl, rel=0.05, abs=0.05)
 
         if do_plot:
-            plt.legend(title="express")
-            plt.yscale("log")
-            plt.xlabel("Pixel")
-            plt.ylabel("Counts")
+            ax1.legend(title="express", loc="lower left")
+            ax1.set_yscale("log")
+            ax1.set_xlabel("Pixel")
+            ax1.set_ylabel("Counts")
+            ax2.set_ylabel("Fractional Difference (dotted)")
             plt.tight_layout()
             plt.show()
 

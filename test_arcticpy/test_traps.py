@@ -7,26 +7,6 @@ from copy import deepcopy
 import arcticpy as ac
 
 
-class TestTrapParams:
-    def test__parallel_x1__serial_x1_trap___sets_value_correctly(self):
-
-        parallel_trap_0 = ac.Trap(density=0.1, release_timescale=1.0)
-        parallel_trap_1 = ac.Trap(density=0.2, release_timescale=2.0)
-
-        serial_trap_0 = ac.Trap(density=0.3, release_timescale=3.0)
-        serial_trap_1 = ac.Trap(density=0.4, release_timescale=4.0)
-
-        assert parallel_trap_0.density == 0.1
-        assert parallel_trap_0.release_timescale == 1.0
-        assert parallel_trap_1.density == 0.2
-        assert parallel_trap_1.release_timescale == 2.0
-
-        assert serial_trap_0.density == 0.3
-        assert serial_trap_0.release_timescale == 3.0
-        assert serial_trap_1.density == 0.4
-        assert serial_trap_1.release_timescale == 4.0
-
-
 class TestSpecies:
     def test__electrons_released_from_electrons_and_dwell_time(self):
 
@@ -222,14 +202,6 @@ class TestTrapManagerUtilities:
         assert trap_manager.n_trapped_electrons_from_watermarks(
             watermarks=watermarks
         ) == ((0.5 * 0.8 + 0.2 * 0.4 + 0.1 * 0.3) * trap.density)
-
-    #        watermarks = np.array(
-    #            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0], [0, 0]]
-    #        )
-    #
-    #        assert trap_manager.n_trapped_electrons_from_watermarks(
-    #            watermarks=watermarks, fractional_width=0.5
-    #        ) == ((0.5 * 0.8 + 0.2 * 0.4 + 0.1 * 0.3) * trap.density * 0.5)
 
     def test__multiple_trap_managers(self):
         image = np.zeros((6, 2))

@@ -25,7 +25,29 @@ def _clock_charge_in_one_direction(
     Parameters
     ----------
     image : [[float]]
-        The input array of pixel values.
+        The input array of pixel values, assumed to be in units of electrons.
+        
+        The first dimension is the "row" index, the second is the "column" 
+        index. By default (for parallel clocking), charge is transfered "up" 
+        from row n to row 0 along each independent column. i.e. the readout 
+        register is above row 0. (For serial clocking, the image is rotated 
+        beforehand, outside of this function, see add_cti().)
+        
+        e.g. (with arbitrary trap parameters)
+        Initial image with one bright pixel in the first three columns:
+            [[0.0,     0.0,     0.0,     0.0  ], 
+             [200.0,   0.0,     0.0,     0.0  ], 
+             [0.0,     200.0,   0.0,     0.0  ], 
+             [0.0,     0.0,     200.0,   0.0  ], 
+             [0.0,     0.0,     0.0,     0.0  ], 
+             [0.0,     0.0,     0.0,     0.0  ]]
+        Final image with CTI trails behind each bright pixel:
+            [[0.0,     0.0,     0.0,     0.0  ], 
+             [196.0,   0.0,     0.0,     0.0  ], 
+             [3.0,     194.1,   0.0,     0.0  ], 
+             [2.0,     3.9,     192.1,   0.0  ], 
+             [1.3,     2.5,     4.8,     0.0  ], 
+             [0.8,     1.5,     2.9,     0.0  ]]
         
     roe : ROE
         An object describing the timing and direction(s) in which electrons are 
@@ -58,23 +80,20 @@ def _clock_charge_in_one_direction(
         the readout node.
         
     window_row_range : range
-        For speed, calculate only the effect on this subset of pixels.
-        Note that, because of edge effects, you should start the range several
-        pixels before the actual region of interest.
-        ###
+        For speed, calculate only the effect on this subset of row pixels. 
+        Defaults to range(0, n_pixels) for the full image.
     
     window_column_range : range
-        For speed, calculate only the effect on this subset of pixels.
-        Note that, because of edge effects, you should start the range several
-        pixels before the actual region of interest.
-        ###
+        For speed, calculate only the effect on this subset of columns. Defaults 
+        to range(0, n_columns) for the full image.
         
     window_express_range : range
-        To process the entire readout, set to None or range(0,n_pixels).
         The first of the transfers to implement, and the one after the last 
         transfer to implement (like specifying range(0,n+1) includes entries 
         for 0 and n).
         ###
+        
+        Defaults to range(0, n_pixels) for the full image.
 
     Returns
     -------
@@ -148,14 +167,14 @@ def _clock_charge_in_one_direction(
                         roe_phase = roe.clock_sequence[clocking_step][phase]
 
                         # Select the relevant pixel (and phase) for the initial charge
-                        row_read = (
+                        row_index_read = (
                             window_row_range[row_index]
                             + roe_phase.capture_from_which_pixels
                         )
 
                         # Initial charge (0 if this phase's potential is not high)
                         n_free_electrons = (
-                            image[row_read, window_column_range[column_index]]
+                            image[row_index_read, window_column_range[column_index]]
                             * roe_phase.is_high
                         )
 
@@ -172,7 +191,7 @@ def _clock_charge_in_one_direction(
                             )
 
                         # Select the relevant pixel (and phase) for the returned charge
-                        row_write = (
+                        row_index_write = (
                             window_row_range[row_index]
                             + roe_phase.release_to_which_pixels
                         )
@@ -180,7 +199,7 @@ def _clock_charge_in_one_direction(
                         # Return the electrons back to the relevant charge
                         # cloud, or a fraction if they are being returned to
                         # multiple phases
-                        image[row_write, window_column_range[column_index]] += (
+                        image[row_index_write, window_column_range[column_index]] += (
                             n_electrons_released_and_captured
                             * roe_phase.release_fraction_to_pixel
                             * express_multiplier
@@ -227,6 +246,35 @@ def add_cti(
     image : [[float]]
         The input array of pixel values, assumed to be in units of electrons.
         
+        The first dimension is the "row" index, the second is the "column" 
+        index. By default (for parallel clocking), charge is transfered "up" 
+        from row n to row 0 along each independent column. i.e. the readout 
+        register is above row 0. (For serial clocking, the image is rotated 
+        before modelling, such that charge moves from column n to column 0.)
+        
+        e.g. (with arbitrary trap parameters)
+        Initial image with one bright pixel in the first three columns:
+            [[0.0,     0.0,     0.0,     0.0  ], 
+             [200.0,   0.0,     0.0,     0.0  ], 
+             [0.0,     200.0,   0.0,     0.0  ], 
+             [0.0,     0.0,     200.0,   0.0  ], 
+             [0.0,     0.0,     0.0,     0.0  ], 
+             [0.0,     0.0,     0.0,     0.0  ]]
+        Image with parallel CTI trails:
+            [[0.0,     0.0,     0.0,     0.0  ], 
+             [196.0,   0.0,     0.0,     0.0  ], 
+             [3.0,     194.1,   0.0,     0.0  ], 
+             [2.0,     3.9,     192.1,   0.0  ], 
+             [1.3,     2.5,     4.8,     0.0  ], 
+             [0.8,     1.5,     2.9,     0.0  ]]
+        Final image with parallel and serial CTI trails:
+            [[0.0,     0.0,     0.0,     0.0  ], 
+             [194.1,   1.9,     1.5,     0.9  ], 
+             [2.9,     190.3,   2.9,     1.9  ], 
+             [1.9,     3.8,     186.5,   3.7  ], 
+             [1.2,     2.4,     4.7,     0.9  ], 
+             [0.7,     1.4,     2.8,     0.6  ]]
+        
     parallel_express : int
         The number of times the transfers are computed, determining the 
         balance between accuracy (high values) and speed (low values), for 
@@ -254,7 +302,9 @@ def add_cti(
         effect for other types of clocking).
         
     parallel_window_range : range
-        For speed, calculate only the effect on this subset of pixels.
+        For speed, calculate only the effect on this subset of pixels. Defaults
+        to range(0, n_pixels) for the full image.
+        
         Note that, because of edge effects, you should start the range several
         pixels before the actual region of interest.
         
@@ -264,7 +314,7 @@ def add_cti(
         
     time_window : [float, float]
         The beginning and end of the time during readout to be calculated, as a 
-        fraction of the total readout from 0 to 1.###right?
+        fraction of the total readout from 0 to 1. ###right?
         
         This could be used to e.g. add cosmic rays during readout of simulated
         images. Successive calls to complete the readout should start at
@@ -281,9 +331,9 @@ def add_cti(
     image : [[float]]
         The output array of pixel values.
     """
-
-    # Parse inputs
     n_rows_in_image, n_columns_in_image = image.shape
+
+    # Default windows to the full image
     if parallel_window_range is None:
         parallel_window_range = range(n_rows_in_image)
     elif isinstance(parallel_window_range, int):
@@ -292,6 +342,8 @@ def add_cti(
         serial_window_range = range(n_columns_in_image)
     elif isinstance(serial_window_range, int):
         serial_window_range = range(serial_window_range, serial_window_range + 1)
+
+    # ###
     if time_window == [0, 1]:
         window_express_range = None
         window_column_range_serial = parallel_window_range
@@ -385,51 +437,18 @@ def remove_cti(
     """
     Remove CTI trails from an image by first modelling the addition of CTI.
     
-    See ###
+    See add_cti()'s documentation for the forward modelling. This function 
+    iteratively models the addition of more CTI trails to the input image to 
+    then extract the corrected image without the original trails.
 
     Parameters
     ----------
-    image : [[float]]
-        The input array of pixel values.
-        
+    All parameters are identical to those of add_cti() as described in its 
+    documentation, with the exception of:
+    
     iterations : int
         The number of times CTI-adding clocking is run to perform the correction 
         via forward modelling. 
-        
-    parallel_express : int
-        The number of times the pixel-to-pixel transfers are computed, 
-        determining the balance between accuracy (high values) and speed 
-        (low values), for parallel clocking (Massey et al. 2014, section 2.1.5).
-        
-    parallel_roe : ROE
-        The object describing the clocking read-out electronics for parallel 
-        clocking.
-        
-    parallel_ccd : CCD
-        The object describing the CCD volume for parallel clocking. For 
-        multi-phase clocking optionally use a list of different CCD volumes
-        for each phase, in the same size list as parallel_roe.dwell_times.
-        
-    parallel_traps : [Trap] or [[Trap]]
-        A list of one or more trap objects for parallel clocking. To use 
-        different types of traps that will require different watermark 
-        levels, pass a 2D list of lists, i.e. a list containing lists of 
-        one or more traps for each type.
-        
-    parallel_offset : int
-        The supplied image array is a postage stamp offset this number of 
-        pixels from the readout register. This increases the number of
-        pixel-to-pixel transfers assumed if readout is normal (and has no
-        effect for other types of clocking).
-        
-    parallel_window_range : range() or list
-        For speed, calculate only the effect on this subset of pixels. 
-        Note that, because of edge effects, you should start the range several 
-        pixels before the actual region of interest.
-        
-    serial_* : *
-        The same as the parallel_* objects described above but for serial 
-        clocking instead.
 
     Returns
     -------

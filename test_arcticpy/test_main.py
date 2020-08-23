@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 
 
 class TestCompareOldArCTIC:
-    def test__add_cti_express__single_pixel__vary_express__compare_old_arctic(self):
+    def test__add_cti__single_pixel__vary_express__compare_old_arctic(self):
 
         # Manually set True to make the plot
         do_plot = False
@@ -220,7 +220,7 @@ class TestCompareOldArCTIC:
             plt.tight_layout()
             plt.show()
 
-    def test__add_cti_express__single_pixel__vary_express_2__compare_old_arctic(self):
+    def test__add_cti__single_pixel__vary_express_2__compare_old_arctic(self):
 
         # Manually set True to make the plot
         do_plot = False
@@ -358,7 +358,7 @@ class TestCompareOldArCTIC:
             plt.tight_layout()
             plt.show()
 
-    def test__add_cti_express__single_pixel__vary_express_3__compare_old_arctic(self):
+    def test__add_cti__single_pixel__vary_express_3__compare_old_arctic(self):
 
         # Manually set True to make the plot
         do_plot = False
@@ -1888,3 +1888,80 @@ class TestArcticCorrectCTIParallelAndSerial:
         image_difference_2 = image_correct_cti - image_pre_cti
 
         assert (abs(image_difference_2) <= abs(image_difference_1)).all()
+
+
+class TestWindowing:
+    def test__add_cti__single_pixel__vary_window_over_start_of_trail(self):
+
+        # Manually set True to make the plot
+        do_plot = False
+        # do_plot = True
+
+        image_pre_cti = np.zeros((12, 1))
+        image_pre_cti[2, 0] = 800
+
+        # Nice numbers for easy manual checking
+        traps = [ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))]
+        ccd = ac.CCD(well_fill_power=1, full_well_depth=1000, well_notch_depth=0)
+        roe = ac.ROE(empty_traps_at_start=False)
+        express = 0
+
+        # Full image
+        image_post_cti = ac.add_cti(
+            image=image_pre_cti,
+            parallel_traps=traps,
+            parallel_ccd=ccd,
+            parallel_roe=roe,
+            parallel_express=express,
+        ).T[0]
+
+        if do_plot:
+            pixels = np.arange(len(image_pre_cti))
+            plt.figure(figsize=(10, 6))
+            plt.plot(
+                pixels, image_post_cti, alpha=0.6, ls="--", label="Full",
+            )
+
+        for i, window_range in enumerate(
+            [
+                range(3, 12),  # After bright pixel so no trail
+                range(1, 5),  # Start of trail
+                range(1, 9),  # Most of trail
+                range(1, 12),  # Full trail
+                range(0, 12),  # Full image
+            ]
+        ):
+            image_window = ac.add_cti(
+                image=image_pre_cti,
+                parallel_traps=traps,
+                parallel_ccd=ccd,
+                parallel_roe=roe,
+                parallel_express=express,
+                parallel_window_range=window_range,
+            ).T[0]
+
+            if do_plot:
+                plt.plot(
+                    pixels,
+                    image_window,
+                    alpha=0.6,
+                    label="range(%d, %d)" % (window_range[0], window_range[-1] + 1),
+                )
+
+            # After bright pixel so no trail
+            if i == 0:
+                assert image_window == pytest.approx(image_pre_cti.T[0])
+
+            # Matches within window
+            else:
+                assert image_window[window_range] == pytest.approx(
+                    image_post_cti[window_range]
+                )
+
+        if do_plot:
+            plt.legend()
+            plt.yscale("log")
+            plt.xlabel("Pixel")
+            plt.ylabel("Counts")
+            plt.tight_layout()
+            plt.show()

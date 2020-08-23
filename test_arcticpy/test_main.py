@@ -1890,7 +1890,47 @@ class TestArcticCorrectCTIParallelAndSerial:
         assert (abs(image_difference_2) <= abs(image_difference_1)).all()
 
 
-class TestWindowing:
+class TestOffsetsAndWindows:
+    def test__add_cti__single_pixel__offset(self):
+
+        # Nice numbers for easy manual checking
+        traps = [ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))]
+        ccd = ac.CCD(well_fill_power=1, full_well_depth=1000, well_notch_depth=0)
+        roe = ac.ROE(empty_traps_at_start=False)
+
+        # Base image without offset
+        image_pre_cti = np.zeros((12, 1))
+        image_pre_cti[2, 0] = 800
+
+        for offset in [1, 5, 11]:
+            # Offset added directly to image
+            image_pre_cti_manual_offset = np.zeros((12 + offset, 1))
+            image_pre_cti_manual_offset[2 + offset, 0] = 800
+
+            for express in [1, 3, 12, 0]:
+                # Add offset to base image
+                image_post_cti = ac.add_cti(
+                    image=image_pre_cti,
+                    parallel_traps=traps,
+                    parallel_ccd=ccd,
+                    parallel_roe=roe,
+                    parallel_express=express,
+                    parallel_offset=offset,
+                )
+
+                # Offset already in image
+                image_post_cti_manual_offset = ac.add_cti(
+                    image=image_pre_cti_manual_offset,
+                    parallel_traps=traps,
+                    parallel_ccd=ccd,
+                    parallel_roe=roe,
+                    parallel_express=express,
+                )
+
+                assert image_post_cti == pytest.approx(
+                    image_post_cti_manual_offset[offset:]
+                )
+
     def test__add_cti__single_pixel__vary_window_over_start_of_trail(self):
 
         # Manually set True to make the plot
@@ -1965,3 +2005,71 @@ class TestWindowing:
             plt.ylabel("Counts")
             plt.tight_layout()
             plt.show()
+
+    def test__split_parallel_and_serial_readout_by_time(self):
+
+        return  ###WIP
+
+        image_pre_cti = np.zeros((20, 15))
+        image_pre_cti[1, 1] += 10000
+
+        trap = ac.Trap(density=10, release_timescale=10.0)
+        ccd = ac.CCD(well_notch_depth=0.0, well_fill_power=0.8, full_well_depth=100000)
+        roe = ac.ROE(empty_traps_at_start=False, empty_traps_between_columns=True)
+
+        express = 2
+        offset = 0
+        split_point = 0.25
+
+        # Run in two halves
+        image_post_cti_firsthalf = ac.add_cti(
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd=ccd,
+            parallel_roe=roe,
+            parallel_express=express,
+            parallel_offset=offset,
+            serial_traps=[trap],
+            serial_ccd=ccd,
+            serial_roe=roe,
+            serial_express=express,
+            serial_offset=offset,
+            time_window=[0, split_point],
+        )
+        trail_firsthalf = image_post_cti_firsthalf - image_pre_cti
+        image_post_cti_secondhalf = ac.add_cti(
+            image=image_pre_cti,
+            serial_traps=[trap],
+            serial_ccd=ccd,
+            serial_roe=roe,
+            serial_express=express,
+            serial_offset=offset,
+            parallel_traps=[trap],
+            parallel_ccd=ccd,
+            parallel_roe=roe,
+            parallel_express=express,
+            parallel_offset=offset,
+            time_window=[split_point, 1],
+        )
+        image_post_cti_split = (
+            image_post_cti_firsthalf + image_post_cti_secondhalf - image_pre_cti
+        )
+        trail_split = image_post_cti_split - image_pre_cti
+
+        # Run all in one go
+        image_post_cti = ac.add_cti(
+            image=image_pre_cti,
+            serial_traps=[trap],
+            serial_ccd=ccd,
+            serial_roe=roe,
+            serial_express=express,
+            serial_offset=offset,
+            parallel_traps=[trap],
+            parallel_ccd=ccd,
+            parallel_roe=roe,
+            parallel_express=express,
+            parallel_offset=offset,
+        )
+        trail = image_post_cti - image_pre_cti
+
+        assert (abs(trail_split - trail) < 2e-4).all()

@@ -16,7 +16,7 @@ def _clock_charge_in_one_direction(
     offset,
     window_row_range,
     window_column_range,
-    window_express_range,
+    time_window_express_range,
 ):
     """
     Add CTI trails to an image by trapping, releasing, and moving electrons 
@@ -75,25 +75,26 @@ def _clock_charge_in_one_direction(
                     transfer only once.
         Runtime scales approximately as O(express^0.5). ###WIP
         
-    offset : int
+    offset : int (>= 0)
         The number of (e.g. prescan) pixels separating the supplied image from 
-        the readout node.
+        the readout register.
         
     window_row_range : range
-        For speed, calculate only the effect on this subset of row pixels. 
-        Defaults to range(0, n_pixels) for the full image.
+        The subset of row pixels to model, to save time when only a specific 
+        region of the image is of interest. Defaults to range(0, n_pixels) for 
+        the full image.
     
     window_column_range : range
-        For speed, calculate only the effect on this subset of columns. Defaults 
-        to range(0, n_columns) for the full image.
+        The subset of column pixels to model, to save time when only a specific 
+        region of the image is of interest. Defaults to range(0, n_columns) for 
+        the full image.
         
-    window_express_range : range
-        The first of the transfers to implement, and the one after the last 
-        transfer to implement (like specifying range(0,n+1) includes entries 
-        for 0 and n).
-        ###
+    time_window_express_range : range
+        The subset of transfers to implement. Defaults to range(0, n_pixels) for 
+        the full image.
         
-        Defaults to range(0, n_pixels) for the full image.
+        The entire readout is still modelled, but only the results from this 
+        subset of transfers are implemented in the final image.
 
     Returns
     -------
@@ -112,7 +113,7 @@ def _clock_charge_in_one_direction(
         pixels=window_row_range,
         express=express,
         offset=offset,
-        window_express_range=window_express_range,
+        time_window_express_range=time_window_express_range,
     )
     # ; and whether the trap occupancy states must be saved for the next express
     # pass rather than being reset (usually at the end of each express pass)
@@ -295,15 +296,18 @@ def add_cti(
         levels, pass a 2D list of lists, i.e. a list containing lists of
         one or more traps for each type.
         
-    parallel_offset : int
-        The supplied image array is a postage stamp offset this number of
-        pixels from the readout register. This increases the number of
-        pixel-to-pixel transfers assumed if readout is normal (and has no
-        effect for other types of clocking).
+    parallel_offset : int (>= 0)
+        The number of (e.g. prescan) pixels separating the supplied image from 
+        the readout register. i.e. Treat the input image as a sub-image that is 
+        offset this number of pixels from readout, increasing the number of
+        pixel-to-pixel transfers.
         
     parallel_window_range : range
         For speed, calculate only the effect on this subset of pixels. Defaults
         to range(0, n_pixels) for the full image.
+        
+        For a single pixel (e.g. for trap pumping), can enter just the single 
+        integer index, which will be converted to range(index, index + 1).
         
         Note that, because of edge effects, you should start the range several
         pixels before the actual region of interest.
@@ -313,8 +317,14 @@ def add_cti(
         clocking instead.
         
     time_window : [float, float]
-        The beginning and end of the time during readout to be calculated, as a 
-        fraction of the total readout from 0 to 1. ###right?
+        The beginning and end of the time during readout to be implemented, as a 
+        fraction of the total readout from 0 to 1. 
+        
+        ### Would a transfer/pixel range be better than fractions? Maybe made 
+        too complicated by offsets etc?
+        
+        The entire readout is still modelled, but only the results from this 
+        subset of transfers are implemented in the final image.
         
         This could be used to e.g. add cosmic rays during readout of simulated
         images. Successive calls to complete the readout should start at
@@ -333,7 +343,7 @@ def add_cti(
     """
     n_rows_in_image, n_columns_in_image = image.shape
 
-    # Default windows to the full image
+    # Default windows to the full image; convert single-pixel windows to ranges
     if parallel_window_range is None:
         parallel_window_range = range(n_rows_in_image)
     elif isinstance(parallel_window_range, int):
@@ -343,31 +353,33 @@ def add_cti(
     elif isinstance(serial_window_range, int):
         serial_window_range = range(serial_window_range, serial_window_range + 1)
 
-    # ###
+    # Set the express range for the time window; default to the full image
     if time_window == [0, 1]:
-        window_express_range = None
-        window_column_range_serial = parallel_window_range
+        time_window_express_range = None
+        # ###
+        serial_window_column_range = parallel_window_range
     else:
-        window_express_range = range(
+        time_window_express_range = range(
             int(time_window[0] * (n_rows_in_image + parallel_offset)),
             int(time_window[1] * (n_rows_in_image + parallel_offset)),
         )
-        if len(window_express_range) == 0:
-            window_column_range_serial = range(0)
+        if len(time_window_express_range) == 0:
+            serial_window_column_range = range(0)
         else:
             # Intersection of spatial and temporal windows of interest
-            window_column_range_serial = range(
+            serial_window_column_range = range(
                 max(
-                    parallel_window_range[0], window_express_range[0] - parallel_offset
+                    parallel_window_range[0],
+                    time_window_express_range[0] - parallel_offset,
                 ),
                 min(
                     parallel_window_range[-1],
-                    window_express_range[-1] - parallel_offset,
+                    time_window_express_range[-1] - parallel_offset,
                 )
                 + 1,
             )
 
-    # If ROE not provided then assume simple, single-phase clocking in imaging mode
+    # Default ROE: simple, single-phase clocking in imaging mode
     if parallel_roe is None:
         parallel_roe = ROE()
     if serial_roe is None:
@@ -379,6 +391,7 @@ def add_cti(
     # Parallel clocking
     if parallel_traps is not None:
 
+        # Transfer charge in parallel direction
         image = _clock_charge_in_one_direction(
             image=image,
             ccd=parallel_ccd,
@@ -388,7 +401,7 @@ def add_cti(
             offset=parallel_offset,
             window_row_range=parallel_window_range,
             window_column_range=serial_window_range,
-            window_express_range=window_express_range,
+            time_window_express_range=time_window_express_range,
         )
 
     # Serial clocking
@@ -397,7 +410,7 @@ def add_cti(
         # Switch axes, so clocking happens in other direction
         image = image.T.copy()
 
-        # Read out charge in serial direction
+        # Transfer charge in serial direction
         image = _clock_charge_in_one_direction(
             image=image,
             ccd=serial_ccd,
@@ -406,14 +419,13 @@ def add_cti(
             express=serial_express,
             offset=serial_offset,
             window_row_range=serial_window_range,
-            window_column_range=window_column_range_serial,
-            window_express_range=None,
+            window_column_range=serial_window_column_range,
+            time_window_express_range=None,
         )
 
         # Switch axes back
         image = image.T
 
-    # Finished
     return image
 
 
@@ -482,5 +494,4 @@ def remove_cti(
         # Improved estimate of image with CTI trails removed
         image_remove_cti += image - image_add_cti
 
-    # Finished
     return image_remove_cti

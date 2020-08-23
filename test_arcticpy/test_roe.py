@@ -49,6 +49,40 @@ class TestExpress:
 
         assert express_matrix == pytest.approx(np.triu(np.ones((12, 12))))
 
+    def test__express_matrix__offset(self):
+
+        roe = ac.ROE(empty_traps_at_start=False, express_matrix_dtype=int)
+        pixels = 12
+
+        # Compare with offset added directly
+        for offset in [1, 5, 11]:
+            for express in [1, 3, 12, 0]:
+                (
+                    express_matrix,
+                    _,
+                ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
+                    pixels=pixels, express=express, offset=offset,
+                )
+
+                (
+                    express_matrix_manual_offset,
+                    _,
+                ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
+                    pixels=pixels + offset, express=express,
+                )
+
+                assert express_matrix[:] == pytest.approx(
+                    express_matrix_manual_offset[:, offset:]
+                )
+
+    def test__express_matrix__dtype(self):
+
+        return  ###
+
+    def test__express_matrix__first_pixel_different(self):
+
+        return  ###
+
     def test__express_matrix_always_sums_to_n_transfers(self):
         for pixels in [5, 7, 17]:
             for express in [0, 1, 2, 7]:
@@ -79,19 +113,22 @@ class TestExpress:
             express_matrix_a,
             monitor_traps_matrix_a,
         ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
-            pixels, express, offset=offset, window_express_range=range(0, 6)
+            pixels, express, offset=offset, time_window_express_range=range(0, 6)
         )
         (
             express_matrix_b,
             monitor_traps_matrix_b,
         ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
-            pixels, express, offset=offset, window_express_range=range(6, 9)
+            pixels, express, offset=offset, time_window_express_range=range(6, 9)
         )
         (
             express_matrix_c,
             monitor_traps_matrix_c,
         ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
-            pixels, express, offset=offset, window_express_range=range(9, total_pixels)
+            pixels,
+            express,
+            offset=offset,
+            time_window_express_range=range(9, total_pixels),
         )
         (
             express_matrix_d,
@@ -111,74 +148,6 @@ class TestExpress:
         assert express_matrix_a + express_matrix_b + express_matrix_c == pytest.approx(
             express_matrix_d
         )
-
-    def test__split_parallel_and_serial_readout_by_time(self):
-
-        return  ###WIP
-
-        image_pre_cti = np.zeros((20, 15))
-        image_pre_cti[1, 1] += 10000
-
-        trap = ac.Trap(density=10, release_timescale=10.0)
-        ccd = ac.CCD(well_notch_depth=0.0, well_fill_power=0.8, full_well_depth=100000)
-        roe = ac.ROE(empty_traps_at_start=False, empty_traps_between_columns=True)
-
-        express = 2
-        offset = 0
-        split_point = 0.25
-
-        # Run in two halves
-        image_post_cti_firsthalf = ac.add_cti(
-            image=image_pre_cti,
-            parallel_traps=[trap],
-            parallel_ccd=ccd,
-            parallel_roe=roe,
-            parallel_express=express,
-            parallel_offset=offset,
-            serial_traps=[trap],
-            serial_ccd=ccd,
-            serial_roe=roe,
-            serial_express=express,
-            serial_offset=offset,
-            time_window=[0, split_point],
-        )
-        trail_firsthalf = image_post_cti_firsthalf - image_pre_cti
-        image_post_cti_secondhalf = ac.add_cti(
-            image=image_pre_cti,
-            serial_traps=[trap],
-            serial_ccd=ccd,
-            serial_roe=roe,
-            serial_express=express,
-            serial_offset=offset,
-            parallel_traps=[trap],
-            parallel_ccd=ccd,
-            parallel_roe=roe,
-            parallel_express=express,
-            parallel_offset=offset,
-            time_window=[split_point, 1],
-        )
-        image_post_cti_split = (
-            image_post_cti_firsthalf + image_post_cti_secondhalf - image_pre_cti
-        )
-        trail_split = image_post_cti_split - image_pre_cti
-
-        # Run all in one go
-        image_post_cti = ac.add_cti(
-            image=image_pre_cti,
-            serial_traps=[trap],
-            serial_ccd=ccd,
-            serial_roe=roe,
-            serial_express=express,
-            serial_offset=offset,
-            parallel_traps=[trap],
-            parallel_ccd=ccd,
-            parallel_roe=roe,
-            parallel_express=express,
-            parallel_offset=offset,
-        )
-        trail = image_post_cti - image_pre_cti
-
-        assert (abs(trail_split - trail) < 2e-4).all()
 
 
 class TestClockingSequences:

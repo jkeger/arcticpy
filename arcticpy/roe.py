@@ -451,7 +451,7 @@ class ROE(ROEAbstract):
         return self.n_steps
 
     def restrict_time_span_of_express_matrix(
-        self, express_matrix, window_express_range
+        self, express_matrix, time_window_express_range
     ):
         """
         Remove rows of an express_multiplier matrix that are outside a temporal 
@@ -464,27 +464,30 @@ class ROE(ROEAbstract):
         express_matrix : [[float]]
             The express multiplier value for each pixel-to-pixel transfer.
             
-        window_express_range : range
-            The first of the transfers to implement, and the one after the last 
-            transfer to implement (like specifying range(0,n+1) includes entries 
-            for 0 and n).
+        time_window_express_range : 
             ###
         """
 
-        if window_express_range is not None:
+        if time_window_express_range is not None:
             # Work out which pixel-to-pixel transfers a temporal window corresponds to
-            window_express_span = window_express_range[-1] - window_express_range[0] + 1
+            window_express_span = (
+                time_window_express_range[-1] - time_window_express_range[0] + 1
+            )
 
             # Set to zero entries in all other rows
-            express_matrix = np.cumsum(express_matrix, axis=0) - window_express_range[0]
+            express_matrix = (
+                np.cumsum(express_matrix, axis=0) - time_window_express_range[0]
+            )
             express_matrix[express_matrix < 0] = 0
             express_matrix[express_matrix > window_express_span] = window_express_span
-            express_matrix[1:] -= express_matrix[:-1].copy()  # undo a cumulative sum
+
+            # Undo the cumulative sum
+            express_matrix[1:] -= express_matrix[:-1].copy()
 
         return express_matrix
 
     def express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
-        self, pixels, express=0, offset=0, window_express_range=None
+        self, pixels, express=0, offset=0, time_window_express_range=None
     ):
         """ 
         To reduce runtime, instead of calculating the effects of every 
@@ -501,6 +504,7 @@ class ROE(ROEAbstract):
             int:    The number of pixels in the image.
             range:  The pixels in the image to be processed (can be a subset of 
                     the entire image).
+            ### tidy to match main.py
                     
         express : int
             The number of times the pixel-to-pixel transfers are computed, 
@@ -516,13 +520,13 @@ class ROE(ROEAbstract):
                         transfer only once.
             Runtime scales approximately as O(express^0.5). ###WIP
         
-        offset : int >= 0
+        offset : int (>= 0)
             Consider all pixels to be offset by this number of pixels from the 
             readout register. Useful if working out the matrix for a postage  
             stamp image, or to account for prescan pixels whose data is not 
             stored.
             
-        window_express_range : range
+        time_window_express_range : range
             To process the entire readout, set to None or range(0,n_pixels).
             ###
 
@@ -536,10 +540,18 @@ class ROE(ROEAbstract):
             capture of charge needs to be monitored, based on express_matrix.
         """
 
-        # Parse inputs
-        window = range(pixels) if isinstance(pixels, int) else pixels
-        n_pixels = max(window) + 1
-        express = n_pixels if express == 0 else min((express, n_pixels + offset))
+        if isinstance(pixels, int):
+            window_range = range(pixels)
+        else:
+            window_range = pixels
+        n_pixels = max(window_range) + 1
+
+        if express == 0:
+            express = n_pixels + offset
+        else:
+            express = min(
+                (express, n_pixels + offset)
+            )  ### isn't express always smaller?
 
         # Temporarily ignore the first pixel-to-pixel transfer, if it is to be
         # handled differently than the rest
@@ -584,19 +596,19 @@ class ROE(ROEAbstract):
         # When to monitor traps
         monitor_traps_matrix = express_matrix > 0
         monitor_traps_matrix = monitor_traps_matrix[:, offset:]
-        monitor_traps_matrix = monitor_traps_matrix[:, window]
+        monitor_traps_matrix = monitor_traps_matrix[:, window_range]
 
         # Extract the desired section of the array
         # Keep only the temporal region of interest (do this last because a: it
         # is faster if operating on a smaller array, and b: it includes the
         # removal of lines that are all zero, some of which might already exist)
         express_matrix = self.restrict_time_span_of_express_matrix(
-            express_matrix, window_express_range
+            express_matrix, time_window_express_range
         )
         # Remove the offset (which is not represented in the image pixels)
         express_matrix = express_matrix[:, offset:]
         # Keep only the spatial region of interest
-        express_matrix = express_matrix[:, window]
+        express_matrix = express_matrix[:, window_range]
 
         return express_matrix, monitor_traps_matrix
 
@@ -681,7 +693,7 @@ class ROEChargeInjection(ROE):
         )
 
     def express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
-        self, pixels, express=0, offset=0, window_express_range=None,
+        self, pixels, express=0, offset=0, time_window_express_range=None,
     ):
         """ 
         See ROE.express_matrix_from_pixels_and_express()
@@ -689,9 +701,8 @@ class ROEChargeInjection(ROE):
         ### Explain why different
         """
 
-        # Parse inputs
-        window = range(pixels) if isinstance(pixels, int) else pixels
-        n_pixels = max(window) + 1
+        window_range = range(pixels) if isinstance(pixels, int) else pixels
+        n_pixels = max(window_range) + 1
         n_active_pixels = (
             n_pixels + offset
             if self.n_active_pixels is None
@@ -718,7 +729,7 @@ class ROEChargeInjection(ROE):
 
         # Keep only the temporal region of interest
         express_matrix = self.restrict_time_span_of_express_matrix(
-            express_matrix, window_express_range
+            express_matrix, time_window_express_range
         )
 
         return (express_matrix,)
@@ -805,7 +816,7 @@ class ROETrapPumping(ROEAbstract):
         return self.n_steps // 2
 
     def express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
-        self, pixels, express=0, offset=None, window_express_range=None
+        self, pixels, express=0, offset=None, time_window_express_range=None
     ):
         """ 
         See ROE.express_matrix_from_pixels_and_express()
@@ -821,7 +832,7 @@ class ROETrapPumping(ROEAbstract):
             range:  The pixels in the image to be processed (can be a subset of 
                     the entire image).
         
-        offset, window_express_range : None
+        offset, time_window_express_range : None
             Not used in this trap-pumping version of ROE.
         """
 

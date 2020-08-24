@@ -103,32 +103,30 @@ class TestExpress:
                                 np.arange(1, pixels + 1) + offset
                             )
 
-    def test__express_matrix_split_by_time(self):
+    def test__express_matrix__time_window(self):
         roe = ac.ROE(express_matrix_dtype=int)
         express = 2
         offset = 2
         pixels = 8
         total_pixels = pixels + offset
+
         (
             express_matrix_a,
             monitor_traps_matrix_a,
         ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
-            pixels, express, offset=offset, time_window_express_range=range(0, 6)
+            pixels, express, offset=offset, time_window_range=range(0, 6)
         )
         (
             express_matrix_b,
             monitor_traps_matrix_b,
         ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
-            pixels, express, offset=offset, time_window_express_range=range(6, 9)
+            pixels, express, offset=offset, time_window_range=range(6, 9)
         )
         (
             express_matrix_c,
             monitor_traps_matrix_c,
         ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
-            pixels,
-            express,
-            offset=offset,
-            time_window_express_range=range(9, total_pixels),
+            pixels, express, offset=offset, time_window_range=range(9, total_pixels),
         )
         (
             express_matrix_d,
@@ -141,10 +139,14 @@ class TestExpress:
             + np.sum(express_matrix_b, axis=0)
             + np.sum(express_matrix_c, axis=0)
         )
-        assert total_transfers == pytest.approx(np.arange(1, pixels + 1) + offset)
+
+        # All monitor all the transfers
         assert monitor_traps_matrix_a == pytest.approx(monitor_traps_matrix_b)
         assert monitor_traps_matrix_a == pytest.approx(monitor_traps_matrix_c)
         assert monitor_traps_matrix_a == pytest.approx(monitor_traps_matrix_d)
+
+        # Separate time windows add to the full image
+        assert total_transfers == pytest.approx(np.arange(1, pixels + 1) + offset)
         assert express_matrix_a + express_matrix_b + express_matrix_c == pytest.approx(
             express_matrix_d
         )
@@ -378,7 +380,7 @@ class TestClockingSequences:
             assert roe.clock_sequence[step][phase].is_high
 
 
-class TestTrapPumpingResults:
+class TestTrapPumping:
     def test__serial_trap_pumping_in_different_phases_makes_dipole(self):
 
         # 3-phase pocket pumping with traps under phase 1 - no change expected
@@ -562,6 +564,8 @@ class TestTrapPumpingResults:
         ) / image_orig[[trap_pixel, trap_pixel + 1]]
         assert (abs(fractional_diff) < 1e-4).all()
 
+
+class TestChargeInjection:
     def test__express_is_good_approximation_for_charge_injection(self):
 
         return  ###WIP

@@ -16,7 +16,7 @@ def _clock_charge_in_one_direction(
     offset,
     window_row_range,
     window_column_range,
-    time_window_express_range,
+    time_window_range,
 ):
     """
     Add CTI trails to an image by trapping, releasing, and moving electrons 
@@ -89,9 +89,10 @@ def _clock_charge_in_one_direction(
         region of the image is of interest. Defaults to range(0, n_columns) for 
         the full image.
         
-    time_window_express_range : range
+    time_window_range : range
         The subset of transfers to implement. Defaults to range(0, n_pixels) for 
-        the full image.
+        the full image. e.g. range(0, n_pixels/3) to do only the first third of 
+        the pixel-to-pixel transfers.
         
         The entire readout is still modelled, but only the results from this 
         subset of transfers are implemented in the final image.
@@ -105,7 +106,7 @@ def _clock_charge_in_one_direction(
     # Generate the arrays over each step for: the number of of times that the
     # effect of each pixel-to-pixel transfer can be multiplied for the express
     # algorithm; and whether the traps must be monitored (usually whenever
-    # express matrix > 0)
+    # express matrix > 0, unless using a time window)
     (
         express_matrix,
         monitor_traps_matrix,
@@ -113,7 +114,7 @@ def _clock_charge_in_one_direction(
         pixels=window_row_range,
         express=express,
         offset=offset,
-        time_window_express_range=time_window_express_range,
+        time_window_range=time_window_range,
     )
     # ; and whether the trap occupancy states must be saved for the next express
     # pass rather than being reset (usually at the end of each express pass)
@@ -121,7 +122,7 @@ def _clock_charge_in_one_direction(
         express_matrix=express_matrix
     )
 
-    n_express, n_rows_to_process = express_matrix.shape
+    n_express_pass, n_rows_to_process = express_matrix.shape
 
     # Decide in advance which steps need to be evaluated and which can be skipped
     phases_with_traps = [
@@ -148,7 +149,7 @@ def _clock_charge_in_one_direction(
 
         # Monitor the traps in every pixel, or just one (express=1) or a few
         # (express=a few) then replicate their effect
-        for express_index in range(n_express):
+        for express_index in range(n_express_pass):
             # Restore the trap occupancy levels (to empty, or to a saved state
             # from a previous express pass)
             trap_managers.restore()
@@ -156,7 +157,9 @@ def _clock_charge_in_one_direction(
             # Each pixel
             for row_index in range(len(window_row_range)):
                 express_multiplier = express_matrix[express_index, row_index]
-                # Skip this step if not needed to be evaluated
+                # Skip this step if not needed to be evaluated (may need to
+                # monitor the traps and update their occupancies even if
+                # express_mulitplier is 0, e.g. for a time window)
                 if not monitor_traps_matrix[express_index, row_index]:
                     continue
 
@@ -190,6 +193,10 @@ def _clock_charge_in_one_direction(
                                 ),
                                 express_multiplier=express_multiplier,
                             )
+
+                        # Skip updating the image if only monitoring the traps
+                        if express_multiplier == 0:
+                            continue
 
                         # Select the relevant pixel (and phase) for the returned charge
                         row_index_write = (
@@ -236,7 +243,7 @@ def add_cti(
     serial_express=0,
     serial_offset=0,
     serial_window_range=None,
-    time_window=[0, 1],
+    time_window_range=None,
 ):
     """
     Add CTI trails to an image by trapping, releasing, and moving electrons
@@ -316,12 +323,10 @@ def add_cti(
         The same as the parallel_* objects described above but for serial
         clocking instead.
         
-    time_window : [float, float]
-        The beginning and end of the time during readout to be implemented, as a 
-        fraction of the total readout from 0 to 1. 
-        
-        ### Would a transfer/pixel range be better than fractions? Maybe made 
-        too complicated by offsets etc?
+    time_window_range : range
+        The subset of transfers to implement. Defaults to range(0, n_pixels) for 
+        the full image. e.g. range(0, n_pixels/3) to do only the first third of 
+        the pixel-to-pixel transfers.
         
         The entire readout is still modelled, but only the results from this 
         subset of transfers are implemented in the final image.
@@ -352,32 +357,17 @@ def add_cti(
         serial_window_range = range(n_columns_in_image)
     elif isinstance(serial_window_range, int):
         serial_window_range = range(serial_window_range, serial_window_range + 1)
-
-    # Set the express range for the time window; default to the full image
-    if time_window == [0, 1]:
-        time_window_express_range = None
-        # ###
+    if time_window_range is None:
+        time_window_range = range(n_rows_in_image + parallel_offset)
+        # Set the "columns" window in the rotated image for serial clocking
         serial_window_column_range = parallel_window_range
     else:
-        time_window_express_range = range(
-            int(time_window[0] * (n_rows_in_image + parallel_offset)),
-            int(time_window[1] * (n_rows_in_image + parallel_offset)),
+        # Intersection of spatial and time windows for serial clocking
+        serial_window_column_range = range(
+            int(max(parallel_window_range[0], time_window_range[0] - parallel_offset)),
+            int(min(parallel_window_range[-1], time_window_range[-1] - parallel_offset))
+            + 1,
         )
-        if len(time_window_express_range) == 0:
-            serial_window_column_range = range(0)
-        else:
-            # Intersection of spatial and temporal windows of interest
-            serial_window_column_range = range(
-                max(
-                    parallel_window_range[0],
-                    time_window_express_range[0] - parallel_offset,
-                ),
-                min(
-                    parallel_window_range[-1],
-                    time_window_express_range[-1] - parallel_offset,
-                )
-                + 1,
-            )
 
     # Default ROE: simple, single-phase clocking in imaging mode
     if parallel_roe is None:
@@ -401,7 +391,7 @@ def add_cti(
             offset=parallel_offset,
             window_row_range=parallel_window_range,
             window_column_range=serial_window_range,
-            time_window_express_range=time_window_express_range,
+            time_window_range=time_window_range,
         )
 
     # Serial clocking
@@ -420,7 +410,7 @@ def add_cti(
             offset=serial_offset,
             window_row_range=serial_window_range,
             window_column_range=serial_window_column_range,
-            time_window_express_range=None,
+            time_window_range=None,
         )
 
         # Switch axes back
@@ -444,7 +434,7 @@ def remove_cti(
     serial_express=0,
     serial_offset=0,
     serial_window_range=None,
-    time_window=[0, 1],
+    time_window_range=None,
 ):
     """
     Remove CTI trails from an image by first modelling the addition of CTI.
@@ -488,7 +478,7 @@ def remove_cti(
             serial_express=serial_express,
             serial_offset=serial_offset,
             serial_window_range=serial_window_range,
-            time_window=time_window,
+            time_window_range=time_window_range,
         )
 
         # Improved estimate of image with CTI trails removed

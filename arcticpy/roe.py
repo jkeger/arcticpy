@@ -70,7 +70,7 @@ class ROEPhase(object):
             Is the potential held high, i.e. able to contain free electrons?
                                 
         adjacent_phases_high : [int]
-            ###WIP
+            ###
         
         capture_from_which_pixels : [int]
             The relative row number(s) of the charge cloud to capture from.
@@ -167,6 +167,19 @@ class ROEAbstract(object):
         """
         The state of the readout electronics at each step of a clocking sequence
         for basic CCD readout with the potential in a single phase held high.
+        
+        This function assumes a particular type of sequence that gives sensible 
+        behaviours set by the user with only self.n_steps and self.n_phases.
+        Some variables are set up to be able to account for different and/or 
+        more complicated sequences in the future, but this is essentially a 
+        work in progress to become readily customisable by the user.
+        
+        Current intended options are primarily:
+        self.n_steps = self.n_phases = 1 (default)
+        self.n_steps = self.n_phases = 3 (Hubble style)
+        self.n_steps = self.n_phases = 4 (Euclid style)
+        And works automatically for trap pumping too, by always making the full 
+        reverse sequence and just ignoring it in normal non-trap-pumping mode.
         
         Returns
         -------        
@@ -271,13 +284,13 @@ class ROEAbstract(object):
             roe_phases = []
 
             # Loop counter (0,1,2,3,2,1,... instead of 0,1,2,3,4,5,...) that is
-            # relevant during trap pumping
+            # relevant during trap pumping and done but ignored in normal modes
             step_prime = integration_step + abs(
                 ((step + n_phases) % (n_phases * 2)) - n_phases
             )
 
-            # Which phase has its potential held high (able to contain electrons)
-            # during this step?
+            # Which phase has its potential held high (able to contain
+            # electrons) during this step?
             high_phase = step_prime % n_phases
 
             # Will there be a phase (e.g. half-way between one high phase and
@@ -313,6 +326,7 @@ class ROEAbstract(object):
                 # pixel to instead act on the downstream pixel (i.e. the same
                 # operation but on the next pixel in the loop)
                 ### should this be phase == high_phase + 1?
+                ### Note: "downstream" means away from readout, maybe should rename?
                 if self.force_downstream_release and phase > high_phase:
                     capture_from_which_pixels += 1
                     release_to_which_pixels += 1
@@ -371,7 +385,7 @@ class ROE(ROEAbstract):
             of this list. The default value, [1], produces instantaneous 
             transfer between adjacent pixels, with no intermediate phases.
             
-        empty_traps_at_start : bool   (aka first_pixel_different)
+        empty_traps_at_start : bool   (aka first_pixel_different) ###
             Only used outside charge injection mode. Allows for the first
             pixel-to-pixel transfer differently to the rest. Physically, this 
             may be because the first pixel that a charge cloud finds itself in 
@@ -396,7 +410,7 @@ class ROE(ROEAbstract):
                   
         force_downstream_release : bool
             If True then force electrons to be released in a downstream pixel.
-            ### why is this necessary? can't we control the behaviour otherwise?
+            ### 
         
         express_matrix_dtype : type : int or float
             Old versions of this algorithm assumed (unnecessarily) that all 
@@ -450,9 +464,7 @@ class ROE(ROEAbstract):
         """
         return self.n_steps
 
-    def restrict_time_span_of_express_matrix(
-        self, express_matrix, time_window_express_range
-    ):
+    def restrict_time_span_of_express_matrix(self, express_matrix, time_window_range):
         """
         Remove rows of an express_multiplier matrix that are outside a temporal 
         region of interest if express were zero. 
@@ -464,20 +476,16 @@ class ROE(ROEAbstract):
         express_matrix : [[float]]
             The express multiplier value for each pixel-to-pixel transfer.
             
-        time_window_express_range : 
-            ###
+        time_window_range : range
+            The subset of transfers to implement. 
         """
 
-        if time_window_express_range is not None:
+        if time_window_range is not None:
             # Work out which pixel-to-pixel transfers a temporal window corresponds to
-            window_express_span = (
-                time_window_express_range[-1] - time_window_express_range[0] + 1
-            )
+            window_express_span = time_window_range[-1] - time_window_range[0] + 1
 
             # Set to zero entries in all other rows
-            express_matrix = (
-                np.cumsum(express_matrix, axis=0) - time_window_express_range[0]
-            )
+            express_matrix = np.cumsum(express_matrix, axis=0) - time_window_range[0]
             express_matrix[express_matrix < 0] = 0
             express_matrix[express_matrix > window_express_span] = window_express_span
 
@@ -487,9 +495,10 @@ class ROE(ROEAbstract):
         return express_matrix
 
     def express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
-        self, pixels, express=0, offset=0, time_window_express_range=None
+        self, pixels, express=0, offset=0, time_window_range=None
     ):
-        """ 
+        """ Calculate the matrices of express multipliers and when to monitor traps.
+        
         To reduce runtime, instead of calculating the effects of every 
         pixel-to-pixel transfer, it is possible to approximate readout by 
         processing each transfer once (Anderson et al. 2010) or a few times 
@@ -501,10 +510,7 @@ class ROE(ROEAbstract):
         Parameters
         ----------
         pixels : int or range
-            int:    The number of pixels in the image.
-            range:  The pixels in the image to be processed (can be a subset of 
-                    the entire image).
-            ### tidy to match main.py
+            The number of pixels in the image, or the subset of pixels to model.
                     
         express : int
             The number of times the pixel-to-pixel transfers are computed, 
@@ -526,9 +532,8 @@ class ROE(ROEAbstract):
             stamp image, or to account for prescan pixels whose data is not 
             stored.
             
-        time_window_express_range : range
-            To process the entire readout, set to None or range(0,n_pixels).
-            ###
+        time_window_range : range
+            The subset of transfers to implement.
 
         Returns
         -------
@@ -537,7 +542,7 @@ class ROE(ROEAbstract):
         
         monitor_traps_matrix : [[bool]]
             For each pixel-to-pixel transfer, set True if the release and 
-            capture of charge needs to be monitored, based on express_matrix.
+            capture of charge needs to be monitored. 
         """
 
         if isinstance(pixels, int):
@@ -603,7 +608,7 @@ class ROE(ROEAbstract):
         # is faster if operating on a smaller array, and b: it includes the
         # removal of lines that are all zero, some of which might already exist)
         express_matrix = self.restrict_time_span_of_express_matrix(
-            express_matrix, time_window_express_range
+            express_matrix, time_window_range
         )
         # Remove the offset (which is not represented in the image pixels)
         express_matrix = express_matrix[:, offset:]
@@ -693,7 +698,7 @@ class ROEChargeInjection(ROE):
         )
 
     def express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
-        self, pixels, express=0, offset=0, time_window_express_range=None,
+        self, pixels, express=0, offset=0, time_window_range=None,
     ):
         """ 
         See ROE.express_matrix_from_pixels_and_express()
@@ -729,7 +734,7 @@ class ROEChargeInjection(ROE):
 
         # Keep only the temporal region of interest
         express_matrix = self.restrict_time_span_of_express_matrix(
-            express_matrix, time_window_express_range
+            express_matrix, time_window_range
         )
 
         return (express_matrix,)
@@ -816,7 +821,7 @@ class ROETrapPumping(ROEAbstract):
         return self.n_steps // 2
 
     def express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
-        self, pixels, express=0, offset=None, time_window_express_range=None
+        self, pixels, express=0, offset=None, time_window_range=None
     ):
         """ 
         See ROE.express_matrix_from_pixels_and_express()
@@ -832,7 +837,7 @@ class ROETrapPumping(ROEAbstract):
             range:  The pixels in the image to be processed (can be a subset of 
                     the entire image).
         
-        offset, time_window_express_range : None
+        offset, time_window_range : None
             Not used in this trap-pumping version of ROE.
         """
 

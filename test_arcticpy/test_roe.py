@@ -77,7 +77,54 @@ class TestExpressMatrix:
 
     def test__express_matrix__dtype(self):
 
-        return  ###
+        # Unchanged for empty_traps_for_first_transfers = False
+        roe = ac.ROE(empty_traps_for_first_transfers=False, express_matrix_dtype=float)
+        (
+            express_matrix,
+            _,
+        ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
+            pixels=12, express=1
+        )
+
+        assert express_matrix == pytest.approx(np.array([np.arange(1, 13)]))
+
+        roe = ac.ROE(empty_traps_for_first_transfers=True, express_matrix_dtype=float)
+
+        (
+            express_matrix,
+            _,
+        ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
+            pixels=12, express=4
+        )
+
+        assert express_matrix == pytest.approx(
+            np.array(
+                [
+                    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+                    [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0],
+                    [0, 0, 0, 0, 0, 0, 0, 0, 1, 0.75, 1.75, 2.75],
+                    [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 1, 0.5, 1.5, 2.5, 2.75, 2.75, 2.75],
+                    [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+                    [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
+                    [0, 0, 1, 0.25, 1.25, 2.25, 2.75, 2.75, 2.75, 2.75, 2.75, 2.75],
+                    [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                    [1, 1, 2, 2.75, 2.75, 2.75, 2.75, 2.75, 2.75, 2.75, 2.75, 2.75],
+                ]
+            )
+        )
+
+        # Unchanged for no express
+        (
+            express_matrix,
+            _,
+        ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
+            pixels=12, express=12
+        )
+
+        assert express_matrix == pytest.approx(np.triu(np.ones((12, 12))))
 
     def test__express_matrix__empty_traps_for_first_transfers(self):
 

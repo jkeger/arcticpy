@@ -105,9 +105,10 @@ class ROEAbstract(object):
         
         express_matrix_dtype : type (int or float)
             Old versions of this algorithm assumed (unnecessarily) that all 
-            express multipliers must be integers. It is slightly more efficient 
-            if this requirement is dropped, but the option to force it is 
-            included for backwards compatability.
+            express multipliers must be integers. If 
+            force_release_away_from_readout is True (no effect if False), then  
+            it's slightly more efficient if this requirement is dropped, but the 
+            option to force it is included for backwards compatability.
         """
         # Parse inputs
         self.dwell_times = dwell_times
@@ -115,42 +116,26 @@ class ROEAbstract(object):
 
     @property
     def dwell_times(self):
-        """
-        A list of the time spent during each step in the clocking sequence
-        """
         return self._dwell_times
 
     @dwell_times.setter
     def dwell_times(self, value):
-        """
-        Check that dwell_times is a list; if only one element, make it a list.
-        """
+        # Check that dwell_times is a list
         if not isinstance(value, list):
             value = [value]
         self._dwell_times = value
 
     @property
     def n_steps(self):
-        """
-        Number of steps in the clocking sequence
-        """
         return len(self.dwell_times)
 
     @property
     def express_matrix_dtype(self):
-        """
-        Old versions of this algorithm assumed (unnecessarily) that all express 
-        multipliers must be integers. It is slightly more efficient if this
-        requirement is dropped, but the option to force it is included for
-        backwards compatability.
-        """
         return self._express_matrix_dtype
 
     @express_matrix_dtype.setter
     def express_matrix_dtype(self, value):
-        """
-        Check that express_matrix_dtype is either int or float
-        """
+        # Check that express_matrix_dtype is either int or float
         if value is int or value is float:
             self._express_matrix_dtype = value
         else:
@@ -403,9 +388,10 @@ class ROE(ROEAbstract):
         
         express_matrix_dtype : type : int or float
             Old versions of this algorithm assumed (unnecessarily) that all 
-            express multipliers must be integers. It is slightly more efficient 
-            if this requirement is dropped, but the option to force it is 
-            included for backwards compatability.
+            express multipliers must be integers. If 
+            force_release_away_from_readout is True (no effect if False), then  
+            it's slightly more efficient if this requirement is dropped, but the 
+            option to force it is included for backwards compatability.
         
         Attributes
         ----------            
@@ -414,7 +400,10 @@ class ROE(ROEAbstract):
             
         n_phases : int
             The assumed number of phases in the CCD. This is determined from the 
-            type, and the number of steps in, the clock sequence.
+            type, and the number of steps in, the clock sequence. For normal 
+            readout, the number of clocking steps should be the same as the 
+            number of CCD phases. This need not true in general, so it is 
+            defined in a function rather than in __init__.
             
         clock_sequence : [[ROEPhase]]
             An array of, for each step in a clock sequence, for each phase of 
@@ -438,13 +427,6 @@ class ROE(ROEAbstract):
     # choice with this class
     @property
     def n_phases(self):
-        """ Assumed number of CCD phases per pixel. 
-        
-        Implied by the number of steps in the supplied clocking sequence. For 
-        normal readout, the number of clocking steps should be the same as the 
-        number of CCD phases. This need not true in general, so it is defined in 
-        a function rather than in __init__.
-        """
         return self.n_steps
 
     def restrict_time_span_of_express_matrix(self, express_matrix, time_window_range):
@@ -776,16 +758,11 @@ class ROETrapPumping(ROEAbstract):
 
     @property
     def dwell_times(self):
-        """
-        A list of the time spent during each step in the clocking sequence
-        """
         return self._dwell_times
 
     @dwell_times.setter
     def dwell_times(self, value):
-        """
-        Check that there are an even number of steps in a there-and-back clocking sequence.
-        """
+        # Check that there are an even number of steps in a there-and-back clocking sequence
         if not isinstance(value, list):
             value = [value]
         self._dwell_times = (
@@ -796,10 +773,8 @@ class ROETrapPumping(ROEAbstract):
 
     @property
     def n_phases(self):
-        """
-        Assume that there are twice as many steps in the Trap Pumping readout 
-        sequence as there are phases in the CCD.
-        """
+        # Assume that there are twice as many steps in the Trap Pumping readout 
+        # sequence as there are phases in the CCD.
         return self.n_steps // 2
 
     def express_matrix_and_monitor_traps_matrix_from_pixels_and_express(

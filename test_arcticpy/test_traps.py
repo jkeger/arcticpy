@@ -80,7 +80,7 @@ class TestSpecies:
 class TestParallelDensityVary:
     def test_1_trap__density_01__1000_column_pixels__1_row_pixel_so_100_traps__poisson_density_near_01(
         self,
-    ):  #
+    ):
 
         parallel_vary = ac.Trap.poisson_trap(
             trap=list(

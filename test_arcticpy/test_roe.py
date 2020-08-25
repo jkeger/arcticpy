@@ -4,11 +4,6 @@ import numpy as np
 import arcticpy as ac
 
 
-###
-# Need tests for monitor_traps_matrix, save_trap_states_matrix, and windowing
-###
-
-
 class TestExpressMatrix:
     def test__express_matrix_from_pixels(self):
 
@@ -181,9 +176,9 @@ class TestExpressMatrix:
             for express in [0, 1, 2, 7]:
                 for offset in [0, 1, 13]:
                     for dtype in [int, float]:
-                        for first_pixel_different in [True, False]:
+                        for empty_traps_for_first_transfers in [True, False]:
                             roe = ac.ROE(
-                                empty_traps_for_first_transfers=first_pixel_different,
+                                empty_traps_for_first_transfers=empty_traps_for_first_transfers,
                                 express_matrix_dtype=dtype,
                             )
                             (
@@ -196,7 +191,51 @@ class TestExpressMatrix:
                                 np.arange(1, pixels + 1) + offset
                             )
 
-    def test__express_matrix__time_window(self):
+    def test__monitor_traps_matrix(self):
+
+        roe = ac.ROE(empty_traps_for_first_transfers=False)
+        (
+            _,
+            monitor_traps_matrix,
+        ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
+            pixels=12, express=1
+        )
+
+        assert monitor_traps_matrix == pytest.approx(
+            np.array([np.ones(12).astype(bool)])
+        )
+
+        (
+            _,
+            monitor_traps_matrix,
+        ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
+            pixels=12, express=4
+        )
+
+        assert monitor_traps_matrix == pytest.approx(
+            np.array(
+                [
+                    [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                    [0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                    [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1],
+                    [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1],
+                ],
+                dtype=bool,
+            )
+        )
+
+        (
+            _,
+            monitor_traps_matrix,
+        ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
+            pixels=12, express=12
+        )
+
+        assert monitor_traps_matrix == pytest.approx(
+            np.triu(np.ones((12, 12)).astype(bool))
+        )
+
+    def test__express_matrix_monitor_and_traps_matrix__time_window(self):
         roe = ac.ROE(express_matrix_dtype=int)
         express = 2
         offset = 2
@@ -242,6 +281,48 @@ class TestExpressMatrix:
         assert total_transfers == pytest.approx(np.arange(1, pixels + 1) + offset)
         assert express_matrix_a + express_matrix_b + express_matrix_c == pytest.approx(
             express_matrix_d
+        )
+
+    def test__save_trap_states_matrix(self):
+
+        roe = ac.ROE()
+        (
+            express_matrix,
+            monitor_traps_matrix,
+        ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
+            pixels=12, express=1
+        )
+        save_trap_states_matrix = roe.save_trap_states_matrix_from_express_matrix(
+            express_matrix=express_matrix
+        )
+
+        assert save_trap_states_matrix == pytest.approx(
+            (express_matrix * 0).astype(bool)
+        )
+
+        roe = ac.ROE(empty_traps_for_first_transfers=False)
+        (
+            express_matrix,
+            monitor_traps_matrix,
+        ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
+            pixels=12, express=4
+        )
+        save_trap_states_matrix = roe.save_trap_states_matrix_from_express_matrix(
+            express_matrix=express_matrix
+        )
+
+        # Save on the pixel before where the next express pass will begin, so
+        # that the trap states are appropriate for continuing
+        assert save_trap_states_matrix == pytest.approx(
+            np.array(
+                [
+                    [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                ],
+                dtype=bool,
+            )
         )
 
 

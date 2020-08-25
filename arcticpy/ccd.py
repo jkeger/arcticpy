@@ -201,7 +201,9 @@ class CCD(object):
                 electrons.
                 
             surface : bool
-                ###
+                #
+                # RJM: RESERVED FOR SURFACE TRAPS
+                #
            
             Returns
             -------

@@ -243,7 +243,6 @@ class TrapManager(object):
                 #
                 # RJM: RESERVED FOR SURFACE TRAPS OR SPECIES WITH NONUNIFORM DENSITY WITHIN A PIXEL
                 #
-                # self.traps[0].something(self.ccd.cloud_fractional_volume_from_n_electrons_in_phase(self.phase) )
                 return fraction_of_traps
 
         self._fraction_of_traps_exposed_from_n_electrons = (

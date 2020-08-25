@@ -10,7 +10,9 @@ class Trap(object):
     ):
         """ The parameters for a single trap species.
         
-        ### 
+        Controls the density of traps and the timescales/probabilities of 
+        capture and release, along with utilities for the watermarking tracking 
+        of trap states and the calculation of capture and release.
 
         Parameters
         ----------
@@ -25,7 +27,9 @@ class Trap(object):
             The capture timescale of the trap. Default 0 for instant capture.
             
         surface : bool
-            ###
+            #
+            # RJM: RESERVED FOR SURFACE TRAPS
+            #
             
         Attributes
         ----------
@@ -126,7 +130,11 @@ class Trap(object):
 
     @property
     def delta_ellipticity(self):
-        """ ### """
+        """ Calculate the effect on a galaxy's ellipticity of the CTI caused by
+            a trap species.
+        
+        See Israel et al. (2014).
+        """
 
         a = 0.05333
         d_a = 0.03357
@@ -162,10 +170,13 @@ class Trap(object):
 
         Parameters
         ----------
-        ###
+        trap : Trap
+            A trap species object.
+        
         shape : (int, int)
             The shape of the image, so that the correct number of trap densities 
             are computed.
+            
         seed : int
             The seed of the Poisson random number generator.
         """
@@ -196,11 +207,15 @@ class TrapInstantCapture(Trap):
         ----------
         density : float
             The density of the trap species in a pixel.
+            
         release_timescale : float
             The release timescale of the trap, in the same units as the time 
             spent in each pixel or phase (Clocker sequence).
+            
         surface : bool
-            ###
+            #
+            # RJM: RESERVED FOR SURFACE TRAPS
+            #
         """
         super().__init__(
             density=density,

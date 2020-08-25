@@ -632,12 +632,12 @@ class ROEChargeInjection(ROE):
         force_release_away_from_readout=True,
         express_matrix_dtype=float,
     ):
-        """  
+        """
         ###
-            True:  electrons are electronically created by a charge injection 
-                   structure at the end of a CCD, then clocked through all of 
-                   the pixels to the readout register. By default, it is assumed 
-                   that this number is the number of pixels in the image.
+        electrons are electronically created by a charge injection 
+        structure at the end of a CCD, then clocked through all of 
+        the pixels to the readout register. By default, it is assumed 
+        that this number is the number of pixels in the image.
         
         n_active_pixels : int
             The number of pixels between the charge injection structure and the 
@@ -734,8 +734,6 @@ class ROETrapPumping(ROEAbstract):
         in those pixels activated. The phase of the traps should be specified in
         arcticpy.CCD().
         
-        Parameters
-        ----------
         ###
         """
 
@@ -773,7 +771,7 @@ class ROETrapPumping(ROEAbstract):
 
     @property
     def n_phases(self):
-        # Assume that there are twice as many steps in the Trap Pumping readout 
+        # Assume that there are twice as many steps in the Trap Pumping readout
         # sequence as there are phases in the CCD.
         return self.n_steps // 2
 

@@ -217,11 +217,12 @@ def _clock_charge_in_one_direction(
                             if image[row_index_single, column_index] < 0:
                                 image[row_index_single, column_index] = 0
 
-                # Save the trap occupancy states if required for the next express pass
+                # Save the trap occupancy states for the next express pass
                 if save_trap_states_matrix[express_index, row_index]:
                     trap_managers.save()
 
-        # Reset the watermarks, effectively setting the trap occupancies to zero
+        # Reset the watermarks for the next column, effectively setting the trap
+        # occupancies to zero
         if roe.empty_traps_between_columns:
             trap_managers.empty_all_traps()
         trap_managers.save()

@@ -29,7 +29,7 @@ class TestCompareOldArCTIC:
         traps = [ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))]
         ccd = ac.CCD(well_fill_power=1, full_well_depth=1000, well_notch_depth=0)
         roe = ac.ROE(
-            empty_traps_at_start=False,
+            empty_traps_for_first_transfers=False,
             empty_traps_between_columns=True,
             express_matrix_dtype=int,
         )
@@ -232,7 +232,7 @@ class TestCompareOldArCTIC:
         traps = [ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))]
         ccd = ac.CCD(well_fill_power=0.5, full_well_depth=1000, well_notch_depth=0)
         roe = ac.ROE(
-            empty_traps_at_start=False,
+            empty_traps_for_first_transfers=False,
             empty_traps_between_columns=True,
             express_matrix_dtype=int,
         )
@@ -370,7 +370,7 @@ class TestCompareOldArCTIC:
         traps = [ac.TrapInstantCapture(density=10, release_timescale=5)]
         ccd = ac.CCD(well_fill_power=0.5, full_well_depth=1000, well_notch_depth=0)
         roe = ac.ROE(
-            empty_traps_at_start=False,
+            empty_traps_for_first_transfers=False,
             empty_traps_between_columns=True,
             express_matrix_dtype=int,
         )
@@ -1804,7 +1804,7 @@ class TestOffsetsAndWindows:
         # Nice numbers for easy manual checking
         traps = [ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))]
         ccd = ac.CCD(well_fill_power=1, full_well_depth=1000, well_notch_depth=0)
-        roe = ac.ROE(empty_traps_at_start=False)
+        roe = ac.ROE(empty_traps_for_first_transfers=False)
 
         # Base image without offset
         image_pre_cti = np.zeros((12, 1))
@@ -1851,7 +1851,7 @@ class TestOffsetsAndWindows:
         # Nice numbers for easy manual checking
         traps = [ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))]
         ccd = ac.CCD(well_fill_power=1, full_well_depth=1000, well_notch_depth=0)
-        roe = ac.ROE(empty_traps_at_start=False)
+        roe = ac.ROE(empty_traps_for_first_transfers=False)
         express = 0
 
         # Full image
@@ -1923,7 +1923,9 @@ class TestOffsetsAndWindows:
 
         trap = ac.Trap(density=10, release_timescale=10.0)
         ccd = ac.CCD(well_notch_depth=0.0, well_fill_power=0.8, full_well_depth=100000)
-        roe = ac.ROE(empty_traps_at_start=False, empty_traps_between_columns=True)
+        roe = ac.ROE(
+            empty_traps_for_first_transfers=False, empty_traps_between_columns=True
+        )
 
         express = 2
         offset = 0
@@ -1975,7 +1977,7 @@ class TestOffsetsAndWindows:
         # Nice numbers for easy manual checking
         traps = [ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))]
         ccd = ac.CCD(well_fill_power=1, full_well_depth=1000, well_notch_depth=0)
-        roe = ac.ROE(empty_traps_at_start=False)
+        roe = ac.ROE(empty_traps_for_first_transfers=False)
         express = 0
         offset = 0
         n_pixels = 6
@@ -2020,7 +2022,9 @@ class TestOffsetsAndWindows:
 
         trap = ac.Trap(density=10, release_timescale=10.0)
         ccd = ac.CCD(well_notch_depth=0.0, well_fill_power=0.8, full_well_depth=100000)
-        roe = ac.ROE(empty_traps_at_start=False, empty_traps_between_columns=True)
+        roe = ac.ROE(
+            empty_traps_for_first_transfers=False, empty_traps_between_columns=True
+        )
 
         express = 2
         offset = 0

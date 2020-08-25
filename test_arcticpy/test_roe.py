@@ -9,10 +9,10 @@ import arcticpy as ac
 ###
 
 
-class TestExpress:
+class TestExpressMatrix:
     def test__express_matrix_from_pixels(self):
 
-        roe = ac.ROE(empty_traps_at_start=False, express_matrix_dtype=int)
+        roe = ac.ROE(empty_traps_for_first_transfers=False, express_matrix_dtype=int)
         (
             express_matrix,
             _,
@@ -51,7 +51,7 @@ class TestExpress:
 
     def test__express_matrix__offset(self):
 
-        roe = ac.ROE(empty_traps_at_start=False, express_matrix_dtype=int)
+        roe = ac.ROE(empty_traps_for_first_transfers=False, express_matrix_dtype=int)
         pixels = 12
 
         # Compare with offset added directly
@@ -79,9 +79,55 @@ class TestExpress:
 
         return  ###
 
-    def test__express_matrix__first_pixel_different(self):
+    def test__express_matrix__empty_traps_for_first_transfers(self):
 
-        return  ###
+        roe = ac.ROE(empty_traps_for_first_transfers=True, express_matrix_dtype=int)
+        (
+            express_matrix,
+            _,
+        ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
+            pixels=12, express=1
+        )
+
+        express_matrix_check = np.rot90(np.diag(np.ones(12)))
+        express_matrix_check[-1] += np.arange(12)
+
+        assert express_matrix == pytest.approx(express_matrix_check)
+
+        (
+            express_matrix,
+            _,
+        ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
+            pixels=12, express=4
+        )
+
+        assert express_matrix == pytest.approx(
+            np.array(
+                [
+                    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                    [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0],
+                    [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 2],
+                    [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 0, 0, 1, 1, 2, 3, 3, 3],
+                    [0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
+                    [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0],
+                    [0, 0, 0, 1, 1, 2, 3, 3, 3, 3, 3, 3],
+                    [0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                    [0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                    [1, 1, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3],
+                ]
+            )
+        )
+
+        (
+            express_matrix,
+            _,
+        ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
+            pixels=12, express=12
+        )
+
+        assert express_matrix == pytest.approx(np.triu(np.ones((12, 12))))
 
     def test__express_matrix_always_sums_to_n_transfers(self):
         for pixels in [5, 7, 17]:
@@ -90,7 +136,7 @@ class TestExpress:
                     for dtype in [int, float]:
                         for first_pixel_different in [True, False]:
                             roe = ac.ROE(
-                                empty_traps_at_start=first_pixel_different,
+                                empty_traps_for_first_transfers=first_pixel_different,
                                 express_matrix_dtype=dtype,
                             )
                             (

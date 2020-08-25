@@ -193,7 +193,7 @@ class ROEAbstract(object):
            pixel numbers) can/will be captured during step of readout. Electrons 
            that move to forward charge clouds would be difficult, and are 
            handled by the difference between conceptualisation and 
-           implementation of the sequence. ###what?
+           implementation of the sequence. 
         
         If self.n_steps=1, this generates the most simplistic readout clocking 
         sequence, in which every pixel is treated as a single phase, with  
@@ -319,7 +319,6 @@ class ROEAbstract(object):
                 # readout pixel to instead act on the further-from-readout pixel
                 # (i.e. the same operation but on the next pixel in the loop)
                 if self.force_release_away_from_readout and phase > high_phase:
-                    ### Why += 1?
                     capture_from_which_pixels += 1
                     release_to_which_pixels += 1
 
@@ -360,7 +359,7 @@ class ROE(ROEAbstract):
     def __init__(
         self,
         dwell_times=[1],
-        empty_traps_at_start=True,
+        empty_traps_for_first_transfers=True,
         empty_traps_between_columns=True,
         force_release_away_from_readout=True,
         express_matrix_dtype=float,
@@ -376,20 +375,19 @@ class ROE(ROEAbstract):
             of this list. The default value, [1], produces instantaneous 
             transfer between adjacent pixels, with no intermediate phases.
             
-        empty_traps_at_start : bool   (aka first_pixel_different) ###
-            Only used outside charge injection mode. Allows for the first
-            pixel-to-pixel transfer differently to the rest. Physically, this 
-            may be because the first pixel that a charge cloud finds itself in 
-            is guaranteed to start with empty traps; whereas every other pixel's 
-            traps may have been filled by other charge.
-            True:  begin the readout process with empty traps, so some electrons
-                   in the input image are immediately lost. Because the first 
-                   pixel-to-pixel transfer is inherently different from the 
-                   rest, that transfer for every pixel is modelled first. In 
-                   most situations, this makes it a factor ~(E+3)/(E+1) slower 
-                   to run.
-            False: that happens in some pixels but not all (the fractions depend
-                   upon express).
+        empty_traps_for_first_transfers : bool
+            If True and if using express != n_pixels, then tweak the express 
+            algorithm to treat every first pixel-to-pixel transfer separately
+            to the rest. 
+            
+            Physically, the first ixel that a charge cloud finds itself in will
+            start with empty traps; whereas every subsequent transfer sees traps 
+            that may have been filled previously. With the default express 
+            algorithm, this means the inherently different first-transfer would 
+            be replicated many times for some pixels but not others. This 
+            modification prevents that issue by modelling the first single 
+            transfer for each pixel separately and then using the express 
+            algorithm normally for the remainder.
                    
         empty_traps_between_columns : bool
             True:  each column has independent traps (appropriate for parallel 
@@ -421,18 +419,12 @@ class ROE(ROEAbstract):
         clock_sequence : [[ROEPhase]]
             An array of, for each step in a clock sequence, for each phase of 
             the CCD, an object with information about the potentials.
-
-        min_referred_to_pixel, max_referred_to_pixel : int
-            The relative row number of the most distant charge cloud from which 
-            electrons are captured or to which electrons are released, at any 
-            point during the clock sequence.
-            ### not actual attributes?
         """
 
         super().__init__(dwell_times, express_matrix_dtype)
 
         # Parse inputs
-        self.empty_traps_at_start = empty_traps_at_start
+        self.empty_traps_for_first_transfers = empty_traps_for_first_transfers
         self.empty_traps_between_columns = empty_traps_between_columns
         self.force_release_away_from_readout = force_release_away_from_readout
 
@@ -550,7 +542,7 @@ class ROE(ROEAbstract):
 
         # Temporarily ignore the first pixel-to-pixel transfer, if it is to be
         # handled differently than the rest
-        if self.empty_traps_at_start and express < n_pixels:
+        if self.empty_traps_for_first_transfers and express < n_pixels:
             n_pixels -= 1
 
         # Initialise an array with enough pixels to contain the supposed image,
@@ -576,7 +568,7 @@ class ROE(ROEAbstract):
         # Add an extra (first) transfer for every pixel, the effect of which
         # will only ever be counted once, because it is physically different
         # from the other transfers (it sees only empty traps)
-        if self.empty_traps_at_start and express < n_pixels:
+        if self.empty_traps_for_first_transfers and express < n_pixels:
             # Store current matrix, which is correct for one-too-few pixel-to-pixel transfers
             express_matrix_small = express_matrix
             # Create a new matrix for the full number of transfers
@@ -638,7 +630,7 @@ class ROE(ROEAbstract):
         (n_express, n_pixels) = express_matrix.shape
         save_trap_states_matrix = np.zeros((n_express, n_pixels), dtype=bool)
 
-        if not self.empty_traps_at_start:
+        if not self.empty_traps_for_first_transfers:
             for express_index in range(n_express - 1):
                 for row_index in range(n_pixels - 1):
                     if express_matrix[express_index + 1, row_index + 1] > 0:
@@ -745,7 +737,7 @@ class ROETrapPumping(ROEAbstract):
         self,
         dwell_times=[0.5, 0.5],
         n_pumps=1,
-        empty_traps_at_start=True,
+        empty_traps_for_first_transfers=True,
         express_matrix_dtype=float,
     ):
         """ Readout sequence to represent tramp pumping (aka pocket pumping).
@@ -769,7 +761,7 @@ class ROETrapPumping(ROEAbstract):
 
         # Parse inputs
         self.n_pumps = n_pumps
-        self.empty_traps_at_start = empty_traps_at_start
+        self.empty_traps_for_first_transfers = empty_traps_for_first_transfers
 
         # Set other variables that are used elsewhere but for which there is no
         # choice with this class
@@ -818,7 +810,7 @@ class ROETrapPumping(ROEAbstract):
     
         ### Explain why different
         
-        Parameters (if different to ROE.express_matrix_from_pixels_and_express())
+        Parameters (if different to ROE.express_matrix_from_pixels_and_express)
         ----------
         pixels : int or range
             In this case, specifically only the pixels that contain traps.
@@ -844,7 +836,11 @@ class ROETrapPumping(ROEAbstract):
         # Decide for how many effective pumps each implementation of a single
         # pump will count
         # Treat first pump differently
-        if self.empty_traps_at_start and self.n_pumps > 1 and express < self.n_pumps:
+        if (
+            self.empty_traps_for_first_transfers
+            and self.n_pumps > 1
+            and express < self.n_pumps
+        ):
             express_multipliers = [1.0]
             express_multipliers.extend([(self.n_pumps - 1) / express] * express)
         else:

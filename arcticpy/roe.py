@@ -315,12 +315,11 @@ class ROEAbstract(object):
                     n_phases_for_release, dtype=int
                 )
 
-                # Replace capture/release operations that include an upstream
-                # pixel to instead act on the downstream pixel (i.e. the same
-                # operation but on the next pixel in the loop)
-                ### should this be phase == high_phase + 1?
-                ### Note: "downstream" means away from readout, maybe should rename?
-                if self.force_downstream_release and phase > high_phase:
+                # Replace capture/release operations that include a closer-to-
+                # readout pixel to instead act on the further-from-readout pixel
+                # (i.e. the same operation but on the next pixel in the loop)
+                if self.force_release_away_from_readout and phase > high_phase:
+                    ### Why += 1?
                     capture_from_which_pixels += 1
                     release_to_which_pixels += 1
 
@@ -363,7 +362,7 @@ class ROE(ROEAbstract):
         dwell_times=[1],
         empty_traps_at_start=True,
         empty_traps_between_columns=True,
-        force_downstream_release=True,
+        force_release_away_from_readout=True,
         express_matrix_dtype=float,
     ):
         """
@@ -400,9 +399,9 @@ class ROE(ROEAbstract):
                    column (appropriate for serial clocking, if all prescan and
                    overscan pixels are included in the image array).
                   
-        force_downstream_release : bool
-            If True then force electrons to be released in a downstream pixel.
-            ### 
+        force_release_away_from_readout : bool
+            If True then force electrons to be released in a pixel further from 
+            the readout.
         
         express_matrix_dtype : type : int or float
             Old versions of this algorithm assumed (unnecessarily) that all 
@@ -435,7 +434,7 @@ class ROE(ROEAbstract):
         # Parse inputs
         self.empty_traps_at_start = empty_traps_at_start
         self.empty_traps_between_columns = empty_traps_between_columns
-        self.force_downstream_release = force_downstream_release
+        self.force_release_away_from_readout = force_release_away_from_readout
 
         # Link to generic methods
         self.clock_sequence = self._generate_clock_sequence()
@@ -656,7 +655,7 @@ class ROEChargeInjection(ROE):
         dwell_times=[1],
         n_active_pixels=None,
         empty_traps_between_columns=True,
-        force_downstream_release=True,
+        force_release_away_from_readout=True,
         express_matrix_dtype=float,
     ):
         """  
@@ -680,7 +679,7 @@ class ROEChargeInjection(ROE):
         # Parse inputs
         self.n_active_pixels = n_active_pixels
         self.empty_traps_between_columns = empty_traps_between_columns
-        self.force_downstream_release = force_downstream_release
+        self.force_release_away_from_readout = force_release_away_from_readout
 
         # Link to generic methods
         self.clock_sequence = self._generate_clock_sequence()
@@ -774,7 +773,7 @@ class ROETrapPumping(ROEAbstract):
 
         # Set other variables that are used elsewhere but for which there is no
         # choice with this class
-        self.force_downstream_release = False
+        self.force_release_away_from_readout = False
         self.empty_traps_between_columns = True
 
         # Link to generic methods

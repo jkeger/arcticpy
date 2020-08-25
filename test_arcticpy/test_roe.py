@@ -163,8 +163,10 @@ class TestClockingSequences:
 
     def test__readout_sequence_single_phase_single_phase_high(self):
 
-        for force_downstream_release in [True, False]:
-            roe = ac.ROE([1], force_downstream_release=force_downstream_release)
+        for force_release_away_from_readout in [True, False]:
+            roe = ac.ROE(
+                [1], force_release_away_from_readout=force_release_away_from_readout
+            )
             assert roe.pixels_accessed_during_clocking == pytest.approx([0])
             assert roe.n_phases == 1
             assert roe.n_steps == 1
@@ -176,7 +178,7 @@ class TestClockingSequences:
 
         n_phases = 2
 
-        roe = ac.ROE([1] * n_phases, force_downstream_release=False)
+        roe = ac.ROE([1] * n_phases, force_release_away_from_readout=False)
         assert roe.pixels_accessed_during_clocking == pytest.approx([-1, 0, 1])
         assert roe.n_phases == n_phases
         assert roe.n_steps == n_phases
@@ -197,7 +199,7 @@ class TestClockingSequences:
         )
         assert all(roe.clock_sequence[1][0].release_to_which_pixels == np.array([0, 1]))
 
-        roe = ac.ROE([1] * n_phases, force_downstream_release=True)
+        roe = ac.ROE([1] * n_phases, force_release_away_from_readout=True)
         assert roe.pixels_accessed_during_clocking == pytest.approx([0, 1])
         assert roe.n_phases == n_phases
         assert roe.n_steps == n_phases
@@ -220,7 +222,7 @@ class TestClockingSequences:
 
         n_phases = 3
 
-        roe = ac.ROE([1] * n_phases, force_downstream_release=False)
+        roe = ac.ROE([1] * n_phases, force_release_away_from_readout=False)
         assert roe.pixels_accessed_during_clocking == pytest.approx([-1, 0, 1])
         assert roe.n_phases == n_phases
         assert roe.n_steps == n_phases
@@ -244,7 +246,7 @@ class TestClockingSequences:
         assert roe.clock_sequence[2][1].release_to_which_pixels == 0
 
         # Never move electrons ahead of the trap
-        roe = ac.ROE([1] * n_phases, force_downstream_release=True)
+        roe = ac.ROE([1] * n_phases, force_release_away_from_readout=True)
         assert roe.pixels_accessed_during_clocking == pytest.approx([0, 1])
         assert roe.n_phases == n_phases
         assert roe.n_steps == n_phases
@@ -305,7 +307,7 @@ class TestClockingSequences:
 
         n_phases = 4
 
-        roe = ac.ROE([1] * n_phases, force_downstream_release=False)
+        roe = ac.ROE([1] * n_phases, force_release_away_from_readout=False)
         assert roe.pixels_accessed_during_clocking == pytest.approx([-1, 0, 1])
         assert roe.n_phases == n_phases
         assert roe.n_steps == n_phases
@@ -338,7 +340,7 @@ class TestClockingSequences:
         assert all(roe.clock_sequence[3][1].release_to_which_pixels == np.array([0, 1]))
         assert roe.clock_sequence[3][2].release_to_which_pixels == 0
 
-        roe = ac.ROE([1] * n_phases, force_downstream_release=True)
+        roe = ac.ROE([1] * n_phases, force_release_away_from_readout=True)
         assert roe.pixels_accessed_during_clocking == pytest.approx([0, 1])
         assert roe.n_phases == n_phases
         assert roe.n_steps == n_phases
@@ -613,7 +615,7 @@ class TestChargeInjection:
         )
         roe = ac.ROEChargeInjection(
             dwell_times=[0.33, 0.33, 0.33],
-            force_downstream_release=False,
+            force_release_away_from_readout=False,
             n_active_pixels=2000,
         )
         trap = ac.Trap(density=10, release_timescale=0.5)

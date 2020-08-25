@@ -56,7 +56,6 @@ class ROEPhase(object):
     def __init__(
         self,
         is_high,
-        adjacent_phases_high,
         capture_from_which_pixels,
         release_to_which_pixels,
         release_fraction_to_pixel,
@@ -68,9 +67,6 @@ class ROEPhase(object):
         ----------
         is_high : bool                
             Is the potential held high, i.e. able to contain free electrons?
-                                
-        adjacent_phases_high : [int]
-            ###
         
         capture_from_which_pixels : [int]
             The relative row number(s) of the charge cloud to capture from.
@@ -83,9 +79,6 @@ class ROEPhase(object):
         """
         # Make sure the arrays are arrays
         self.is_high = is_high
-        self.adjacent_phases_high = np.array(
-            [adjacent_phases_high], dtype=int
-        ).flatten()
         self.capture_from_which_pixels = np.array(
             [capture_from_which_pixels], dtype=int
         ).flatten()
@@ -338,7 +331,6 @@ class ROEAbstract(object):
                         capture_from_which_pixels=capture_from_which_pixels,
                         release_to_which_pixels=release_to_which_pixels,
                         release_fraction_to_pixel=release_fraction_to_pixel,
-                        adjacent_phases_high=[high_phase],
                     )
                 )
             clock_sequence.append(roe_phases)
@@ -551,12 +543,11 @@ class ROE(ROEAbstract):
             window_range = pixels
         n_pixels = max(window_range) + 1
 
+        # Set default express to all transfers and check no larger
         if express == 0:
             express = n_pixels + offset
         else:
-            express = min(
-                (express, n_pixels + offset)
-            )  ### isn't express always smaller?
+            express = min((express, n_pixels + offset))
 
         # Temporarily ignore the first pixel-to-pixel transfer, if it is to be
         # handled differently than the rest

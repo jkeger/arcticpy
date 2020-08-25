@@ -209,7 +209,7 @@ class TestCompareOldArCTIC:
                         c=c,
                     )
 
-            assert image_post_cti == pytest.approx(image_idl, rel=0.05, abs=0.05)
+            assert image_post_cti == pytest.approx(image_idl, rel=0.05)
 
         if do_plot:
             ax1.legend(title="express", loc="lower left")
@@ -246,30 +246,30 @@ class TestCompareOldArCTIC:
 
         for i, (express, image_idl) in enumerate(
             zip(
-                [20],
+                [2, 20],
                 [
-                    # [ # express = 2, but doesn't have express-modified not-enough
-                    #     0.00000,
-                    #     0.00000,
-                    #     42.6722,
-                    #     250.952,
-                    #     161.782,
-                    #     107.450,
-                    #     73.0897,
-                    #     50.6914,
-                    #     35.6441,
-                    #     25.3839,
-                    #     18.2665,
-                    #     13.2970,
-                    #     9.79078,
-                    #     7.30555,
-                    #     5.52511,
-                    #     4.24364,
-                    #     3.30829,
-                    #     2.61813,
-                    #     2.09710,
-                    #     1.70752,
-                    # ],
+                    [
+                        0.00000,
+                        0.00000,
+                        42.6722,
+                        250.952,
+                        161.782,
+                        107.450,
+                        73.0897,
+                        50.6914,
+                        35.6441,
+                        25.3839,
+                        18.2665,
+                        13.2970,
+                        9.79078,
+                        7.30555,
+                        5.52511,
+                        4.24364,
+                        3.30829,
+                        2.61813,
+                        2.09710,
+                        1.70752,
+                    ],
                     [
                         0.00000,
                         0.00000,
@@ -346,7 +346,7 @@ class TestCompareOldArCTIC:
                         c=c,
                     )
 
-            assert image_post_cti == pytest.approx(image_idl, rel=0.05, abs=0.05)
+            assert image_post_cti == pytest.approx(image_idl, rel=0.02)
 
         if do_plot:
             ax1.legend(title="express", loc="lower left")
@@ -524,7 +524,7 @@ class TestCompareOldArCTIC:
                         c=c,
                     )
 
-            assert image_post_cti == pytest.approx(image_idl, rel=0.05, abs=0.05)
+            assert image_post_cti == pytest.approx(image_idl, rel=0.03)
 
         if do_plot:
             ax1.legend(title="express", loc="lower left")
@@ -1916,6 +1916,8 @@ class TestOffsetsAndWindows:
 
     def test__split_serial_readout_by_time(self):
 
+        return  ###WIP
+
         image_pre_cti = np.zeros((4, 10))
         image_pre_cti[0, 1] += 10000
 
@@ -1967,49 +1969,47 @@ class TestOffsetsAndWindows:
 
         return  ###WIP
 
-        image_pre_cti = np.zeros((10, 1))
-        image_pre_cti[1, 0] += 10000
+        image_pre_cti = np.zeros((6, 1))
+        image_pre_cti[2, 0] = 800
 
-        trap = ac.Trap(density=10, release_timescale=10.0)
-        ccd = ac.CCD(well_notch_depth=0.0, well_fill_power=0.8, full_well_depth=100000)
+        # Nice numbers for easy manual checking
+        traps = [ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))]
+        ccd = ac.CCD(well_fill_power=1, full_well_depth=1000, well_notch_depth=0)
         roe = ac.ROE(empty_traps_at_start=False)
-
-        express = 2
+        express = 0
         offset = 0
-        n_pixels = 10
+        n_pixels = 6
         split_point = 3
 
         # Run all in one go
         image_post_cti = ac.add_cti(
             image=image_pre_cti,
-            parallel_traps=[trap],
+            parallel_traps=traps,
             parallel_ccd=ccd,
             parallel_roe=roe,
             parallel_express=express,
         )
-        trail = image_post_cti - image_pre_cti
 
         # Run in two halves
-        image_post_cti_firsthalf = ac.add_cti(
+        image_post_cti_start = ac.add_cti(
             image=image_pre_cti,
-            parallel_traps=[trap],
+            parallel_traps=traps,
             parallel_ccd=ccd,
             parallel_roe=roe,
             parallel_express=express,
             time_window_range=range(0, split_point),
         )
-        trail_firsthalf = image_post_cti_firsthalf - image_pre_cti
-        image_post_cti_split = ac.add_cti(
-            image=image_post_cti_firsthalf,
-            parallel_traps=[trap],
+        image_post_cti_continue = ac.add_cti(
+            image=image_post_cti_start,
+            parallel_traps=traps,
             parallel_ccd=ccd,
             parallel_roe=roe,
             parallel_express=express,
             time_window_range=range(split_point, n_pixels + offset),
         )
-        trail_split = image_post_cti_split - image_pre_cti
 
-        assert trail_split == pytest.approx(trail)
+        # Won't work because trap occupancies aren't the same when continuing
+        assert image_post_cti_continue == pytest.approx(image_post_cti)
 
     def test__split_parallel_and_serial_readout_by_time(self):
 

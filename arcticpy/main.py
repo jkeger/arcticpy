@@ -145,7 +145,7 @@ def _clock_charge_in_one_direction(
     image = np.concatenate((image, zero_padding), axis=0)
 
     # Read out one column of pixels through the (column of) traps
-    for column_index in range(len(window_column_range)):
+    for column_index in window_column_range:
 
         # Monitor the traps in every pixel, or just one (express=1) or a few
         # (express=a few) then replicate their effect
@@ -164,7 +164,6 @@ def _clock_charge_in_one_direction(
                     continue
 
                 for clocking_step in steps_with_nonzero_dwell_time:
-                    n_electrons_trapped = 0
 
                     for phase in phases_with_traps:
                         # Information about the potentials in this phase
@@ -178,8 +177,7 @@ def _clock_charge_in_one_direction(
 
                         # Initial charge (0 if this phase's potential is not high)
                         n_free_electrons = (
-                            image[row_index_read, window_column_range[column_index]]
-                            * roe_phase.is_high
+                            image[row_index_read, column_index] * roe_phase.is_high
                         )
 
                         # Allow electrons to be released from and captured by traps
@@ -198,7 +196,7 @@ def _clock_charge_in_one_direction(
                         if express_multiplier == 0:
                             continue
 
-                        # Select the relevant pixel (and phase) for the returned charge
+                        # Select the relevant pixel (and phase(s)) for the returned charge
                         row_index_write = (
                             window_row_range[row_index]
                             + roe_phase.release_to_which_pixels
@@ -207,11 +205,17 @@ def _clock_charge_in_one_direction(
                         # Return the electrons back to the relevant charge
                         # cloud, or a fraction if they are being returned to
                         # multiple phases
-                        image[row_index_write, window_column_range[column_index]] += (
+                        image[row_index_write, column_index] += (
                             n_electrons_released_and_captured
                             * roe_phase.release_fraction_to_pixel
                             * express_multiplier
                         )
+
+                        # Make sure image counts don't go negative, as could
+                        # otherwise happen with a too-large express_multiplier
+                        for row_index_single in row_index_write:
+                            if image[row_index_single, column_index] < 0:
+                                image[row_index_single, column_index] = 0
 
                 # Save the trap occupancy states if required for the next express pass
                 if save_trap_states_matrix[express_index, row_index]:

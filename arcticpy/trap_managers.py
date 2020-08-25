@@ -594,7 +594,7 @@ class TrapManager(object):
         if n_trapped_electrons_final == 0:
             return 0
 
-        enough = n_free_electrons / (express_multiplier * n_trapped_electrons_final)
+        enough = n_free_electrons / n_trapped_electrons_final
         if enough < 1:
             # For watermark fill fractions that increased, tweak them such that
             # the resulting increase instead matches the available electrons
@@ -718,6 +718,14 @@ class TrapManager(object):
             The time spent in this pixel or phase, in the same units as the 
             trap timescales.
             
+        express_multiplier : int
+            (Not currently used.)
+        
+            The number of times this transfer is to be replicated as part of the 
+            express algorithm, passed here to make sure that too many electrons 
+            are not removed if the multiplier is too high, to avoid ending up 
+            with negative charge in the image.
+            
         Returns
         -------
         net_n_electrons_released : float
@@ -833,8 +841,7 @@ class TrapManager(object):
 
         # Not enough available electrons to capture
         enough = n_free_electrons / (
-            express_multiplier
-            * (n_trapped_electrons_final - n_trapped_electrons_initial)
+            n_trapped_electrons_final - n_trapped_electrons_initial
         )
         if 0 < enough < 1:
             # For watermark fill fractions that increased, tweak them such that
@@ -961,7 +968,7 @@ class TrapManagerInstantCapture(TrapManager):
         if n_trapped_electrons_final == 0:
             return 0.0
         # Also ensure the final number of electrons in the pixel is positive
-        enough = n_free_electrons / (express_multiplier * n_trapped_electrons_final)
+        enough = n_free_electrons / n_trapped_electrons_final
         if enough < 1:
             # For watermark fill fractions that increased, tweak them such
             # that the resulting increase instead matches the available
@@ -1024,9 +1031,22 @@ class TrapManagerInstantCapture(TrapManager):
         ----------
         n_free_electrons : float
             The number of available electrons for trapping.
+            
         ccd : CCD
             The object describing the CCD. Must have only a single value for 
             each parameter, as set by CCD.extract_phase().
+            
+        dwell_time : float
+            The time spent in this pixel or phase, in the same units as the 
+            trap timescales.
+            
+        express_multiplier : int
+            (Not currently used.)
+        
+            The number of times this transfer is to be replicated as part of the 
+            express algorithm, passed here to make sure that too many electrons 
+            are not removed if the multiplier is too high, to avoid ending up 
+            with negative charge in the image.
 
         Returns
         -------
@@ -1126,8 +1146,7 @@ class TrapManagerInstantCapture(TrapManager):
 
         # Not enough available electrons to capture
         enough = n_free_electrons / (
-            express_multiplier
-            * (n_trapped_electrons_final - n_trapped_electrons_initial)
+            n_trapped_electrons_final - n_trapped_electrons_initial
         )
         if 0 < enough < 1:
             # For watermark fill fractions that increased, tweak them such that
@@ -1161,12 +1180,22 @@ class TrapManagerInstantCapture(TrapManager):
         ----------
         n_free_electrons : float
             The number of available electrons for trapping.
+            
         ccd : CCD
             The object describing the CCD. Must have only a single value for 
             each parameter, as set by CCD.extract_phase().
+            
         dwell_time : float
             The time spent in this pixel or phase, in the same units as the 
             trap timescales.
+            
+        express_multiplier : int
+            (Not currently used.)
+        
+            The number of times this transfer is to be replicated as part of the 
+            express algorithm, passed here to make sure that too many electrons 
+            are not removed if the multiplier is too high, to avoid ending up 
+            with negative charge in the image.
             
         Returns
         -------

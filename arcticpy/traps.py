@@ -8,17 +8,28 @@ class Trap(object):
     def __init__(
         self, density=0.13, release_timescale=0.25, capture_timescale=0, surface=False,
     ):
-        """The parameters for a single trap species.
+        """ The parameters for a single trap species.
+        
+        Controls the density of traps and the timescales/probabilities of 
+        capture and release, along with utilities for the watermarking tracking 
+        of trap states and the calculation of capture and release.
 
         Parameters
         ----------
         density : float
             The density of the trap species in a pixel.
+            
         release_timescale : float
             The release timescale of the trap, in the same units as the time 
             spent in each pixel or phase (Clocker sequence).
+            
         capture_timescale : float
             The capture timescale of the trap. Default 0 for instant capture.
+            
+        surface : bool
+            #
+            # RJM: RESERVED FOR SURFACE TRAPS
+            #
             
         Attributes
         ----------
@@ -39,6 +50,11 @@ class Trap(object):
             self.capture_rate = 1 / self.capture_timescale
 
     def distribution_within_pixel(self, fractional_volume=0):
+        if self.surface:
+            #
+            # RJM: RESERVED FOR SURFACE TRAPS OR SPECIES WITH NONUNIFORM DENSITY WITHIN A PIXEL
+            #
+            pass
         return None
 
     def fill_fraction_from_time_elapsed(self, time_elapsed):
@@ -114,6 +130,11 @@ class Trap(object):
 
     @property
     def delta_ellipticity(self):
+        """ Calculate the effect on a galaxy's ellipticity of the CTI caused by
+            a trap species.
+        
+        See Israel et al. (2014).
+        """
 
         a = 0.05333
         d_a = 0.03357
@@ -134,36 +155,35 @@ class Trap(object):
             )
         )
 
-    def __repr__(self):
-        return "\n".join(
-            (
-                "Trap Density: {}".format(self.density),
-                "Trap Lifetime: {}".format(self.release_timescale),
-            )
-        )
-
     @classmethod
     def poisson_trap(cls, trap, shape, seed=0):
-        """For a set of traps with a given set of densities (which are in traps per pixel), compute a new set of \
-        trap densities by drawing new values for from a Poisson distribution.
+        """
+        For a set of traps with a given set of densities (which are in traps 
+        per pixel), compute a new set of trap densities by drawing new values 
+        for from a Poisson distribution.
 
-        This requires us to first convert each trap density to the total number of traps in the column.
+        This requires us to first convert each trap density to the total number 
+        of traps in the column.
 
-        This is used to model the random distribution of traps on a CCD, which changes the number of traps in each \
-        column.
+        This is used to model the random distribution of traps on a CCD, which 
+        changes the number of traps in each column.
 
         Parameters
         ----------
-        trap
+        trap : Trap
+            A trap species object.
+        
         shape : (int, int)
-            The shape of the image, so that the correct number of trap densities are computed.
+            The shape of the image, so that the correct number of trap densities 
+            are computed.
+            
         seed : int
             The seed of the Poisson random number generator.
         """
         np.random.seed(seed)
-        total_trapss = tuple(map(lambda sp: sp.density * shape[0], trap))
+        total_traps = tuple(map(lambda sp: sp.density * shape[0], trap))
         poisson_densities = [
-            np.random.poisson(total_trapss) / shape[0] for _ in range(shape[1])
+            np.random.poisson(total_traps) / shape[0] for _ in range(shape[1])
         ]
         poisson_trap = []
         for densities in poisson_densities:
@@ -181,15 +201,21 @@ class TrapInstantCapture(Trap):
     """ For the old C++ style release-then-instant-capture algorithm. """
 
     def __init__(self, density=0.13, release_timescale=0.25, surface=False):
-        """The parameters for a single trap species.
+        """ The parameters for a single trap species.
 
         Parameters
         ----------
         density : float
             The density of the trap species in a pixel.
+            
         release_timescale : float
             The release timescale of the trap, in the same units as the time 
             spent in each pixel or phase (Clocker sequence).
+            
+        surface : bool
+            #
+            # RJM: RESERVED FOR SURFACE TRAPS
+            #
         """
         super().__init__(
             density=density,
@@ -199,9 +225,13 @@ class TrapInstantCapture(Trap):
         )
 
 
-class TrapLifetimeContinuum(TrapInstantCapture):
-    """ For a continuum distribution of release lifetimes for the traps.
-        Must be used with TrapManagerTrackTime.
+class TrapLifetimeContinuumAbstract(TrapInstantCapture):
+    """ Base class for a continuum distribution of release lifetimes.
+    
+    Must be used with TrapManagerTrackTime.
+
+    Primarily intended to be inherited by a class that sets a particular 
+    distribution, e.g. TrapLogNormalLifetimeContinuum.
     """
 
     def __init__(
@@ -217,17 +247,20 @@ class TrapLifetimeContinuum(TrapInstantCapture):
         ----------
         density : float
             The density of the trap species in a pixel.
+            
         distribution_of_traps_with_lifetime : func
-            The distribution of traps as a function of release_timescale, mu lifetime, 
-            and lifetime sigma, such that its integral from 0 to infinity = 1.
-            e.g. a log-normal probability density function.
+            The distribution of traps as a function of release_timescale, mu 
+            lifetime, and lifetime sigma, such that its integral from 0 to 
+            infinity = 1. e.g. a log-normal probability density function.
+            
         release_timescale_mu : float
             The mu (e.g. mean or median depending on the distribution) 
             release timescale of the traps.
+            
         release_timescale_sigma : float
             The sigma of release lifetimes of the traps.
         """
-        super(TrapLifetimeContinuum, self).__init__(
+        super(TrapLifetimeContinuumAbstract, self).__init__(
             density=density, release_timescale=release_timescale_mu
         )
 
@@ -331,10 +364,8 @@ class TrapLifetimeContinuum(TrapInstantCapture):
         )[0]
 
 
-class TrapLogNormalLifetimeContinuum(TrapLifetimeContinuum):
-    """ For a log-normal continuum distribution of release lifetimes for the 
-        traps. Must be used with TrapManagerTrackTime.
-    """
+class TrapLogNormalLifetimeContinuum(TrapLifetimeContinuumAbstract):
+    """ For a log-normal continuum distribution of release lifetimes. """
 
     @staticmethod
     def log_normal_distribution(x, median, sigma):
@@ -344,8 +375,10 @@ class TrapLogNormalLifetimeContinuum(TrapLifetimeContinuum):
         ----------
         x : float 
             The input value.
+            
         median : float 
             The median of the distribution.
+            
         sigma : float 
             The sigma of the distribution.
             
@@ -365,8 +398,10 @@ class TrapLogNormalLifetimeContinuum(TrapLifetimeContinuum):
         ---------
         density : float
             The density of the trap species in a pixel.
+            
         release_timescale_mu : float
             The median release timescale of the traps.
+            
         release_timescale_sigma : float
             The sigma of release lifetimes of the traps.
         """
@@ -377,86 +412,3 @@ class TrapLogNormalLifetimeContinuum(TrapLifetimeContinuum):
             release_timescale_mu=release_timescale_mu,
             release_timescale_sigma=release_timescale_sigma,
         )
-
-
-#
-#
-# RANDOM STUFF FOR FUTURE ADOPTION
-#
-#
-
-
-class TrapNonUniformHeightDistribution(Trap):
-
-    # Modify the effective height for non-uniform trap distributions... inside electrons_captured_in_pixel
-    #
-    # RJM: this is the only thing different in this entire class! Can duplicate code be excised
-    #      by creating a method self.electron_fractional_height_from_electrons in Trap, which
-    #      just calls ccd_volume.electron_fractional_height_from_electrons, but modifying it here?
-    #
-    # electron_fractional_height = self.effective_non_uniform_electron_fractional_height(
-    #    electron_fractional_height
-    # )
-    """ For a non-uniform distribution of traps with height within the pixel.
-    """
-
-    def __init__(
-        self,
-        density,
-        lifetime,
-        electron_fractional_height_min,
-        electron_fractional_height_max,
-    ):
-        """The parameters for a single trap species. 
-        Parameters
-        ----------
-        density : float
-            The density of the trap species in a pixel.
-        lifetime : float
-            The release lifetime of the trap.
-        electron_fractional_height_min, electron_fractional_height_max : float
-            The minimum (maximum) fractional height of the electron cloud in 
-            the pixel below (above) which corresponds to an effective fractional 
-            height of 0 (1), with a linear relation in between.
-        """
-        super(TrapNonUniformHeightDistribution, self).__init__(
-            density=density, lifetime=lifetime
-        )
-
-        self.electron_fractional_height_min = electron_fractional_height_min
-        self.electron_fractional_height_max = electron_fractional_height_max
-
-    def cumulative_n_traps_from_n_electrons(self, n_electrons):
-        #
-        # RJM: this is not currently used. But it could be....
-        #
-
-        well_depth = self.ccd.full_well_depth
-        if self.surface:
-            alpha = self.ccd.blooming_level
-            beta = 1
-            # Let surface traps soak up everything they can, as a cheap way of
-            # ensuring that (at least with instantaneous trapping), no pixel in
-            # an output image will ever contain more electrons than the full
-            # well depth.
-            extra_traps = min(n_electrons - well_depth, 0)
-        else:
-            alpha = self.ccd.well_notch_depth
-            beta = self.ccd.well_fill_power
-            extra_traps = 0
-
-        n_electrons_available = n_electrons - alpha
-        n_traps = (
-            self.density
-            * util.set_min_max((n_electrons_available) / (well_depth - alpha), 0, 1)
-            ** beta
-        )
-        n_traps += extra_traps
-
-        # Make sure that the effective number of traps available cannot exceed
-        # the number of electrons. Adjusting this here is algorithmically much
-        # easier than catching lots of excpetions when there are insufficient
-        # electrons to fill traps during the capture process.
-        n_traps = min(n_traps, n_electrons_available)
-
-        return n_traps

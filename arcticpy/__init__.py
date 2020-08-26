@@ -4,10 +4,10 @@ from arcticpy.roe import (
     ROETrapPumping,
     ROEChargeInjection,
 )
-from arcticpy.ccd import CCD, CCDComplex, CCDPhase
+from arcticpy.ccd import CCD, CCDPhase
 from arcticpy.traps import (
     Trap,
-    TrapLifetimeContinuum,
+    TrapLifetimeContinuumAbstract,
     TrapLogNormalLifetimeContinuum,
     TrapInstantCapture,
 )
@@ -18,4 +18,3 @@ from arcticpy.trap_managers import (
     TrapManagerInstantCapture,
 )
 from arcticpy import util
-from arcticpy.util import profile

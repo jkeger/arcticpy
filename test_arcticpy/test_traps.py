@@ -532,6 +532,26 @@ class TestElectronsReleasedAndCapturedInstantCapture:
         assert trap_manager_1.watermarks == pytest.approx(trap_manager_2.watermarks)
 
 
+class TestAllTrapManagerSaveRestore:
+    def test__all_trap_manager_save_and_restore(self):
+        traps = [ac.Trap(density=10, release_timescale=1)]
+        ccd = ac.CCD(well_fill_power=0.5, full_well_depth=1000, well_notch_depth=0)
+        trap_managers = ac.AllTrapManager(traps=traps, max_n_transfers=6, ccd=ccd)
+        watermarks = np.array(
+            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0], [0, 0]]
+        )
+
+        trap_managers[0][0].watermarks = deepcopy(watermarks)
+
+        trap_managers.save()
+
+        trap_managers[0][0].watermarks += 0.1
+
+        trap_managers.restore()
+
+        assert trap_managers[0][0].watermarks == pytest.approx(watermarks)
+
+
 class TestTrapManagerTrackTime:
     def test__fill_fraction_from_time_elapsed(self):
 

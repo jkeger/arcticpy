@@ -1,18 +1,8 @@
 import numpy as np
 import pytest
+import matplotlib.pyplot as plt
 
 import arcticpy as ac
-
-
-#
-# Unit tests still To Do:
-#
-# Check trailing of trails
-# Multiphase vs single phase
-# Bookkeeping - conservation of initial n_electrons
-
-
-import matplotlib.pyplot as plt
 
 
 class TestCompareOldArCTIC:
@@ -384,49 +374,50 @@ class TestCompareOldArCTIC:
 
         for i, (express, image_idl) in enumerate(
             zip(
+                # [2, 40],
                 [40],
                 [
-                    # [ # express = 2, but doesn't have express-modified not-enough
-                    #     0.00000,
-                    #     0.00000,
-                    #     773.167,
-                    #     6.19194,
-                    #     6.36844,
-                    #     6.29799,
-                    #     6.05079,
-                    #     5.70287,
-                    #     5.29153,
-                    #     4.85392,
-                    #     4.41157,
-                    #     3.97939,
-                    #     3.56817,
-                    #     3.18550,
-                    #     2.82974,
-                    #     2.50704,
-                    #     2.21499,
-                    #     1.95246,
-                    #     1.71821,
-                    #     1.51033,
-                    #     1.32627,
-                    #     1.16384,
-                    #     1.02143,
-                    #     0.896752,
-                    #     0.786375,
-                    #     0.690698,
-                    #     0.607423,
-                    #     0.534261,
-                    #     0.471099,
-                    #     0.415056,
-                    #     0.366609,
-                    #     0.323860,
-                    #     0.287210,
-                    #     0.254417,
-                    #     0.225742,
-                    #     0.201299,
-                    #     0.179598,
-                    #     0.160210,
-                    #     0.143067,
-                    #     0.128163,
+                    # [ # express=2 but different save/restore trap approach
+                    #     0.0000000,
+                    #     0.0000000,
+                    #     773.16687,
+                    #     6.1919436,
+                    #     6.3684354,
+                    #     6.2979879,
+                    #     6.0507884,
+                    #     5.7028670,
+                    #     5.2915287,
+                    #     4.8539200,
+                    #     4.4115725,
+                    #     3.9793868,
+                    #     3.5681694,
+                    #     3.1855009,
+                    #     2.8297379,
+                    #     2.5070403,
+                    #     2.2149866,
+                    #     1.9524645,
+                    #     1.7182100,
+                    #     1.5103321,
+                    #     1.3410047,
+                    #     1.1967528,
+                    #     1.0735434,
+                    #     0.96801299,
+                    #     0.87580109,
+                    #     0.79527515,
+                    #     0.72667038,
+                    #     0.66463155,
+                    #     0.61054391,
+                    #     0.56260395,
+                    #     0.51870286,
+                    #     0.47962612,
+                    #     0.44496229,
+                    #     0.41361856,
+                    #     0.38440439,
+                    #     0.35855818,
+                    #     0.33410615,
+                    #     0.31309450,
+                    #     0.29213923,
+                    #     0.27346680,
                     # ],
                     [
                         0.00000,
@@ -1914,9 +1905,54 @@ class TestOffsetsAndWindows:
             plt.tight_layout()
             plt.show()
 
-    def test__split_serial_readout_by_time(self):
+    def test__split_parallel_readout_by_time(self):
 
-        return  ###WIP
+        n_pixels = 12
+        image_pre_cti = np.zeros((n_pixels, 1))
+        image_pre_cti[2, 0] = 800
+
+        # Nice numbers for easy manual checking
+        traps = [ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))]
+        ccd = ac.CCD(well_fill_power=1, full_well_depth=1000, well_notch_depth=0)
+        roe = ac.ROE(empty_traps_for_first_transfers=False)
+        offset = 0
+        split_point = 5
+
+        for express in [1, 3, n_pixels]:
+            # Run all in one go
+            image_post_cti = ac.add_cti(
+                image=image_pre_cti,
+                parallel_traps=traps,
+                parallel_ccd=ccd,
+                parallel_roe=roe,
+                parallel_express=express,
+            )
+
+            # Run in two halves
+            image_post_cti_start = ac.add_cti(
+                image=image_pre_cti,
+                parallel_traps=traps,
+                parallel_ccd=ccd,
+                parallel_roe=roe,
+                parallel_express=express,
+                time_window_range=range(0, split_point),
+            )
+            image_post_cti_continue = ac.add_cti(
+                image=image_post_cti_start,
+                parallel_traps=traps,
+                parallel_ccd=ccd,
+                parallel_roe=roe,
+                parallel_express=express,
+                time_window_range=range(split_point, n_pixels + offset),
+            )
+
+            # Not perfect because when continuing the 2nd half the trap states are
+            # not (and cannot be) the same as at the end of the 1st half
+            assert image_post_cti_continue == pytest.approx(
+                image_post_cti, rel=0.01, abs=1
+            )
+
+    def test__split_serial_readout_by_time(self):
 
         image_pre_cti = np.zeros((4, 10))
         image_pre_cti[0, 1] += 10000
@@ -1967,55 +2003,7 @@ class TestOffsetsAndWindows:
 
         assert trail_split == pytest.approx(trail)
 
-    def test__split_parallel_readout_by_time(self):
-
-        return  ###WIP
-
-        image_pre_cti = np.zeros((6, 1))
-        image_pre_cti[2, 0] = 800
-
-        # Nice numbers for easy manual checking
-        traps = [ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))]
-        ccd = ac.CCD(well_fill_power=1, full_well_depth=1000, well_notch_depth=0)
-        roe = ac.ROE(empty_traps_for_first_transfers=False)
-        express = 0
-        offset = 0
-        n_pixels = 6
-        split_point = 3
-
-        # Run all in one go
-        image_post_cti = ac.add_cti(
-            image=image_pre_cti,
-            parallel_traps=traps,
-            parallel_ccd=ccd,
-            parallel_roe=roe,
-            parallel_express=express,
-        )
-
-        # Run in two halves
-        image_post_cti_start = ac.add_cti(
-            image=image_pre_cti,
-            parallel_traps=traps,
-            parallel_ccd=ccd,
-            parallel_roe=roe,
-            parallel_express=express,
-            time_window_range=range(0, split_point),
-        )
-        image_post_cti_continue = ac.add_cti(
-            image=image_post_cti_start,
-            parallel_traps=traps,
-            parallel_ccd=ccd,
-            parallel_roe=roe,
-            parallel_express=express,
-            time_window_range=range(split_point, n_pixels + offset),
-        )
-
-        # Won't work because trap occupancies aren't the same when continuing
-        assert image_post_cti_continue == pytest.approx(image_post_cti)
-
     def test__split_parallel_and_serial_readout_by_time(self):
-
-        return  ###WIP
 
         image_pre_cti = np.zeros((20, 15))
         image_pre_cti[1, 1] += 10000
@@ -2081,4 +2069,4 @@ class TestOffsetsAndWindows:
         )
         trail = image_post_cti - image_pre_cti
 
-        assert (abs(trail_split - trail) < 2e-4).all()
+        assert trail_split == pytest.approx(trail, rel=0.01, abs=2)

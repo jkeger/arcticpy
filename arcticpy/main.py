@@ -1,3 +1,23 @@
+""" 
+ArCTIC python
+=============
+
+AlgoRithm for Charge Transfer Inefficiency (CTI) Correction
+-----------------------------------------------------------
+
+Add or remove image trails due to charge transfer inefficiency in CCD detectors
+by modelling the trapping, releasing, and moving of charge along pixels.
+
+See the README.md for general information, and see the docstrings and comments 
+throughout the code for further details.
+
+https://github.com/jkeger/arcticpy
+
+Jacob Kegerreis: jacob.kegerreis@durham.ac.uk  
+Richard Massey: r.j.massey@durham.ac.uk  
+James Nightingale  
+"""
+
 import numpy as np
 from copy import deepcopy
 
@@ -28,7 +48,7 @@ def _clock_charge_in_one_direction(
         The input array of pixel values, assumed to be in units of electrons.
         
         The first dimension is the "row" index, the second is the "column" 
-        index. By default (for parallel clocking), charge is transfered "up" 
+        index. By default (for parallel clocking), charge is transferred "up" 
         from row n to row 0 along each independent column. i.e. the readout 
         register is above row 0. (For serial clocking, the image is rotated 
         beforehand, outside of this function, see add_cti().)
@@ -338,10 +358,10 @@ def add_cti(
         
         This could be used to e.g. add cosmic rays during readout of simulated
         images. Successive calls to complete the readout should start at
-        the same value that the previous one ended, e.g. [0, 0.5] then
-        [0.5, 1]. Be careful not to divide the readout too finely, as there is
-        only as much temporal resolution as there are rows (not rows * phases)
-        in the image. Also, for each time that readout is split between
+        the same value that the previous one ended, e.g. range(0, 1000) then
+        range(1000, 2000). Be careful not to divide the readout too finely, as 
+        there is only as much temporal resolution as there are rows (not rows * 
+        phases) in the image. Also, for each time that readout is split between
         successive calls to this function, the output in one row of pixels
         will change slightly (unless express=0) because trap occupancy is
         not stored between calls.

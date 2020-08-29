@@ -999,7 +999,7 @@ class TestAddCTIParallelOnly:
         assert (image_difference[:, 5] == 0.0).all()  # No Delta, no charge
 
 
-class TestArcticAddCTIParallelAndSerial:
+class TestAddCTIParallelAndSerial:
     def test__horizontal_charge_line__loses_charge_trails_form_both_directions(self,):
 
         parallel_traps = [ac.Trap(density=0.4, release_timescale=1.0)]
@@ -1353,7 +1353,7 @@ class TestAddCTIParallelMultiPhase:
         ).all()  # All other pixels should have charge trailed into them
 
 
-class TestArcticCorrectCTIParallelOnly:
+class TestCorrectCTIParallelOnly:
     def test__square__horizontal_line__corrected_image_more_like_original(self):
         image_pre_cti = np.zeros((5, 5))
         image_pre_cti[2, :] += 100
@@ -1738,7 +1738,7 @@ class TestArcticCorrectCTIParallelOnly:
         ).all()  # First four rows should all remain zero
 
 
-class TestArcticCorrectCTIParallelAndSerial:
+class TestCorrectCTIParallelAndSerial:
     def test__array_of_values__corrected_image_more_like_original(self,):
         image_pre_cti = np.array(
             [
@@ -2070,3 +2070,51 @@ class TestOffsetsAndWindows:
         trail = image_post_cti - image_pre_cti
 
         assert trail_split == pytest.approx(trail, rel=0.01, abs=2)
+
+
+class TestChargeInjection:
+    def test__charge_injection_add_CTI__compare_standard(self):
+
+        pixels = 12
+        n_pixel_transfers = 12
+        express = 0
+
+        image_pre_cti = np.zeros((pixels, 1))
+        image_pre_cti[::4, 0] = 800
+
+        # Nice numbers for easy manual checking
+        traps = [ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))]
+        ccd = ac.CCD(well_fill_power=1, full_well_depth=1000, well_notch_depth=0)
+        roe_ci = ac.ROEChargeInjection(n_pixel_transfers=n_pixel_transfers)
+        roe_std = ac.ROE()
+
+        image_post_cti_ci = ac.add_cti(
+            image=image_pre_cti,
+            parallel_traps=traps,
+            parallel_ccd=ccd,
+            parallel_roe=roe_ci,
+            parallel_express=express,
+        ).T[0]
+        image_post_cti_std = ac.add_cti(
+            image=image_pre_cti,
+            parallel_traps=traps,
+            parallel_ccd=ccd,
+            parallel_roe=roe_std,
+            parallel_express=express,
+        ).T[0]
+
+        # CI trails are very similar, though slightly less charge captured and
+        # a little extra charge released for later pixels as the traps fill up
+        assert image_post_cti_ci[:4] == pytest.approx(image_post_cti_ci[4:8], rel=0.02)
+        assert image_post_cti_ci[4:8] == pytest.approx(
+            image_post_cti_ci[8:12], rel=0.02
+        )
+        assert (image_post_cti_ci[:4] < image_post_cti_ci[4:8]).all()
+        assert (image_post_cti_ci[4:8] < image_post_cti_ci[8:]).all()
+
+        # Standard trails differ from each other significantly, with more
+        # trailing for the later pixels that undergo more transfers
+        assert image_post_cti_std[0] > image_post_cti_std[4]
+        assert image_post_cti_std[4] > image_post_cti_std[8]
+        assert (image_post_cti_std[1:4] < image_post_cti_std[5:8]).all()
+        assert (image_post_cti_std[5:8] < image_post_cti_std[9:]).all()

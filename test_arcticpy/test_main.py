@@ -922,6 +922,191 @@ class TestChargeInjection:
             assert image_post_cti == pytest.approx(image_post_cti_0, rel=tol)
 
 
+class TestTrapPumping:
+    def test__serial_trap_pumping_in_different_phases_makes_dipole(self):
+
+        # 3-phase pocket pumping with traps under phase 1 - no change expected
+        injection_level = 1000
+        image_orig = np.zeros((5, 1)) + injection_level
+        trap_pixel = 2
+        trap = ac.TrapInstantCapture(density=100, release_timescale=3)
+        roe = ac.ROETrapPumping(dwell_times=[1] * 6, n_pumps=2)
+        ccd = ac.CCD(
+            well_fill_power=0.5,
+            full_well_depth=2e5,
+            fraction_of_traps_per_phase=[1, 0, 0],
+        )
+        image_cti = ac.add_cti(
+            image=image_orig,
+            parallel_traps=[trap],
+            parallel_ccd=ccd,
+            parallel_roe=roe,
+            parallel_window_range=trap_pixel,
+        )
+        assert (
+            image_cti[trap_pixel] < image_orig[trap_pixel]
+        ), "pumping a trap in phase 1 does not remove charge"
+        assert abs(image_cti[trap_pixel] - image_orig[trap_pixel]) > abs(
+            image_cti[trap_pixel + 1] - image_orig[trap_pixel + 1]
+        ), "pumping a trap in phase 1 affects -neighbouring pixels"
+        assert abs(image_cti[trap_pixel] - image_orig[trap_pixel]) > abs(
+            image_cti[trap_pixel + 1] - image_orig[trap_pixel + 1]
+        ), "pumping a trap in phase 1 affects -neighbouring pixels"
+
+        # Traps under phase 2 - check for dipole
+        ccd = ac.CCD(
+            well_fill_power=0.5,
+            full_well_depth=2e5,
+            fraction_of_traps_per_phase=[0, 1, 0],
+        )
+        image_cti = ac.add_cti(
+            image=image_orig,
+            parallel_traps=[trap],
+            parallel_ccd=ccd,
+            parallel_roe=roe,
+            parallel_window_range=trap_pixel,
+        )
+        assert (
+            image_cti[trap_pixel] < image_orig[trap_pixel]
+        ), "pumping a trap in phase 2 does not remove charge"
+        assert (
+            image_cti[trap_pixel + 1] > image_orig[trap_pixel + 1]
+        ), "pumping a trap in phase 2 doesn't make a dipole"
+
+        # Traps under phase 3 - check for dipole
+        ccd = ac.CCD(
+            well_fill_power=0.5,
+            full_well_depth=2e5,
+            fraction_of_traps_per_phase=[0, 0, 1],
+        )
+        image_cti = ac.add_cti(
+            image=image_orig,
+            parallel_traps=[trap],
+            parallel_ccd=ccd,
+            parallel_roe=roe,
+            parallel_window_range=trap_pixel,
+        )
+        assert (
+            image_cti[trap_pixel] < image_orig[trap_pixel]
+        ), "pumping a trap in phase 3 does not remove charge"
+        assert (
+            image_cti[trap_pixel - 1] > image_orig[trap_pixel - 1]
+        ), "pumping a trap in phase 3 doesn't make a dipole"
+
+    def test__express_is_good_approximation_for_trap_pumping(self):
+
+        return  ###WIP
+
+        # 3-phase pocket pumping with traps under phase 1 - no change expected
+        injection_level = 1000
+        image_orig = np.zeros((5, 1)) + injection_level
+        trap_pixel = 2
+        trap_density = 1
+        n_pumps = 20
+        ccd = ac.CCD(
+            well_notch_depth=100,
+            full_well_depth=101,
+            fraction_of_traps_per_phase=[0, 1, 0],
+        )
+        trap = ac.TrapInstantCapture(density=trap_density, release_timescale=0.5)
+        roe = ac.ROETrapPumping(dwell_times=[0.33] * 6, n_pumps=n_pumps)
+
+        image_cti_express0 = ac.add_cti(
+            image=image_orig,
+            parallel_traps=[trap],
+            parallel_ccd=ccd,
+            parallel_roe=roe,
+            parallel_window_range=trap_pixel,
+            parallel_express=0,
+        )
+
+        image_cti_express1 = ac.add_cti(
+            image=image_orig,
+            parallel_traps=[trap],
+            parallel_ccd=ccd,
+            parallel_roe=roe,
+            parallel_window_range=trap_pixel,
+            parallel_express=1,
+        )
+
+        image_cti_express3 = ac.add_cti(
+            image=image_orig,
+            parallel_traps=[trap],
+            parallel_ccd=ccd,
+            parallel_roe=roe,
+            parallel_window_range=trap_pixel,
+            parallel_express=3,
+        )
+
+        fractional_diff_01 = (
+            image_cti_express1[[trap_pixel, trap_pixel + 1]]
+            - image_cti_express0[[trap_pixel, trap_pixel + 1]]
+        ) / image_orig[[trap_pixel, trap_pixel + 1]]
+        fractional_diff_03 = (
+            image_cti_express3[[trap_pixel, trap_pixel + 1]]
+            - image_cti_express0[[trap_pixel, trap_pixel + 1]]
+        ) / image_orig[[trap_pixel, trap_pixel + 1]]
+
+        assert (
+            abs(fractional_diff_01) < 1e-4
+        ).all(), "changing express from 0 (slow) to 1 (fast)"
+        assert (
+            abs(fractional_diff_03) < 1e-4
+        ).all(), "changing express from 0 (slow) to 3 (fastish)"
+
+        # Add more traps
+        density_change = 2
+        traphighrho = ac.TrapInstantCapture(
+            density=(trap_density * density_change), release_timescale=0.5
+        )
+        image_cti_express1_highrho = ac.add_cti(
+            image=image_orig,
+            parallel_traps=[traphighrho],
+            parallel_ccd=ccd,
+            parallel_roe=roe,
+            parallel_window_range=trap_pixel,
+            parallel_express=1,
+        )
+        fractional_diff = (
+            (
+                image_cti_express1_highrho[[trap_pixel, trap_pixel + 1]]
+                - image_orig[[trap_pixel, trap_pixel + 1]]
+            )
+            - density_change
+            * (
+                image_cti_express1[[trap_pixel, trap_pixel + 1]]
+                - image_orig[[trap_pixel, trap_pixel + 1]]
+            )
+        ) / image_orig[[trap_pixel, trap_pixel + 1]]
+        assert (abs(fractional_diff) < 1e-4).all()
+
+        # Do more pumps
+        n_pumps_change = 10
+        roehighpumps = ac.ROETrapPumping(
+            dwell_times=[0.33] * 6, n_pumps=(n_pumps * n_pumps_change)
+        )
+        image_cti_express1_highpump = ac.add_cti(
+            image=image_orig,
+            parallel_traps=[trap],
+            parallel_ccd=ccd,
+            parallel_roe=roehighpumps,
+            parallel_window_range=trap_pixel,
+            parallel_express=1,
+        )
+        fractional_diff = (
+            (
+                image_cti_express1_highpump[[trap_pixel, trap_pixel + 1]]
+                - image_orig[[trap_pixel, trap_pixel + 1]]
+            )
+            - n_pumps_change
+            * (
+                image_cti_express1[[trap_pixel, trap_pixel + 1]]
+                - image_orig[[trap_pixel, trap_pixel + 1]]
+            )
+        ) / image_orig[[trap_pixel, trap_pixel + 1]]
+        assert (abs(fractional_diff) < 1e-4).all()
+
+
 class TestAddCTIParallelOnly:
     def test__square__horizontal_line__line_loses_charge_trails_appear(self):
         image_pre_cti = np.zeros((5, 5))

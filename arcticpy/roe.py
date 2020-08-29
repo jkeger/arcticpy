@@ -692,7 +692,7 @@ class ROEChargeInjection(ROE):
         if self.n_pixel_transfers is None:
             self.n_pixel_transfers = n_pixels + offset
 
-        # Default to very slow but accurate behaviour
+        # Set default express to all transfers and check no larger
         if express == 0:
             express = self.n_pixel_transfers
         else:
@@ -741,7 +741,9 @@ class ROETrapPumping(ROEAbstract):
         empty_traps_for_first_transfers=True,
         express_matrix_dtype=float,
     ):
-        """ Readout sequence to represent tramp pumping (aka pocket pumping).
+        """ 
+        The readout electronics (ROE) class varient for trap pumping (aka pocket 
+        pumping).
         
         If a uniform image is repeatedly pumped through a CCD, dipoles (positive
         -negative pairs in adjacent pixels) are created wherever there are traps 
@@ -749,11 +751,14 @@ class ROETrapPumping(ROEAbstract):
         they are assumed to be in every pixel. This would create overlapping 
         dipoles and, ultimately, no change. The location of the traps should 
         therefore be specified in the "window" variable passed to 
-        arcticpy.add_cti, so only those particular pixels are pumped, and traps
-        in those pixels activated. The phase of the traps should be specified in
-        arcticpy.CCD().
+        arcticpy.add_cti(), so only those particular pixels are pumped, and 
+        traps in those pixels activated. The phase of the traps should be 
+        specified in arcticpy.CCD().
         
-        ###
+        Parameters (if different to ROE)
+        ----------
+        n_pumps : int
+            ###
         """
 
         super().__init__(dwell_times, express_matrix_dtype)
@@ -812,7 +817,7 @@ class ROETrapPumping(ROEAbstract):
                     the entire image).
         
         offset, time_window_range : None
-            Not used in this trap-pumping version of ROE.
+            Not used for trap pumping.
         """
 
         # Parse inputs
@@ -820,10 +825,11 @@ class ROETrapPumping(ROEAbstract):
             pixels = [pixels]
         n_pixels_with_traps = len(pixels)
 
-        # Default to very slow but accurate behaviour
+        # Set default express to all transfers and check no larger
         if express == 0:
             express = self.n_pumps
-        express = min(express, self.n_pumps)
+        else:
+            express = min(express, self.n_pumps)
 
         # Decide for how many effective pumps each implementation of a single
         # pump will count

@@ -31,6 +31,8 @@ Contents
     + Trap managers
 + Examples 
     + Correcting HST images
+    + Charge injection lines
+    + Trap pumping
 
 
 Minimal example
@@ -242,7 +244,7 @@ plus the number of iterations for the forward modelling:
 image_remove_cti = ac.remove_cti(
     image=image_with_cti,
     iterations=3,
-    # Same as add_cti()
+    # Same as add_cti()...
 )
 ```
 More iterations provide higher accuracy at the cost of longer runtime. 
@@ -265,14 +267,18 @@ complicated multi-phase clocking or modelling of trap pumping etc.
 ccd = ac.CCD(
     # The maximum number of electrons that can be contained within a pixel
     full_well_depth=1e4, 
+    
     # The number of electrons that fit inside a 'notch' at the bottom of a 
     # potential well, avoiding any traps
     well_notch_depth=0.0,
+    
     # The exponent in the power-law model for the volume occupied by the electrons
     well_fill_power=0.58,
+    
     # For multiphase clocking: the proportion of traps within each phase or, in 
     # other words, the relative physical width (in any units) of each phase
     fraction_of_traps_per_phase=[1], 
+    
     # Equivalent to the notch but for surface traps
     well_bloom_level=None,
 )
@@ -281,7 +287,7 @@ ccd = ac.CCD(
 ### Multi-phase clocking
 ```python
 # Four phases of different widths, each with different well depths but the same 
-# other values of the fill power and the default notch depth
+# other values of the fill power and the (default) notch depth
 ccd = ac.CCD(
     fraction_of_traps_per_phase=[0.5, 0.2, 0.2, 0.1],
     full_well_depth=[8.47e4, 1e5, 2e5, 3e5],
@@ -299,18 +305,23 @@ See the `ROE` and child class docstrings in `roe.py` for the full documentation.
 
 ### Default ROE  
 ```python
-roe = ac.roe(
+roe = ac.ROE(
     # The time between steps in the clocking sequence, in the same units as 
     # the trap capture and release timescales
     dwell_times=[1],
+    
     # True: explicitly models the first pixel-to-pixel transfer differently to 
     # the rest by starting with empty traps for every pixel
     empty_traps_at_start=True,
+    
     # True: columns have independent traps. False: columns move through the same
     # traps, may be appropriate for serial clocking
     empty_traps_between_columns=True,
-    # ...
-    force_downstream_release=True,
+    
+    # True: force electrons to be released in a pixel further from the readout,
+    # may be relevant for multi-phase clocking
+    force_release_away_from_readout=True,
+    
     # The type for the express multipliers, can be int for backwards compatibility
     express_matrix_dtype=float,
 )
@@ -328,7 +339,19 @@ length of the `dwell_times` array that sets the number of phases.
 
 
 ### Charge injection  
-...
+```python
+roe = ac.ROEChargeInjection(
+    # The number of pixels between the charge injection structure and the 
+    # readout register, through which the electrons are transferred
+    n_pixel_transfers=None,
+)
+```
+In this mode, electrons are directly created by a charge injection structure at 
+the end of a CCD, then clocked the same number of times through all of the 
+`n_pixel_transfers` pixels to the readout register, compared with the standard 
+case where electrons start in image pixels at different distances from readout.
+
+The other options still apply in the same way.
 
 
 ### Trap pumping  
@@ -338,7 +361,7 @@ length of the `dwell_times` array that sets the number of phases.
 ### Express matrix  
 The `ROE` class also contains the
 `express_matrix_and_monitor_traps_matrix_from_pixels_and_express()` 
-function used to generate the express matrix and a related array used to 
+function used to generate both the express matrix and a related array used to 
 control when traps are monitored.
 
 
@@ -354,8 +377,10 @@ See the `Trap` and child class docstrings in `traps.py` for the full documentati
 trap = ac.Trap(
     # The density of the trap species in a pixel
     density=0.13, 
+    
     # The release timescale of the trap 
     release_timescale=0.25, 
+    
     # The capture timescale of the trap, default 0 for instant capture
     capture_timescale=0, 
 )
@@ -378,8 +403,10 @@ For a trap species with a log-normal distribution of release lifetimes.
 trap = ac.TrapLogNormalLifetimeContinuum(
     # The total density of the trap species in a pixel
     density=10,
+    
     # The median timescale of the distribution
     release_timescale_mu=1,
+    
     # The sigma timescale for the width of the distribution
     release_timescale_sigma=0.5,
 )
@@ -430,10 +457,20 @@ way. If different trap types are used, then multiple trap managers are created
 
 
 
+
 Examples
 ========
 
 Correcting HST images
 ---------------------
 
+
+
+Charge injection lines
+----------------------
+
+
+
+Trap pumping
+------------
 

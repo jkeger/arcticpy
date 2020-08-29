@@ -527,6 +527,586 @@ class TestCompareOldArCTIC:
             plt.show()
 
 
+class TestExpress:
+    def test__add_CTI__single_pixel__express(self):
+
+        image_pre_cti = np.zeros((20, 1))
+        image_pre_cti[2, 0] = 800
+
+        # Nice numbers for easy manual checking
+        traps = [ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))]
+        ccd = ac.CCD(well_fill_power=1, full_well_depth=1000, well_notch_depth=0)
+        roe = ac.ROE()
+
+        image_post_cti_0 = ac.add_cti(
+            image=image_pre_cti,
+            parallel_traps=traps,
+            parallel_ccd=ccd,
+            parallel_roe=roe,
+            parallel_express=0,
+        )
+
+        # Better approximation with increasing express
+        for express, tol in zip([1, 2, 5, 10], [2.5, 1.8, 0.4, 0.3]):
+            image_post_cti = ac.add_cti(
+                image=image_pre_cti,
+                parallel_traps=traps,
+                parallel_ccd=ccd,
+                parallel_roe=roe,
+                parallel_express=express,
+            )
+
+            assert image_post_cti == pytest.approx(image_post_cti_0, rel=tol)
+
+
+class TestOffsetsAndWindows:
+    def test__add_cti__single_pixel__offset(self):
+
+        # Nice numbers for easy manual checking
+        traps = [ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))]
+        ccd = ac.CCD(well_fill_power=1, full_well_depth=1000, well_notch_depth=0)
+        roe = ac.ROE(empty_traps_for_first_transfers=False)
+
+        # Base image without offset
+        image_pre_cti = np.zeros((12, 1))
+        image_pre_cti[2, 0] = 800
+
+        for offset in [1, 5, 11]:
+            # Offset added directly to image
+            image_pre_cti_manual_offset = np.zeros((12 + offset, 1))
+            image_pre_cti_manual_offset[2 + offset, 0] = 800
+
+            for express in [1, 3, 12, 0]:
+                # Add offset to base image
+                image_post_cti = ac.add_cti(
+                    image=image_pre_cti,
+                    parallel_traps=traps,
+                    parallel_ccd=ccd,
+                    parallel_roe=roe,
+                    parallel_express=express,
+                    parallel_offset=offset,
+                )
+
+                # Offset already in image
+                image_post_cti_manual_offset = ac.add_cti(
+                    image=image_pre_cti_manual_offset,
+                    parallel_traps=traps,
+                    parallel_ccd=ccd,
+                    parallel_roe=roe,
+                    parallel_express=express,
+                )
+
+                assert image_post_cti == pytest.approx(
+                    image_post_cti_manual_offset[offset:]
+                )
+
+    def test__add_cti__single_pixel__vary_window_over_start_of_trail(self):
+
+        # Manually set True to make the plot
+        do_plot = False
+        # do_plot = True
+
+        image_pre_cti = np.zeros((12, 1))
+        image_pre_cti[2, 0] = 800
+
+        # Nice numbers for easy manual checking
+        traps = [ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))]
+        ccd = ac.CCD(well_fill_power=1, full_well_depth=1000, well_notch_depth=0)
+        roe = ac.ROE(empty_traps_for_first_transfers=False)
+        express = 0
+
+        # Full image
+        image_post_cti = ac.add_cti(
+            image=image_pre_cti,
+            parallel_traps=traps,
+            parallel_ccd=ccd,
+            parallel_roe=roe,
+            parallel_express=express,
+        ).T[0]
+
+        if do_plot:
+            pixels = np.arange(len(image_pre_cti))
+            plt.figure(figsize=(10, 6))
+            plt.plot(
+                pixels, image_post_cti, alpha=0.6, ls="--", label="Full",
+            )
+
+        for i, window_range in enumerate(
+            [
+                range(3, 12),  # After bright pixel so no trail
+                range(1, 5),  # Start of trail
+                range(1, 9),  # Most of trail
+                range(1, 12),  # Full trail
+                range(0, 12),  # Full image
+            ]
+        ):
+            image_window = ac.add_cti(
+                image=image_pre_cti,
+                parallel_traps=traps,
+                parallel_ccd=ccd,
+                parallel_roe=roe,
+                parallel_express=express,
+                parallel_window_range=window_range,
+            ).T[0]
+
+            if do_plot:
+                plt.plot(
+                    pixels,
+                    image_window,
+                    alpha=0.6,
+                    label="range(%d, %d)" % (window_range[0], window_range[-1] + 1),
+                )
+
+            # After bright pixel so no trail
+            if i == 0:
+                assert image_window == pytest.approx(image_pre_cti.T[0])
+
+            # Matches within window
+            else:
+                assert image_window[window_range] == pytest.approx(
+                    image_post_cti[window_range]
+                )
+
+        if do_plot:
+            plt.legend()
+            plt.yscale("log")
+            plt.xlabel("Pixel")
+            plt.ylabel("Counts")
+            plt.tight_layout()
+            plt.show()
+
+    def test__split_parallel_readout_by_time(self):
+
+        n_pixels = 12
+        image_pre_cti = np.zeros((n_pixels, 1))
+        image_pre_cti[2, 0] = 800
+
+        # Nice numbers for easy manual checking
+        traps = [ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))]
+        ccd = ac.CCD(well_fill_power=1, full_well_depth=1000, well_notch_depth=0)
+        roe = ac.ROE(empty_traps_for_first_transfers=False)
+        offset = 0
+        split_point = 5
+
+        for express in [1, 3, n_pixels]:
+            # Run all in one go
+            image_post_cti = ac.add_cti(
+                image=image_pre_cti,
+                parallel_traps=traps,
+                parallel_ccd=ccd,
+                parallel_roe=roe,
+                parallel_express=express,
+            )
+
+            # Run in two halves
+            image_post_cti_start = ac.add_cti(
+                image=image_pre_cti,
+                parallel_traps=traps,
+                parallel_ccd=ccd,
+                parallel_roe=roe,
+                parallel_express=express,
+                time_window_range=range(0, split_point),
+            )
+            image_post_cti_continue = ac.add_cti(
+                image=image_post_cti_start,
+                parallel_traps=traps,
+                parallel_ccd=ccd,
+                parallel_roe=roe,
+                parallel_express=express,
+                time_window_range=range(split_point, n_pixels + offset),
+            )
+
+            # Not perfect because when continuing the 2nd half the trap states are
+            # not (and cannot be) the same as at the end of the 1st half
+            assert image_post_cti_continue == pytest.approx(
+                image_post_cti, rel=0.01, abs=1
+            )
+
+    def test__split_serial_readout_by_time(self):
+
+        image_pre_cti = np.zeros((4, 10))
+        image_pre_cti[0, 1] += 10000
+
+        trap = ac.Trap(density=10, release_timescale=10.0)
+        ccd = ac.CCD(well_notch_depth=0.0, well_fill_power=0.8, full_well_depth=100000)
+        roe = ac.ROE(
+            empty_traps_for_first_transfers=False, empty_traps_between_columns=True
+        )
+
+        express = 2
+        offset = 0
+        n_pixels = 10
+        split_point = 7
+
+        # Run in two halves
+        image_post_cti_firsthalf = ac.add_cti(
+            image=image_pre_cti,
+            serial_traps=[trap],
+            serial_ccd=ccd,
+            serial_roe=roe,
+            serial_express=express,
+            serial_offset=offset,
+            time_window_range=range(0, split_point),
+        )
+        trail_firsthalf = image_post_cti_firsthalf - image_pre_cti
+        image_post_cti_split = ac.add_cti(
+            image=image_post_cti_firsthalf,
+            serial_traps=[trap],
+            serial_ccd=ccd,
+            serial_roe=roe,
+            serial_express=express,
+            serial_offset=offset,
+            time_window_range=range(split_point, n_pixels + offset),
+        )
+        trail_split = image_post_cti_split - image_pre_cti
+
+        # Run all in one go
+        image_post_cti = ac.add_cti(
+            image=image_pre_cti,
+            serial_traps=[trap],
+            serial_ccd=ccd,
+            serial_roe=roe,
+            serial_express=express,
+            serial_offset=offset,
+        )
+        trail = image_post_cti - image_pre_cti
+
+        assert trail_split == pytest.approx(trail)
+
+    def test__split_parallel_and_serial_readout_by_time(self):
+
+        image_pre_cti = np.zeros((20, 15))
+        image_pre_cti[1, 1] += 10000
+
+        trap = ac.Trap(density=10, release_timescale=10.0)
+        ccd = ac.CCD(well_notch_depth=0.0, well_fill_power=0.8, full_well_depth=100000)
+        roe = ac.ROE(
+            empty_traps_for_first_transfers=False, empty_traps_between_columns=True
+        )
+
+        express = 2
+        offset = 0
+        split_point = 0.25
+
+        # Run in two halves
+        image_post_cti_firsthalf = ac.add_cti(
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd=ccd,
+            parallel_roe=roe,
+            parallel_express=express,
+            parallel_offset=offset,
+            serial_traps=[trap],
+            serial_ccd=ccd,
+            serial_roe=roe,
+            serial_express=express,
+            serial_offset=offset,
+            time_window_range=[0, split_point],
+        )
+        trail_firsthalf = image_post_cti_firsthalf - image_pre_cti
+        image_post_cti_secondhalf = ac.add_cti(
+            image=image_pre_cti,
+            serial_traps=[trap],
+            serial_ccd=ccd,
+            serial_roe=roe,
+            serial_express=express,
+            serial_offset=offset,
+            parallel_traps=[trap],
+            parallel_ccd=ccd,
+            parallel_roe=roe,
+            parallel_express=express,
+            parallel_offset=offset,
+            time_window_range=[split_point, 1],
+        )
+        image_post_cti_split = (
+            image_post_cti_firsthalf + image_post_cti_secondhalf - image_pre_cti
+        )
+        trail_split = image_post_cti_split - image_pre_cti
+
+        # Run all in one go
+        image_post_cti = ac.add_cti(
+            image=image_pre_cti,
+            serial_traps=[trap],
+            serial_ccd=ccd,
+            serial_roe=roe,
+            serial_express=express,
+            serial_offset=offset,
+            parallel_traps=[trap],
+            parallel_ccd=ccd,
+            parallel_roe=roe,
+            parallel_express=express,
+            parallel_offset=offset,
+        )
+        trail = image_post_cti - image_pre_cti
+
+        assert trail_split == pytest.approx(trail, rel=0.01, abs=2)
+
+
+class TestChargeInjection:
+    def test__charge_injection_add_CTI__compare_standard(self):
+
+        pixels = 12
+        n_pixel_transfers = 12
+        express = 0
+
+        image_pre_cti = np.zeros((pixels, 1))
+        image_pre_cti[::4, 0] = 800
+
+        # Nice numbers for easy manual checking
+        traps = [ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))]
+        ccd = ac.CCD(well_fill_power=1, full_well_depth=1000, well_notch_depth=0)
+        roe_ci = ac.ROEChargeInjection(n_pixel_transfers=n_pixel_transfers)
+        roe_std = ac.ROE()
+
+        image_post_cti_ci = ac.add_cti(
+            image=image_pre_cti,
+            parallel_traps=traps,
+            parallel_ccd=ccd,
+            parallel_roe=roe_ci,
+            parallel_express=express,
+        ).T[0]
+        image_post_cti_std = ac.add_cti(
+            image=image_pre_cti,
+            parallel_traps=traps,
+            parallel_ccd=ccd,
+            parallel_roe=roe_std,
+            parallel_express=express,
+        ).T[0]
+
+        # CI trails are very similar, though slightly less charge captured and
+        # a little extra charge released for later pixels as the traps fill up
+        assert image_post_cti_ci[:4] == pytest.approx(image_post_cti_ci[4:8], rel=0.02)
+        assert image_post_cti_ci[4:8] == pytest.approx(
+            image_post_cti_ci[8:12], rel=0.02
+        )
+        assert (image_post_cti_ci[:4] < image_post_cti_ci[4:8]).all()
+        assert (image_post_cti_ci[4:8] < image_post_cti_ci[8:]).all()
+
+        # Standard trails differ from each other significantly, with more
+        # trailing for the later pixels that undergo more transfers
+        assert image_post_cti_std[0] > image_post_cti_std[4]
+        assert image_post_cti_std[4] > image_post_cti_std[8]
+        assert (image_post_cti_std[1:4] < image_post_cti_std[5:8]).all()
+        assert (image_post_cti_std[5:8] < image_post_cti_std[9:]).all()
+
+    def test__charge_injection_add_CTI__express(self):
+
+        pixels = 12
+        n_pixel_transfers = 24
+        image_pre_cti = np.zeros((pixels, 1))
+        image_pre_cti[::4, 0] = 800
+
+        # Nice numbers for easy manual checking
+        traps = [ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))]
+        ccd = ac.CCD(well_fill_power=1, full_well_depth=1000, well_notch_depth=0)
+        roe = ac.ROEChargeInjection(n_pixel_transfers=n_pixel_transfers)
+
+        image_post_cti_0 = ac.add_cti(
+            image=image_pre_cti,
+            parallel_traps=traps,
+            parallel_ccd=ccd,
+            parallel_roe=roe,
+            parallel_express=0,
+        )
+
+        # Better approximation with increasing express
+        for express, tol in zip([1, 3, 8, 12], [0.09, 0.05, 0.02, 0.01]):
+            image_post_cti = ac.add_cti(
+                image=image_pre_cti,
+                parallel_traps=traps,
+                parallel_ccd=ccd,
+                parallel_roe=roe,
+                parallel_express=express,
+            )
+
+            assert image_post_cti == pytest.approx(image_post_cti_0, rel=tol)
+
+
+class TestTrapPumping:
+    def test__serial_trap_pumping_in_different_phases_makes_dipole(self):
+
+        # 3-phase pocket pumping with traps under phase 1 - no change expected
+        injection_level = 1000
+        image_orig = np.zeros((5, 1)) + injection_level
+        trap_pixel = 2
+        trap = ac.TrapInstantCapture(density=100, release_timescale=3)
+        roe = ac.ROETrapPumping(dwell_times=[1] * 6, n_pumps=2)
+        ccd = ac.CCD(
+            well_fill_power=0.5,
+            full_well_depth=2e5,
+            fraction_of_traps_per_phase=[1, 0, 0],
+        )
+        image_cti = ac.add_cti(
+            image=image_orig,
+            parallel_traps=[trap],
+            parallel_ccd=ccd,
+            parallel_roe=roe,
+            parallel_window_range=trap_pixel,
+        )
+        assert (
+            image_cti[trap_pixel] < image_orig[trap_pixel]
+        ), "pumping a trap in phase 1 does not remove charge"
+        assert abs(image_cti[trap_pixel] - image_orig[trap_pixel]) > abs(
+            image_cti[trap_pixel + 1] - image_orig[trap_pixel + 1]
+        ), "pumping a trap in phase 1 affects -neighbouring pixels"
+        assert abs(image_cti[trap_pixel] - image_orig[trap_pixel]) > abs(
+            image_cti[trap_pixel + 1] - image_orig[trap_pixel + 1]
+        ), "pumping a trap in phase 1 affects -neighbouring pixels"
+
+        # Traps under phase 2 - check for dipole
+        ccd = ac.CCD(
+            well_fill_power=0.5,
+            full_well_depth=2e5,
+            fraction_of_traps_per_phase=[0, 1, 0],
+        )
+        image_cti = ac.add_cti(
+            image=image_orig,
+            parallel_traps=[trap],
+            parallel_ccd=ccd,
+            parallel_roe=roe,
+            parallel_window_range=trap_pixel,
+        )
+        assert (
+            image_cti[trap_pixel] < image_orig[trap_pixel]
+        ), "pumping a trap in phase 2 does not remove charge"
+        assert (
+            image_cti[trap_pixel + 1] > image_orig[trap_pixel + 1]
+        ), "pumping a trap in phase 2 doesn't make a dipole"
+
+        # Traps under phase 3 - check for dipole
+        ccd = ac.CCD(
+            well_fill_power=0.5,
+            full_well_depth=2e5,
+            fraction_of_traps_per_phase=[0, 0, 1],
+        )
+        image_cti = ac.add_cti(
+            image=image_orig,
+            parallel_traps=[trap],
+            parallel_ccd=ccd,
+            parallel_roe=roe,
+            parallel_window_range=trap_pixel,
+        )
+        assert (
+            image_cti[trap_pixel] < image_orig[trap_pixel]
+        ), "pumping a trap in phase 3 does not remove charge"
+        assert (
+            image_cti[trap_pixel - 1] > image_orig[trap_pixel - 1]
+        ), "pumping a trap in phase 3 doesn't make a dipole"
+
+    def test__express_is_good_approximation_for_trap_pumping(self):
+
+        return  ###WIP
+
+        # 3-phase pocket pumping with traps under phase 1 - no change expected
+        injection_level = 1000
+        image_orig = np.zeros((5, 1)) + injection_level
+        trap_pixel = 2
+        trap_density = 1
+        n_pumps = 20
+        ccd = ac.CCD(
+            well_notch_depth=100,
+            full_well_depth=101,
+            fraction_of_traps_per_phase=[0, 1, 0],
+        )
+        trap = ac.TrapInstantCapture(density=trap_density, release_timescale=0.5)
+        roe = ac.ROETrapPumping(dwell_times=[0.33] * 6, n_pumps=n_pumps)
+
+        image_cti_express0 = ac.add_cti(
+            image=image_orig,
+            parallel_traps=[trap],
+            parallel_ccd=ccd,
+            parallel_roe=roe,
+            parallel_window_range=trap_pixel,
+            parallel_express=0,
+        )
+
+        image_cti_express1 = ac.add_cti(
+            image=image_orig,
+            parallel_traps=[trap],
+            parallel_ccd=ccd,
+            parallel_roe=roe,
+            parallel_window_range=trap_pixel,
+            parallel_express=1,
+        )
+
+        image_cti_express3 = ac.add_cti(
+            image=image_orig,
+            parallel_traps=[trap],
+            parallel_ccd=ccd,
+            parallel_roe=roe,
+            parallel_window_range=trap_pixel,
+            parallel_express=3,
+        )
+
+        fractional_diff_01 = (
+            image_cti_express1[[trap_pixel, trap_pixel + 1]]
+            - image_cti_express0[[trap_pixel, trap_pixel + 1]]
+        ) / image_orig[[trap_pixel, trap_pixel + 1]]
+        fractional_diff_03 = (
+            image_cti_express3[[trap_pixel, trap_pixel + 1]]
+            - image_cti_express0[[trap_pixel, trap_pixel + 1]]
+        ) / image_orig[[trap_pixel, trap_pixel + 1]]
+
+        assert (
+            abs(fractional_diff_01) < 1e-4
+        ).all(), "changing express from 0 (slow) to 1 (fast)"
+        assert (
+            abs(fractional_diff_03) < 1e-4
+        ).all(), "changing express from 0 (slow) to 3 (fastish)"
+
+        # Add more traps
+        density_change = 2
+        traphighrho = ac.TrapInstantCapture(
+            density=(trap_density * density_change), release_timescale=0.5
+        )
+        image_cti_express1_highrho = ac.add_cti(
+            image=image_orig,
+            parallel_traps=[traphighrho],
+            parallel_ccd=ccd,
+            parallel_roe=roe,
+            parallel_window_range=trap_pixel,
+            parallel_express=1,
+        )
+        fractional_diff = (
+            (
+                image_cti_express1_highrho[[trap_pixel, trap_pixel + 1]]
+                - image_orig[[trap_pixel, trap_pixel + 1]]
+            )
+            - density_change
+            * (
+                image_cti_express1[[trap_pixel, trap_pixel + 1]]
+                - image_orig[[trap_pixel, trap_pixel + 1]]
+            )
+        ) / image_orig[[trap_pixel, trap_pixel + 1]]
+        assert (abs(fractional_diff) < 1e-4).all()
+
+        # Do more pumps
+        n_pumps_change = 10
+        roehighpumps = ac.ROETrapPumping(
+            dwell_times=[0.33] * 6, n_pumps=(n_pumps * n_pumps_change)
+        )
+        image_cti_express1_highpump = ac.add_cti(
+            image=image_orig,
+            parallel_traps=[trap],
+            parallel_ccd=ccd,
+            parallel_roe=roehighpumps,
+            parallel_window_range=trap_pixel,
+            parallel_express=1,
+        )
+        fractional_diff = (
+            (
+                image_cti_express1_highpump[[trap_pixel, trap_pixel + 1]]
+                - image_orig[[trap_pixel, trap_pixel + 1]]
+            )
+            - n_pumps_change
+            * (
+                image_cti_express1[[trap_pixel, trap_pixel + 1]]
+                - image_orig[[trap_pixel, trap_pixel + 1]]
+            )
+        ) / image_orig[[trap_pixel, trap_pixel + 1]]
+        assert (abs(fractional_diff) < 1e-4).all()
+
+
 class TestAddCTIParallelOnly:
     def test__square__horizontal_line__line_loses_charge_trails_appear(self):
         image_pre_cti = np.zeros((5, 5))
@@ -999,7 +1579,7 @@ class TestAddCTIParallelOnly:
         assert (image_difference[:, 5] == 0.0).all()  # No Delta, no charge
 
 
-class TestArcticAddCTIParallelAndSerial:
+class TestAddCTIParallelAndSerial:
     def test__horizontal_charge_line__loses_charge_trails_form_both_directions(self,):
 
         parallel_traps = [ac.Trap(density=0.4, release_timescale=1.0)]
@@ -1353,7 +1933,7 @@ class TestAddCTIParallelMultiPhase:
         ).all()  # All other pixels should have charge trailed into them
 
 
-class TestArcticCorrectCTIParallelOnly:
+class TestCorrectCTIParallelOnly:
     def test__square__horizontal_line__corrected_image_more_like_original(self):
         image_pre_cti = np.zeros((5, 5))
         image_pre_cti[2, :] += 100
@@ -1738,7 +2318,7 @@ class TestArcticCorrectCTIParallelOnly:
         ).all()  # First four rows should all remain zero
 
 
-class TestArcticCorrectCTIParallelAndSerial:
+class TestCorrectCTIParallelAndSerial:
     def test__array_of_values__corrected_image_more_like_original(self,):
         image_pre_cti = np.array(
             [
@@ -1787,286 +2367,3 @@ class TestArcticCorrectCTIParallelAndSerial:
         image_difference_2 = image_correct_cti - image_pre_cti
 
         assert (abs(image_difference_2) <= abs(image_difference_1)).all()
-
-
-class TestOffsetsAndWindows:
-    def test__add_cti__single_pixel__offset(self):
-
-        # Nice numbers for easy manual checking
-        traps = [ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))]
-        ccd = ac.CCD(well_fill_power=1, full_well_depth=1000, well_notch_depth=0)
-        roe = ac.ROE(empty_traps_for_first_transfers=False)
-
-        # Base image without offset
-        image_pre_cti = np.zeros((12, 1))
-        image_pre_cti[2, 0] = 800
-
-        for offset in [1, 5, 11]:
-            # Offset added directly to image
-            image_pre_cti_manual_offset = np.zeros((12 + offset, 1))
-            image_pre_cti_manual_offset[2 + offset, 0] = 800
-
-            for express in [1, 3, 12, 0]:
-                # Add offset to base image
-                image_post_cti = ac.add_cti(
-                    image=image_pre_cti,
-                    parallel_traps=traps,
-                    parallel_ccd=ccd,
-                    parallel_roe=roe,
-                    parallel_express=express,
-                    parallel_offset=offset,
-                )
-
-                # Offset already in image
-                image_post_cti_manual_offset = ac.add_cti(
-                    image=image_pre_cti_manual_offset,
-                    parallel_traps=traps,
-                    parallel_ccd=ccd,
-                    parallel_roe=roe,
-                    parallel_express=express,
-                )
-
-                assert image_post_cti == pytest.approx(
-                    image_post_cti_manual_offset[offset:]
-                )
-
-    def test__add_cti__single_pixel__vary_window_over_start_of_trail(self):
-
-        # Manually set True to make the plot
-        do_plot = False
-        # do_plot = True
-
-        image_pre_cti = np.zeros((12, 1))
-        image_pre_cti[2, 0] = 800
-
-        # Nice numbers for easy manual checking
-        traps = [ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))]
-        ccd = ac.CCD(well_fill_power=1, full_well_depth=1000, well_notch_depth=0)
-        roe = ac.ROE(empty_traps_for_first_transfers=False)
-        express = 0
-
-        # Full image
-        image_post_cti = ac.add_cti(
-            image=image_pre_cti,
-            parallel_traps=traps,
-            parallel_ccd=ccd,
-            parallel_roe=roe,
-            parallel_express=express,
-        ).T[0]
-
-        if do_plot:
-            pixels = np.arange(len(image_pre_cti))
-            plt.figure(figsize=(10, 6))
-            plt.plot(
-                pixels, image_post_cti, alpha=0.6, ls="--", label="Full",
-            )
-
-        for i, window_range in enumerate(
-            [
-                range(3, 12),  # After bright pixel so no trail
-                range(1, 5),  # Start of trail
-                range(1, 9),  # Most of trail
-                range(1, 12),  # Full trail
-                range(0, 12),  # Full image
-            ]
-        ):
-            image_window = ac.add_cti(
-                image=image_pre_cti,
-                parallel_traps=traps,
-                parallel_ccd=ccd,
-                parallel_roe=roe,
-                parallel_express=express,
-                parallel_window_range=window_range,
-            ).T[0]
-
-            if do_plot:
-                plt.plot(
-                    pixels,
-                    image_window,
-                    alpha=0.6,
-                    label="range(%d, %d)" % (window_range[0], window_range[-1] + 1),
-                )
-
-            # After bright pixel so no trail
-            if i == 0:
-                assert image_window == pytest.approx(image_pre_cti.T[0])
-
-            # Matches within window
-            else:
-                assert image_window[window_range] == pytest.approx(
-                    image_post_cti[window_range]
-                )
-
-        if do_plot:
-            plt.legend()
-            plt.yscale("log")
-            plt.xlabel("Pixel")
-            plt.ylabel("Counts")
-            plt.tight_layout()
-            plt.show()
-
-    def test__split_parallel_readout_by_time(self):
-
-        n_pixels = 12
-        image_pre_cti = np.zeros((n_pixels, 1))
-        image_pre_cti[2, 0] = 800
-
-        # Nice numbers for easy manual checking
-        traps = [ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))]
-        ccd = ac.CCD(well_fill_power=1, full_well_depth=1000, well_notch_depth=0)
-        roe = ac.ROE(empty_traps_for_first_transfers=False)
-        offset = 0
-        split_point = 5
-
-        for express in [1, 3, n_pixels]:
-            # Run all in one go
-            image_post_cti = ac.add_cti(
-                image=image_pre_cti,
-                parallel_traps=traps,
-                parallel_ccd=ccd,
-                parallel_roe=roe,
-                parallel_express=express,
-            )
-
-            # Run in two halves
-            image_post_cti_start = ac.add_cti(
-                image=image_pre_cti,
-                parallel_traps=traps,
-                parallel_ccd=ccd,
-                parallel_roe=roe,
-                parallel_express=express,
-                time_window_range=range(0, split_point),
-            )
-            image_post_cti_continue = ac.add_cti(
-                image=image_post_cti_start,
-                parallel_traps=traps,
-                parallel_ccd=ccd,
-                parallel_roe=roe,
-                parallel_express=express,
-                time_window_range=range(split_point, n_pixels + offset),
-            )
-
-            # Not perfect because when continuing the 2nd half the trap states are
-            # not (and cannot be) the same as at the end of the 1st half
-            assert image_post_cti_continue == pytest.approx(
-                image_post_cti, rel=0.01, abs=1
-            )
-
-    def test__split_serial_readout_by_time(self):
-
-        image_pre_cti = np.zeros((4, 10))
-        image_pre_cti[0, 1] += 10000
-
-        trap = ac.Trap(density=10, release_timescale=10.0)
-        ccd = ac.CCD(well_notch_depth=0.0, well_fill_power=0.8, full_well_depth=100000)
-        roe = ac.ROE(
-            empty_traps_for_first_transfers=False, empty_traps_between_columns=True
-        )
-
-        express = 2
-        offset = 0
-        n_pixels = 10
-        split_point = 7
-
-        # Run in two halves
-        image_post_cti_firsthalf = ac.add_cti(
-            image=image_pre_cti,
-            serial_traps=[trap],
-            serial_ccd=ccd,
-            serial_roe=roe,
-            serial_express=express,
-            serial_offset=offset,
-            time_window_range=range(0, split_point),
-        )
-        trail_firsthalf = image_post_cti_firsthalf - image_pre_cti
-        image_post_cti_split = ac.add_cti(
-            image=image_post_cti_firsthalf,
-            serial_traps=[trap],
-            serial_ccd=ccd,
-            serial_roe=roe,
-            serial_express=express,
-            serial_offset=offset,
-            time_window_range=range(split_point, n_pixels + offset),
-        )
-        trail_split = image_post_cti_split - image_pre_cti
-
-        # Run all in one go
-        image_post_cti = ac.add_cti(
-            image=image_pre_cti,
-            serial_traps=[trap],
-            serial_ccd=ccd,
-            serial_roe=roe,
-            serial_express=express,
-            serial_offset=offset,
-        )
-        trail = image_post_cti - image_pre_cti
-
-        assert trail_split == pytest.approx(trail)
-
-    def test__split_parallel_and_serial_readout_by_time(self):
-
-        image_pre_cti = np.zeros((20, 15))
-        image_pre_cti[1, 1] += 10000
-
-        trap = ac.Trap(density=10, release_timescale=10.0)
-        ccd = ac.CCD(well_notch_depth=0.0, well_fill_power=0.8, full_well_depth=100000)
-        roe = ac.ROE(
-            empty_traps_for_first_transfers=False, empty_traps_between_columns=True
-        )
-
-        express = 2
-        offset = 0
-        split_point = 0.25
-
-        # Run in two halves
-        image_post_cti_firsthalf = ac.add_cti(
-            image=image_pre_cti,
-            parallel_traps=[trap],
-            parallel_ccd=ccd,
-            parallel_roe=roe,
-            parallel_express=express,
-            parallel_offset=offset,
-            serial_traps=[trap],
-            serial_ccd=ccd,
-            serial_roe=roe,
-            serial_express=express,
-            serial_offset=offset,
-            time_window_range=[0, split_point],
-        )
-        trail_firsthalf = image_post_cti_firsthalf - image_pre_cti
-        image_post_cti_secondhalf = ac.add_cti(
-            image=image_pre_cti,
-            serial_traps=[trap],
-            serial_ccd=ccd,
-            serial_roe=roe,
-            serial_express=express,
-            serial_offset=offset,
-            parallel_traps=[trap],
-            parallel_ccd=ccd,
-            parallel_roe=roe,
-            parallel_express=express,
-            parallel_offset=offset,
-            time_window_range=[split_point, 1],
-        )
-        image_post_cti_split = (
-            image_post_cti_firsthalf + image_post_cti_secondhalf - image_pre_cti
-        )
-        trail_split = image_post_cti_split - image_pre_cti
-
-        # Run all in one go
-        image_post_cti = ac.add_cti(
-            image=image_pre_cti,
-            serial_traps=[trap],
-            serial_ccd=ccd,
-            serial_roe=roe,
-            serial_express=express,
-            serial_offset=offset,
-            parallel_traps=[trap],
-            parallel_ccd=ccd,
-            parallel_roe=roe,
-            parallel_express=express,
-            parallel_offset=offset,
-        )
-        trail = image_post_cti - image_pre_cti
-
-        assert trail_split == pytest.approx(trail, rel=0.01, abs=2)

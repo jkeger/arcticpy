@@ -350,6 +350,8 @@ class ROE(ROEAbstract):
         express_matrix_dtype=float,
     ):
         """
+        The primary readout electronics (ROE) class.
+        
         Parameters
         ----------
         dwell_times : float or [float]
@@ -627,33 +629,41 @@ class ROEChargeInjection(ROE):
     def __init__(
         self,
         dwell_times=[1],
-        n_active_pixels=None,
+        n_pixel_transfers=None,
         empty_traps_between_columns=True,
         force_release_away_from_readout=True,
         express_matrix_dtype=float,
     ):
         """
-        ###
-        electrons are electronically created by a charge injection 
-        structure at the end of a CCD, then clocked through all of 
-        the pixels to the readout register. By default, it is assumed 
-        that this number is the number of pixels in the image.
+        The readout electronics (ROE) class varient for charge injection modes.
         
-        n_active_pixels : int
+        This implies that electrons are directly created by a charge injection 
+        structure at the end of a CCD, then clocked the same number of times 
+        through all of the pixels to the readout register, compared with the 
+        standard case where electrons start in image pixels at different 
+        distances from readout.
+        
+        Parameters (if different to ROE)
+        ----------
+        n_pixel_transfers : int
             The number of pixels between the charge injection structure and the 
-            readout register. If not set, it is assumed to be the number of 
-            pixels in the supplied image. However, this need not be the case if 
-            the image supplied is a reduced portion of the entire image (to 
-            speed up runtime) or charege injection and readout continued for 
-            more than the number of pixels in the detector.
+            readout register, through which the electrons are transferred. 
+            Defaults to the number of pixels in the supplied image. However, 
+            this need not be the case if the image supplied is a reduced portion 
+            of the entire image (to speed up runtime) or charge injection and 
+            readout continued for more than the number of pixels in the 
+            detector.
         """
 
-        super().__init__(dwell_times, express_matrix_dtype)
+        super().__init__(
+            dwell_times=dwell_times,
+            express_matrix_dtype=express_matrix_dtype,
+            empty_traps_between_columns=empty_traps_between_columns,
+            force_release_away_from_readout=force_release_away_from_readout,
+        )
 
         # Parse inputs
-        self.n_active_pixels = n_active_pixels
-        self.empty_traps_between_columns = empty_traps_between_columns
-        self.force_release_away_from_readout = force_release_away_from_readout
+        self.n_pixel_transfers = n_pixel_transfers
 
         # Link to generic methods
         self.clock_sequence = self._generate_clock_sequence()
@@ -665,30 +675,39 @@ class ROEChargeInjection(ROE):
         self, pixels, express=0, offset=0, time_window_range=None,
     ):
         """ 
-        See ROE.express_matrix_from_pixels_and_express()
+        See ROE.express_matrix_and_monitor_traps_matrix_from_pixels_and_express()
         
-        ### Explain why different
+        For charge injection, all charges are clocked the same number of times 
+        through all the self.n_pixel_transfers pixels to the readout register.
+        
+        Parameters (if different to ROE.express_matrix_and_monitor_traps_matrix_from_pixels_and_express)
+        ----------
+        offset : int
+            Only applies if self.n_pixel_transfers is None, since otherwise
+            self.n_pixel_transfers already contains the same information.
         """
 
         window_range = range(pixels) if isinstance(pixels, int) else pixels
         n_pixels = max(window_range) + 1
-        n_active_pixels = (
-            n_pixels + offset
-            if self.n_active_pixels is None
-            else self.n_active_pixels  #
-        )
+        if self.n_pixel_transfers is None:
+            self.n_pixel_transfers = n_pixels + offset
 
-        # Default to very slow but accurate behaviour
-        express = n_active_pixels if express == 0 else min(express, n_active_pixels)
+        # Set default express to all transfers and check no larger
+        if express == 0:
+            express = self.n_pixel_transfers
+        else:
+            express = min(express, self.n_pixel_transfers)
 
         # Compute the multiplier factors
         express_matrix = np.zeros((express, n_pixels), dtype=self.express_matrix_dtype)
-        max_multiplier = n_active_pixels / express
+        max_multiplier = self.n_pixel_transfers / express
         if self.express_matrix_dtype == int:
             max_multiplier = math.ceil(max_multiplier)
             for i in reversed(range(express)):
                 express_matrix[i, :] = util.set_min_max(
-                    max_multiplier, 0, n_active_pixels - sum(express_matrix[:, 0])
+                    max_multiplier,
+                    0,
+                    self.n_pixel_transfers - sum(express_matrix[:, 0]),
                 )
         else:
             express_matrix[:] = max_multiplier
@@ -701,7 +720,7 @@ class ROEChargeInjection(ROE):
             express_matrix, time_window_range
         )
 
-        return (express_matrix,)
+        return express_matrix, monitor_traps_matrix
 
     def save_trap_states_matrix_from_express_matrix(self, express_matrix):
         """
@@ -722,7 +741,9 @@ class ROETrapPumping(ROEAbstract):
         empty_traps_for_first_transfers=True,
         express_matrix_dtype=float,
     ):
-        """ Readout sequence to represent tramp pumping (aka pocket pumping).
+        """ 
+        The readout electronics (ROE) class varient for trap pumping (aka pocket 
+        pumping).
         
         If a uniform image is repeatedly pumped through a CCD, dipoles (positive
         -negative pairs in adjacent pixels) are created wherever there are traps 
@@ -730,11 +751,14 @@ class ROETrapPumping(ROEAbstract):
         they are assumed to be in every pixel. This would create overlapping 
         dipoles and, ultimately, no change. The location of the traps should 
         therefore be specified in the "window" variable passed to 
-        arcticpy.add_cti, so only those particular pixels are pumped, and traps
-        in those pixels activated. The phase of the traps should be specified in
-        arcticpy.CCD().
+        arcticpy.add_cti(), so only those particular pixels are pumped, and 
+        traps in those pixels activated. The phase of the traps should be 
+        specified in arcticpy.CCD().
         
-        ###
+        Parameters (if different to ROE)
+        ----------
+        n_pumps : int
+            ###
         """
 
         super().__init__(dwell_times, express_matrix_dtype)
@@ -779,11 +803,11 @@ class ROETrapPumping(ROEAbstract):
         self, pixels, express=0, offset=None, time_window_range=None
     ):
         """ 
-        See ROE.express_matrix_from_pixels_and_express()
+        See ROE.express_matrix_and_monitor_traps_matrix_from_pixels_and_express()
     
         ### Explain why different
         
-        Parameters (if different to ROE.express_matrix_from_pixels_and_express)
+        Parameters (if different to ROE.express_matrix_and_monitor_traps_matrix_from_pixels_and_express)
         ----------
         pixels : int or range
             In this case, specifically only the pixels that contain traps.
@@ -793,7 +817,7 @@ class ROETrapPumping(ROEAbstract):
                     the entire image).
         
         offset, time_window_range : None
-            Not used in this trap-pumping version of ROE.
+            Not used for trap pumping.
         """
 
         # Parse inputs
@@ -801,10 +825,11 @@ class ROETrapPumping(ROEAbstract):
             pixels = [pixels]
         n_pixels_with_traps = len(pixels)
 
-        # Default to very slow but accurate behaviour
+        # Set default express to all transfers and check no larger
         if express == 0:
             express = self.n_pumps
-        express = min(express, self.n_pumps)
+        else:
+            express = min(express, self.n_pumps)
 
         # Decide for how many effective pumps each implementation of a single
         # pump will count

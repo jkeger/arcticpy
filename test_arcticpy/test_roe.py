@@ -556,6 +556,123 @@ class TestClockingSequences:
             assert roe.clock_sequence[step][phase].is_high
 
 
+class TestChargeInjection:
+    def test__charge_injection_express_matrix_and_monitor_traps_matrix(self):
+
+        pixels = 12
+        n_pixel_transfers = 12
+        express = 0
+        roe = ac.ROEChargeInjection(n_pixel_transfers=n_pixel_transfers)
+        (
+            express_matrix,
+            monitor_traps_matrix,
+        ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
+            pixels=pixels, express=express
+        )
+        assert express_matrix == pytest.approx(np.ones((n_pixel_transfers, pixels)))
+        assert monitor_traps_matrix == pytest.approx(np.ones_like(express_matrix))
+
+        express = 1
+        (
+            express_matrix,
+            monitor_traps_matrix,
+        ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
+            pixels=pixels, express=express
+        )
+        assert express_matrix == pytest.approx(np.ones((1, pixels)) * n_pixel_transfers)
+        assert monitor_traps_matrix == pytest.approx(np.ones_like(express_matrix))
+
+        n_pixel_transfers = 24
+        express = 4
+        roe = ac.ROEChargeInjection(n_pixel_transfers=n_pixel_transfers)
+        (
+            express_matrix,
+            monitor_traps_matrix,
+        ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
+            pixels=pixels, express=express
+        )
+        assert express_matrix == pytest.approx(
+            np.ones((express, pixels)) * n_pixel_transfers / express
+        )
+        assert monitor_traps_matrix == pytest.approx(np.ones_like(express_matrix))
+
+        express = 4
+        offset = 6
+        roe = ac.ROEChargeInjection(n_pixel_transfers=None)
+        (
+            express_matrix,
+            monitor_traps_matrix,
+        ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
+            pixels=pixels, express=express, offset=offset
+        )
+        assert express_matrix == pytest.approx(
+            np.ones((express, pixels)) * (pixels + offset) / express
+        )
+        assert monitor_traps_matrix == pytest.approx(np.ones_like(express_matrix))
+
+    def test__express_is_good_approximation_for_charge_injection(self):
+
+        return  ###WIP
+
+        roe = ac.ROEChargeInjection(n_pixel_transfers=2)
+        (
+            express_matrix,
+            _,
+        ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(10, 0)
+
+        ccd = ac.CCD(well_fill_power=0.5, full_well_depth=2e5)
+        roe = ac.ROEChargeInjection(n_pixel_transfers=2000)
+        trap = ac.Trap(density=1, release_timescale=0.5)
+
+        background = 0
+        image_orig = np.zeros((9, 1)) + background
+        image_orig[0] = 1e5
+
+        image_cti = ac.add_cti(
+            image=image_orig, parallel_traps=[trap], parallel_ccd=ccd, parallel_roe=roe,
+        )
+
+        ccd = ac.CCD(well_fill_power=0.5, full_well_depth=2e5)
+        roe = ac.ROE()
+        trap = ac.Trap(density=1, release_timescale=0.5)
+
+        background = 0
+        image_orig = np.zeros((9, 1)) + background
+        image_orig[0] = 1e5
+
+        image_cti = ac.add_cti(
+            image=image_orig,
+            parallel_traps=[trap],
+            parallel_ccd=ccd,
+            parallel_roe=roe,
+            parallel_offset=2000,
+        )
+        plt.plot(image_cti)
+        plt.yscale("log")
+
+        ccd = ac.CCD(
+            well_fill_power=1,
+            full_well_depth=2e5,
+            fraction_of_traps_per_phase=[0.33, 0.33, 0.33],
+        )
+        roe = ac.ROEChargeInjection(
+            dwell_times=[0.33, 0.33, 0.33],
+            force_release_away_from_readout=False,
+            n_pixel_transfers=2000,
+        )
+        trap = ac.Trap(density=10, release_timescale=0.5)
+
+        background = 0
+        image_orig = np.zeros((9, 1)) + background
+        image_orig[0] = 1e5
+
+        image_cti = ac.add_cti(
+            image=image_orig, parallel_traps=[trap], parallel_ccd=ccd, parallel_roe=roe,
+        )
+        plt.plot(image_cti)
+        plt.yscale("log")
+
+
 class TestTrapPumping:
     def test__serial_trap_pumping_in_different_phases_makes_dipole(self):
 
@@ -739,67 +856,3 @@ class TestTrapPumping:
             )
         ) / image_orig[[trap_pixel, trap_pixel + 1]]
         assert (abs(fractional_diff) < 1e-4).all()
-
-
-class TestChargeInjection:
-    def test__express_is_good_approximation_for_charge_injection(self):
-
-        return  ###WIP
-
-        roe = ac.ROEChargeInjection(n_active_pixels=2)
-        (
-            express_matrix,
-            _,
-        ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(10, 0)
-
-        ccd = ac.CCD(well_fill_power=0.5, full_well_depth=2e5)
-        roe = ac.ROEChargeInjection(n_active_pixels=2000)
-        trap = ac.Trap(density=1, release_timescale=0.5)
-
-        background = 0
-        image_orig = np.zeros((9, 1)) + background
-        image_orig[0] = 1e5
-
-        image_cti = ac.add_cti(
-            image=image_orig, parallel_traps=[trap], parallel_ccd=ccd, parallel_roe=roe,
-        )
-
-        ccd = ac.CCD(well_fill_power=0.5, full_well_depth=2e5)
-        roe = ac.ROE()
-        trap = ac.Trap(density=1, release_timescale=0.5)
-
-        background = 0
-        image_orig = np.zeros((9, 1)) + background
-        image_orig[0] = 1e5
-
-        image_cti = ac.add_cti(
-            image=image_orig,
-            parallel_traps=[trap],
-            parallel_ccd=ccd,
-            parallel_roe=roe,
-            parallel_offset=2000,
-        )
-        plt.plot(image_cti)
-        plt.yscale("log")
-
-        ccd = ac.CCD(
-            well_fill_power=1,
-            full_well_depth=2e5,
-            fraction_of_traps_per_phase=[0.33, 0.33, 0.33],
-        )
-        roe = ac.ROEChargeInjection(
-            dwell_times=[0.33, 0.33, 0.33],
-            force_release_away_from_readout=False,
-            n_active_pixels=2000,
-        )
-        trap = ac.Trap(density=10, release_timescale=0.5)
-
-        background = 0
-        image_orig = np.zeros((9, 1)) + background
-        image_orig[0] = 1e5
-
-        image_cti = ac.add_cti(
-            image=image_orig, parallel_traps=[trap], parallel_ccd=ccd, parallel_roe=roe,
-        )
-        plt.plot(image_cti)
-        plt.yscale("log")

@@ -527,6 +527,38 @@ class TestCompareOldArCTIC:
             plt.show()
 
 
+class TestExpress:
+    def test__add_CTI__single_pixel__express(self):
+
+        image_pre_cti = np.zeros((20, 1))
+        image_pre_cti[2, 0] = 800
+
+        # Nice numbers for easy manual checking
+        traps = [ac.TrapInstantCapture(density=10, release_timescale=-1 / np.log(0.5))]
+        ccd = ac.CCD(well_fill_power=1, full_well_depth=1000, well_notch_depth=0)
+        roe = ac.ROE()
+
+        image_post_cti_0 = ac.add_cti(
+            image=image_pre_cti,
+            parallel_traps=traps,
+            parallel_ccd=ccd,
+            parallel_roe=roe,
+            parallel_express=0,
+        )
+
+        # Better approximation with increasing express
+        for express, tol in zip([1, 2, 5, 10], [2.5, 1.8, 0.4, 0.3]):
+            image_post_cti = ac.add_cti(
+                image=image_pre_cti,
+                parallel_traps=traps,
+                parallel_ccd=ccd,
+                parallel_roe=roe,
+                parallel_express=express,
+            )
+
+            assert image_post_cti == pytest.approx(image_post_cti_0, rel=tol)
+
+
 class TestOffsetsAndWindows:
     def test__add_cti__single_pixel__offset(self):
 
@@ -875,7 +907,7 @@ class TestChargeInjection:
             parallel_ccd=ccd,
             parallel_roe=roe,
             parallel_express=0,
-        ).T[0]
+        )
 
         # Better approximation with increasing express
         for express, tol in zip([1, 3, 8, 12], [0.09, 0.05, 0.02, 0.01]):
@@ -885,7 +917,7 @@ class TestChargeInjection:
                 parallel_ccd=ccd,
                 parallel_roe=roe,
                 parallel_express=express,
-            ).T[0]
+            )
 
             assert image_post_cti == pytest.approx(image_post_cti_0, rel=tol)
 

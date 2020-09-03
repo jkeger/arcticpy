@@ -1,15 +1,15 @@
-from arcticpy.main import add_cti, remove_cti
+from arcticpy.main import add_cti, remove_cti, model_for_HST_ACS
 from arcticpy.roe import (
     ROE,
-    ROETrapPumping,
     ROEChargeInjection,
+    ROETrapPumping,
 )
 from arcticpy.ccd import CCD, CCDPhase
 from arcticpy.traps import (
     Trap,
+    TrapInstantCapture,
     TrapLifetimeContinuumAbstract,
     TrapLogNormalLifetimeContinuum,
-    TrapInstantCapture,
 )
 from arcticpy.trap_managers import (
     AllTrapManager,
@@ -17,4 +17,5 @@ from arcticpy.trap_managers import (
     TrapManagerTrackTime,
     TrapManagerInstantCapture,
 )
-from arcticpy import util
+
+# from PyAutoArray import FrameACS

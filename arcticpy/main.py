@@ -24,6 +24,7 @@ from copy import deepcopy
 from arcticpy.roe import ROE
 from arcticpy.ccd import CCD, CCDPhase
 from arcticpy.trap_managers import AllTrapManager
+from arcticpy.traps import TrapInstantCapture
 from arcticpy import util
 
 
@@ -510,3 +511,86 @@ def remove_cti(
         image_remove_cti += image - image_add_cti
 
     return image_remove_cti
+
+
+def model_for_HST_ACS(date):
+    """
+    Return arcticpy objects that provide a preset CTI model for the Hubble Space 
+    Telescope (HST) Advanced Camera for Surveys (ACS).
+
+    The returned objects are ready to be passed to add_cti() or remove_cti()
+    for parallel clocking.
+
+    Parameters
+    ----------
+    date : float
+        The Julian date. Should not be before the launch date of 2452334.5.
+
+    Returns
+    -------
+    traps : [Trap]
+        A list of trap objects that set the parameters for each trap species. 
+        See traps.py.
+
+    ccd : CCD
+        The CCD object that describes how electrons fill the volume. See ccd.py.
+
+    roe : ROE
+        The ROE object that describes the readout electronics. See roe.py.
+    """
+
+    # Key dates when ACS/WFC configuration changed
+    launch_date = 2452334.5
+    temperature_change_date = 2453920
+    sm4_repair_date = 2454968
+
+    assert date >= launch_date, "Julian date must be after launch, i.e. >= 2452334.5"
+
+    # Trap density
+    if date < sm4_repair_date:
+        trap_initial_density = 0.017845
+        trap_growth_rate = 3.5488e-4
+    else:
+        trap_initial_density = -0.246591 * 1.011
+        trap_growth_rate = 0.000558980 * 1.011
+    total_trap_density = trap_initial_density + trap_growth_rate * (date - launch_date)
+    trap_densities = (
+        np.array([1.27, 3.38, 2.85]) / (1.27 + 3.38 + 2.85) * total_trap_density
+    )
+
+    # Trap release time
+    if date < temperature_change_date:
+        operating_temperature = 273.15 - 77
+    else:
+        operating_temperature = 273.15 - 81
+    sm4_temperature = 273.15 - 81  # K
+    k = 8.617343e-5  # eV / K
+    DeltaE = np.array([0.31, 0.34, 0.44])  # eV
+    trap_release_times = (
+        np.array([0.74, 7.7, 37])
+        * (operating_temperature / (273.15 - 81))
+        * np.exp(
+            DeltaE
+            / (k * sm4_temperature * operating_temperature)
+            * (operating_temperature - sm4_temperature)
+        )
+    )  # pixels
+
+    # Assemble variables to pass to add_cti()
+    traps = [
+        TrapInstantCapture(
+            density=trap_densities[0], release_timescale=trap_release_times[0]
+        ),
+        TrapInstantCapture(
+            density=trap_densities[1], release_timescale=trap_release_times[1]
+        ),
+        TrapInstantCapture(
+            density=trap_densities[2], release_timescale=trap_release_times[2]
+        ),
+    ]
+
+    ccd = CCD(full_well_depth=84700, well_fill_power=0.478, well_notch_depth=0)
+
+    roe = ROE(dwell_times=[1])
+
+    return traps, ccd, roe

@@ -29,6 +29,8 @@ Contents
     + ROE
     + Trap species
     + Trap managers
+    + Image files
+    + Preset models
 + Examples 
     + Correcting HST images
     + Charge injection lines
@@ -97,6 +99,8 @@ A quick summary of the code files and their content:
         These are wrappers for `_clock_charge_in_one_direction()`, which 
         contains the primary nested for loops over an image to add CTI to 
         (in order) each column, express pass (see below), and row.
+        
+        Also contains preset CTI models for e.g. the HST ACS.
     + `ccd.py`  
         Defines the user-facing `CCD` classes that describes how electrons fill 
         the volume inside each (phase of a) pixel in a CCD detector.
@@ -129,6 +133,8 @@ To add (and remove) CTI trails, the primary inputs are the initial image
 followed by the properties of the CCD, readout electronics (ROE), and trap 
 species, for either or both parallel and serial clocking:
 ```python
+import arcticpy as ac
+
 image_with_cti = ac.add_cti(
     image,
     
@@ -200,6 +206,8 @@ Note that instead of actually moving the charges past the traps in each pixel,
 as happens in the real hardware, the code tracks the occupancies of the traps 
 (see watermarks below) and updates them by scanning over each pixel. This 
 simplifies the code structure and keeps the image array conveniently static.
+
+See the 'Image files' section below for useful functions for loading images.
 
 
 ### Express
@@ -454,6 +462,34 @@ lifetimes.
 All the trap species managed by one trap manager must use watermarks in the same 
 way. If different trap types are used, then multiple trap managers are created
 (see the `AllTrapManager` class).
+
+
+
+Image files
+-----------
+Convenient loading and saving of images to fits files is implemented in arcticpy 
+via our PyAutoArray package (https://github.com/Jammy2211/PyAutoArray). 
+
+The ...
+```python
+image = ac.FrameACS.from_fits(file_path="HST_ACS_example.fits", quadrant_letter="A")
+```
+
+
+
+Preset models
+-------------
+Instead of creating the CCD, ROE, and Trap species yourself, some preset options 
+are available for common applications.
+
+These functions in `main.py` return objects ready to be passed to `add_cti()` or
+`remove_cti()`:
+```python
+traps, ccd, roe = ac.model_for_HST_ACS(date=2455123)
+```
+which sets up model objects suitable for the Hubble Space Telescope (HST) 
+Advanced Camera for Surveys (ACS), with parameters adjusted for the Julian date.
+
 
 
 

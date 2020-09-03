@@ -2367,3 +2367,29 @@ class TestCorrectCTIParallelAndSerial:
         image_difference_2 = image_correct_cti - image_pre_cti
 
         assert (abs(image_difference_2) <= abs(image_difference_1)).all()
+
+
+class TestPresetModels:
+    def test__model_for_HST_ACS(self):
+        launch_date = 2452334.5
+        temperature_change_date = 2453920
+        sm4_repair_date = 2454968
+
+        traps_1, ccd, roe = ac.model_for_HST_ACS(date=launch_date + 10)
+        traps_2, ccd, roe = ac.model_for_HST_ACS(date=temperature_change_date + 10)
+        traps_3, ccd, roe = ac.model_for_HST_ACS(date=sm4_repair_date + 10)
+        traps_4, ccd, roe = ac.model_for_HST_ACS(date=sm4_repair_date + 100)
+
+        for trap_1, trap_2, trap_3, trap_4 in zip(traps_1, traps_2, traps_3, traps_4):
+            # Trap densities grow with time
+            assert trap_1.density < trap_2.density
+            assert trap_2.density < trap_3.density
+            assert trap_3.density < trap_4.density
+
+            # Release timescales decrease after temperature change
+            assert trap_1.release_timescale > trap_2.release_timescale
+            assert trap_2.release_timescale == trap_3.release_timescale
+            assert trap_3.release_timescale == trap_4.release_timescale
+
+        assert isinstance(ccd, ac.CCD)
+        assert isinstance(roe, ac.ROE)

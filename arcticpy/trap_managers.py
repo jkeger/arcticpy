@@ -19,8 +19,9 @@ class AllTrapManager(UserList):
         
         Each trap manager handles a group of trap species that shares watermark 
         levels; these are joined in a list. The list is then repeated for each 
-        phase in the CCD pixels (default only 1). Can be accessed as 
-        TrapManagers[trap_group_index][phase].
+        phase in the CCD pixels (default only 1), as the traps in each phase 
+        must be tracked separately. So each trap manager can be accessed as 
+        AllTrapManager[trap_group_index][phase].
         
         Parameters
         ----------

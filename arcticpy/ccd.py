@@ -15,8 +15,8 @@ class CCD(object):
         well_bloom_level=None,
     ):
         """
-        A model describing how electrons fill the volume inside each (phase of 
-        a) pixel in a CCD detector. 
+        A model describing how electrons fill the volume inside each phase of 
+        a pixel in a CCD detector. 
         
         By default, each pixel is assumed to have only a single phase. To 
         specify a multi-phase device (which will need a corresponding clocking 
@@ -188,8 +188,8 @@ class CCD(object):
         a density-driven CTI model, in which traps may capture an electron
         anywhere in a pixel, but at varying capture probability. There is 
         considerable evidence that CCDs in the Hubble Space Telescope are 
-        primarily density-driven; a software algorithm to mimic such 
-        behaviour also runs much faster.
+        primarily volume-driven; a software algorithm to mimic such behaviour
+        also runs much faster.
         """
 
         def cloud_fractional_volume_from_n_electrons(n_electrons, surface=False):

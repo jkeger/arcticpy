@@ -454,7 +454,7 @@ def add_cti(
             mask=image.mask,
             original_roe_corner=image.original_roe_corner,
             scans=image.scans,
-            exposure_info=image.exposure_info
+            exposure_info=image.exposure_info,
         )
 
     return image_add_cti
@@ -534,7 +534,7 @@ def remove_cti(
             mask=image.mask,
             original_roe_corner=image.original_roe_corner,
             scans=image.scans,
-            exposure_info=image.exposure_info
+            exposure_info=image.exposure_info,
         )
 
     return image_remove_cti

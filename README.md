@@ -125,7 +125,7 @@ A quick summary of the code files and their content:
     + `test_roe.py` ROE tests
     + `test_traps.py` Traps and trap manager tests
 + `examples/` General examples to complement the documentation in this file.
-    + `correct_HST_ACS_image.py` Remove CTI trails from a Hubble image
+    + `correct_HST_ACS_image.py` Remove CTI trails from a Hubble image slice
     + More coming soon...
 
 
@@ -499,8 +499,8 @@ Advanced Camera for Surveys (ACS), with parameters adjusted for the Julian date.
 
 Examples
 ========
-See `examples/correct_HST_ACS_image.py` for a full example of correcting CTI in 
-an image from the Hubble Space Telescope (HST) Advanced Camera for Surveys (ACS) 
+See `examples/correct_HST_ACS_image.py` for an example of correcting CTI in an
+image from the Hubble Space Telescope (HST) Advanced Camera for Surveys (ACS) 
 instrument.
 
 More coming soon...

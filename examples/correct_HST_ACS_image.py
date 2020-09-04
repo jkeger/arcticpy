@@ -24,14 +24,14 @@ frame = ac.acs.FrameACS.from_fits(
 
 # Extract a thin slice of a few columns as an example
 frame = frame[:, 1000:1010]
-frame.mask = frame.mask[:, 1000:1010] # ignore this.
+frame.mask = frame.mask[:, 1000:1010]
 
 # Plot the initial image
 plt.figure()
 im = plt.imshow(X=frame, aspect="equal", vmax=2800)
 plt.colorbar(im)
 plt.axis("off")
-plt.savefig(f"{path}/acs/j8xi61meq_raw.png", dpi=400)
+plt.savefig(f"{path}/acs/j8xi61meq_raw.png", dpi=800)
 plt.close()
 
 # Set CCD, ROE, and trap parameters for HST ACS at this Julian date
@@ -54,18 +54,5 @@ plt.figure()
 im = plt.imshow(X=image_cti_removed, aspect="equal", vmax=2800)
 plt.colorbar(im)
 plt.axis("off")
-plt.savefig(f"{path}/acs/j8xi61meq_corrected.png", dpi=400)
+plt.savefig(f"{path}/acs/j8xi61meq_corrected.png", dpi=800)
 plt.close()
-
-# Plot the difference
-plt.figure()
-im = plt.imshow(X=image_cti_removed - frame, aspect="equal")
-plt.colorbar(im)
-plt.axis("off")
-plt.savefig(f"{path}/acs/j8xi61meq_diff.png", dpi=400)
-plt.close()
-
-# Save the corrected image
-# image_cti_removed.output_to_fits(
-#    file_path=f"{path}/acs/j8xi61meq_corrected.fits", overwrite=True
-# )

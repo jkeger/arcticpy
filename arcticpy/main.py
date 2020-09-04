@@ -21,7 +21,7 @@ James Nightingale
 import numpy as np
 from copy import deepcopy
 
-from autoarray.structures import frames as f
+from autoarray.structures import frames
 
 from arcticpy.roe import ROE
 from arcticpy.ccd import CCD, CCDPhase
@@ -171,7 +171,6 @@ def _clock_charge_in_one_direction(
 
     # Read out one column of pixels through the (column of) traps
     for column_index in window_column_range:
-
         # Monitor the traps in every pixel, or just one (express=1) or a few
         # (express=a few) then replicate their effect
         for express_index in range(n_express_pass):
@@ -281,7 +280,7 @@ def add_cti(
 
     Parameters
     ----------
-    image : [[float]]
+    image : [[float]] or frames.Frame
         The input array of pixel values, assumed to be in units of electrons.
         
         The first dimension is the "row" index, the second is the "column" 
@@ -373,7 +372,7 @@ def add_cti(
 
     Returns
     -------
-    image : [[float]] or f.Frame
+    image : [[float]] or frames.Frame
         The output array of pixel values.
     """
     n_rows_in_image, n_columns_in_image = image.shape
@@ -448,7 +447,7 @@ def add_cti(
 
     # TODO : Implement as decorator
 
-    if isinstance(image, f.Frame):
+    if isinstance(image, frames.Frame):
         return image.from_frame(frame=image_add_cti, mask=image.mask)
     return image_add_cti
 
@@ -488,7 +487,7 @@ def remove_cti(
 
     Returns
     -------
-    image : [[float]] or f.Frame
+    image : [[float]] or frames.Frame
         The output array of pixel values with CTI removed.
     """
 
@@ -520,7 +519,7 @@ def remove_cti(
 
     # TODO : Implement as decorator
 
-    if isinstance(image, f.Frame):
+    if isinstance(image, frames.Frame):
         return image.from_frame(frame=image_remove_cti, mask=image.mask)
     return image_remove_cti
 

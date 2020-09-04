@@ -1,3 +1,6 @@
+from autoarray.instruments import acs
+from autoarray import plot
+
 from arcticpy.main import add_cti, remove_cti, model_for_HST_ACS
 from arcticpy.roe import (
     ROE,
@@ -17,5 +20,3 @@ from arcticpy.trap_managers import (
     TrapManagerTrackTime,
     TrapManagerInstantCapture,
 )
-
-# from PyAutoArray import FrameACS

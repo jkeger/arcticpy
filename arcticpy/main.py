@@ -21,6 +21,8 @@ James Nightingale
 import numpy as np
 from copy import deepcopy
 
+from autoarray.structures import frames as f
+
 from arcticpy.roe import ROE
 from arcticpy.ccd import CCD, CCDPhase
 from arcticpy.trap_managers import AllTrapManager
@@ -369,7 +371,7 @@ def add_cti(
 
     Returns
     -------
-    image : [[float]]
+    image : [[float]] or f.Frame
         The output array of pixel values.
     """
     n_rows_in_image, n_columns_in_image = image.shape
@@ -402,14 +404,14 @@ def add_cti(
         serial_roe = ROE()
 
     # Don't modify the external array passed to this function
-    image = deepcopy(image)
+    image_add_cti = deepcopy(image)
 
     # Parallel clocking
     if parallel_traps is not None:
 
         # Transfer charge in parallel direction
-        image = _clock_charge_in_one_direction(
-            image=image,
+        image_add_cti = _clock_charge_in_one_direction(
+            image=image_add_cti,
             ccd=parallel_ccd,
             roe=parallel_roe,
             traps=parallel_traps,
@@ -424,11 +426,11 @@ def add_cti(
     if serial_traps is not None:
 
         # Switch axes, so clocking happens in other direction
-        image = image.T.copy()
+        image_add_cti = image_add_cti.T.copy()
 
         # Transfer charge in serial direction
-        image = _clock_charge_in_one_direction(
-            image=image,
+        image_add_cti = _clock_charge_in_one_direction(
+            image=image_add_cti,
             ccd=serial_ccd,
             roe=serial_roe,
             traps=serial_traps,
@@ -440,9 +442,13 @@ def add_cti(
         )
 
         # Switch axes back
-        image = image.T
+        image_add_cti = image_add_cti.T
 
-    return image
+    # TODO : Implement as decorator
+
+    if isinstance(image, f.Frame):
+        return image.from_frame(frame=image_add_cti, mask=image.mask)
+    return image_add_cti
 
 
 def remove_cti(
@@ -480,7 +486,7 @@ def remove_cti(
 
     Returns
     -------
-    image : [[float]]
+    image : [[float]] or f.Frame
         The output array of pixel values with CTI removed.
     """
 
@@ -510,6 +516,10 @@ def remove_cti(
         # Improved estimate of image with CTI trails removed
         image_remove_cti += image - image_add_cti
 
+    # TODO : Implement as decorator
+
+    if isinstance(image, f.Frame):
+        return image.from_frame(frame=image_remove_cti, mask=image.mask)
     return image_remove_cti
 
 

@@ -7,26 +7,6 @@ from copy import deepcopy
 import arcticpy as ac
 
 
-class TestTrapParams:
-    def test__parallel_x1__serial_x1_trap___sets_value_correctly(self):
-
-        parallel_trap_0 = ac.Trap(density=0.1, release_timescale=1.0)
-        parallel_trap_1 = ac.Trap(density=0.2, release_timescale=2.0)
-
-        serial_trap_0 = ac.Trap(density=0.3, release_timescale=3.0)
-        serial_trap_1 = ac.Trap(density=0.4, release_timescale=4.0)
-
-        assert parallel_trap_0.density == 0.1
-        assert parallel_trap_0.release_timescale == 1.0
-        assert parallel_trap_1.density == 0.2
-        assert parallel_trap_1.release_timescale == 2.0
-
-        assert serial_trap_0.density == 0.3
-        assert serial_trap_0.release_timescale == 3.0
-        assert serial_trap_1.density == 0.4
-        assert serial_trap_1.release_timescale == 4.0
-
-
 class TestSpecies:
     def test__electrons_released_from_electrons_and_dwell_time(self):
 
@@ -100,7 +80,7 @@ class TestSpecies:
 class TestParallelDensityVary:
     def test_1_trap__density_01__1000_column_pixels__1_row_pixel_so_100_traps__poisson_density_near_01(
         self,
-    ):  #
+    ):
 
         parallel_vary = ac.Trap.poisson_trap(
             trap=list(
@@ -222,14 +202,6 @@ class TestTrapManagerUtilities:
         assert trap_manager.n_trapped_electrons_from_watermarks(
             watermarks=watermarks
         ) == ((0.5 * 0.8 + 0.2 * 0.4 + 0.1 * 0.3) * trap.density)
-
-    #        watermarks = np.array(
-    #            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0], [0, 0]]
-    #        )
-    #
-    #        assert trap_manager.n_trapped_electrons_from_watermarks(
-    #            watermarks=watermarks, fractional_width=0.5
-    #        ) == ((0.5 * 0.8 + 0.2 * 0.4 + 0.1 * 0.3) * trap.density * 0.5)
 
     def test__multiple_trap_managers(self):
         image = np.zeros((6, 2))
@@ -372,26 +344,6 @@ class TestElectronsReleasedAndCapturedInstantCapture:
         assert trap_manager.watermarks == pytest.approx(
             np.array([[0.5, 0.4], [0.2, 0.2], [0.1, 0.1], [0, 0], [0, 0], [0, 0]])
         )
-
-    #
-    # FRACTIONAL_WIDTH deprecated since it is redundant with full_well_depth
-    #
-    #    def test__single_trap_release__change_fractional_width(self):
-    #
-    #        # Half the time, double the density --> same result
-    #        traps = [ac.TrapInstantCapture(density=20, release_timescale=-1 / np.log(0.5))] #1.4426950408889634
-    #        trap_manager = ac.TrapManagerInstantCapture(traps=traps, max_n_transfers=6)
-    #
-    #        trap_manager.watermarks = np.array(
-    #            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.2], [0, 0], [0, 0], [0, 0]]
-    #        )
-    #
-    #        n_electrons_released = trap_manager.n_electrons_released(fractional_width=0.5)
-    #
-    #        assert n_electrons_released == pytest.approx(2.5)
-    #        assert trap_manager.watermarks == pytest.approx(
-    #            np.array([[0.5, 0.4], [0.2, 0.2], [0.1, 0.1], [0, 0], [0, 0], [0, 0]])
-    #        )
 
     def test__first_capture(self):
 
@@ -555,7 +507,7 @@ class TestElectronsReleasedAndCapturedInstantCapture:
         )
         trap_manager_2 = deepcopy(trap_manager_1)
 
-        # Deprecated separate functions
+        # Old-style separate functions
         n_electrons_released = trap_manager_1.n_electrons_released()
         n_electrons_captured = trap_manager_1.n_electrons_captured(
             n_free_electrons=n_free_electrons + n_electrons_released,
@@ -578,6 +530,26 @@ class TestElectronsReleasedAndCapturedInstantCapture:
             == n_electrons_released_and_captured
         )
         assert trap_manager_1.watermarks == pytest.approx(trap_manager_2.watermarks)
+
+
+class TestAllTrapManagerSaveRestore:
+    def test__all_trap_manager_save_and_restore(self):
+        traps = [ac.Trap(density=10, release_timescale=1)]
+        ccd = ac.CCD(well_fill_power=0.5, full_well_depth=1000, well_notch_depth=0)
+        trap_managers = ac.AllTrapManager(traps=traps, max_n_transfers=6, ccd=ccd)
+        watermarks = np.array(
+            [[0.5, 0.8], [0.2, 0.4], [0.1, 0.3], [0, 0], [0, 0], [0, 0]]
+        )
+
+        trap_managers[0][0].watermarks = deepcopy(watermarks)
+
+        trap_managers.save()
+
+        trap_managers[0][0].watermarks += 0.1
+
+        trap_managers.restore()
+
+        assert trap_managers[0][0].watermarks == pytest.approx(watermarks)
 
 
 class TestTrapManagerTrackTime:
@@ -789,7 +761,7 @@ class TestTrapLifetimeContinuum:
                 -((np.log(release_timescale) - np.log(median)) ** 2) / (2 * sigma ** 2)
             ) / (release_timescale * sigma * np.sqrt(2 * np.pi))
 
-        trap = ac.TrapLifetimeContinuum(
+        trap = ac.TrapLifetimeContinuumAbstract(
             density=10,
             distribution_of_traps_with_lifetime=trap_distribution,
             release_timescale_mu=release_timescale_mu,
@@ -820,7 +792,7 @@ class TestTrapLifetimeContinuum:
                 -((np.log(release_timescale) - np.log(median)) ** 2) / (2 * sigma ** 2)
             ) / (release_timescale * sigma * np.sqrt(2 * np.pi))
 
-        trap = ac.TrapLifetimeContinuum(
+        trap = ac.TrapLifetimeContinuumAbstract(
             density=10,
             distribution_of_traps_with_lifetime=trap_distribution,
             release_timescale_mu=release_timescale_mu,
@@ -846,7 +818,7 @@ class TestTrapLifetimeContinuum:
                 -((np.log(release_timescale) - np.log(median)) ** 2) / (2 * sigma ** 2)
             ) / (release_timescale * sigma * np.sqrt(2 * np.pi))
 
-        trap = ac.TrapLifetimeContinuum(
+        trap = ac.TrapLifetimeContinuumAbstract(
             density=10,
             distribution_of_traps_with_lifetime=trap_distribution,
             release_timescale_mu=release_timescale_mu,
@@ -866,7 +838,7 @@ class TestTrapLifetimeContinuum:
                 -((np.log(release_timescale) - np.log(median)) ** 2) / (2 * sigma ** 2)
             ) / (release_timescale * sigma * np.sqrt(2 * np.pi))
 
-        trap = ac.TrapLifetimeContinuum(
+        trap = ac.TrapLifetimeContinuumAbstract(
             density=10,
             distribution_of_traps_with_lifetime=trap_distribution,
             release_timescale_mu=release_timescale_mu,
@@ -914,7 +886,7 @@ class TestTrapLifetimeContinuum:
 
         for sigma in [0.1, 1, 2]:
             median = 1
-            trap = ac.TrapLifetimeContinuum(
+            trap = ac.TrapLifetimeContinuumAbstract(
                 density=10,
                 distribution_of_traps_with_lifetime=trap_distribution,
                 release_timescale_mu=median,
@@ -976,7 +948,7 @@ class TestTrapLifetimeContinuum:
 
         release_timescale_mu = 1
         release_timescale_sigma = 0.01
-        trap = ac.TrapLifetimeContinuum(
+        trap = ac.TrapLifetimeContinuumAbstract(
             density=10,
             distribution_of_traps_with_lifetime=trap_distribution,
             release_timescale_mu=release_timescale_mu,
@@ -1003,7 +975,7 @@ class TestTrapLifetimeContinuum:
         # Continuum
         release_timescale_mu = 1
         release_timescale_sigma = 1
-        trap = ac.TrapLifetimeContinuum(
+        trap = ac.TrapLifetimeContinuumAbstract(
             density=10,
             distribution_of_traps_with_lifetime=trap_distribution,
             release_timescale_mu=release_timescale_mu,
@@ -1109,7 +1081,7 @@ class TestTrapLifetimeContinuum:
             )
 
         # Continuum traps
-        trap_continuum = ac.TrapLifetimeContinuum(
+        trap_continuum = ac.TrapLifetimeContinuumAbstract(
             density=density,
             distribution_of_traps_with_lifetime=trap_distribution,
             release_timescale_mu=release_timescale,
@@ -1129,13 +1101,13 @@ class TestTrapLifetimeContinuum:
         )
 
         # Separated continuum traps
-        trap_continuum_split_a = ac.TrapLifetimeContinuum(
+        trap_continuum_split_a = ac.TrapLifetimeContinuumAbstract(
             density=density / 2,
             distribution_of_traps_with_lifetime=trap_distribution_a,
             release_timescale_mu=release_timescale,
             release_timescale_sigma=sigma,
         )
-        trap_continuum_split_b = ac.TrapLifetimeContinuum(
+        trap_continuum_split_b = ac.TrapLifetimeContinuumAbstract(
             density=density / 2,
             distribution_of_traps_with_lifetime=trap_distribution_b,
             release_timescale_mu=release_timescale,
@@ -1251,7 +1223,7 @@ class TestTrapLifetimeContinuum:
             ) / (release_timescale * sigma * np.sqrt(2 * np.pi))
 
         # Continuum traps
-        trap_continuum = ac.TrapLifetimeContinuum(
+        trap_continuum = ac.TrapLifetimeContinuumAbstract(
             density=density,
             distribution_of_traps_with_lifetime=trap_distribution,
             release_timescale_mu=release_timescale,
@@ -1327,7 +1299,7 @@ class TestTrapLifetimeContinuum:
 
             # Different sigma scales
             for sigma in [0.1, 0.5, 1, 2]:
-                trap_continuum = ac.TrapLifetimeContinuum(
+                trap_continuum = ac.TrapLifetimeContinuumAbstract(
                     density=density,
                     distribution_of_traps_with_lifetime=trap_distribution,
                     release_timescale_mu=release_timescale,

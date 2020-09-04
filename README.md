@@ -74,7 +74,7 @@ Installation
     + Run the unit tests with `pytest test_arcticpy/`
 + Requires:
     + Python 3 (tested with 3.6.9)
-    + ...
+    + See `requirements.txt`
 
 
 
@@ -124,6 +124,9 @@ A quick summary of the code files and their content:
     + `test_ccd.py` CCD tests
     + `test_roe.py` ROE tests
     + `test_traps.py` Traps and trap manager tests
++ `examples/` General examples to complement the documentation in this file.
+    + `correct_HST_ACS_image.py` Remove CTI trails from a Hubble image
+    + More coming soon...
 
 
 Add/remove CTI
@@ -363,7 +366,7 @@ The other options still apply in the same way.
 
 
 ### Trap pumping  
-...
+Coming soon...
 
 
 ### Express matrix  
@@ -467,12 +470,12 @@ way. If different trap types are used, then multiple trap managers are created
 
 Image files
 -----------
-Convenient loading and saving of images to fits files is implemented in arcticpy 
-via our PyAutoArray package (https://github.com/Jammy2211/PyAutoArray). 
+Convenient loading and saving of images to fits files is available in arcticpy 
+via the autoarray package (https://github.com/Jammy2211/PyAutoArray). 
 
-The ...
+Cleaner functionality and full documentation for these utilities coming soon.
 ```python
-image = ac.FrameACS.from_fits(file_path="HST_ACS_example.fits", quadrant_letter="A")
+image = ac.acs.FrameACS.from_fits(file_path="HST_ACS_example.fits", quadrant_letter="A")
 ```
 
 
@@ -496,17 +499,8 @@ Advanced Camera for Surveys (ACS), with parameters adjusted for the Julian date.
 
 Examples
 ========
+See `examples/correct_HST_ACS_image.py` for a full example of correcting CTI in 
+an image from the Hubble Space Telescope (HST) Advanced Camera for Surveys (ACS) 
+instrument.
 
-Correcting HST images
----------------------
-
-
-
-Charge injection lines
-----------------------
-
-
-
-Trap pumping
-------------
-
+More coming soon...

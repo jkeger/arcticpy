@@ -32,9 +32,6 @@ Contents
     + Image files
     + Preset models
 + Examples 
-    + Correcting HST images
-    + Charge injection lines
-    + Trap pumping
 
 
 Minimal example

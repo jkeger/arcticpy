@@ -40,6 +40,7 @@ class Trap(object):
 
         # Rates
         self.emission_rate = 1 / self.release_timescale
+
         if self.capture_timescale == 0:
             self.capture_rate = np.inf
         else:
@@ -418,7 +419,7 @@ class TrapNonUniformHeightDistribution(Trap):
     #
     # RJM: this is the only thing different in this entire class! Can duplicate code be excised
     #      by creating a method self.electron_fractional_height_from_electrons in Trap, which
-    #      just calls ccd_volume.electron_fractional_height_from_electrons, but modifying it here?
+    #      just calls ccd.electron_fractional_height_from_electrons, but modifying it here?
     #
     # electron_fractional_height = self.effective_non_uniform_electron_fractional_height(
     #    electron_fractional_height

@@ -21,9 +21,12 @@ James Nightingale
 import numpy as np
 from copy import deepcopy
 
+from autoarray.structures import frames
+
 from arcticpy.roe import ROE
 from arcticpy.ccd import CCD, CCDPhase
 from arcticpy.trap_managers import AllTrapManager
+from arcticpy.traps import TrapInstantCapture
 from arcticpy import util
 
 
@@ -154,7 +157,9 @@ def _clock_charge_in_one_direction(
 
     # Set up an array of trap managers able to monitor the occupancy of (all types of) traps
     max_n_transfers = n_rows_to_process * len(steps_with_nonzero_dwell_time)
-    trap_managers = AllTrapManager(traps, max_n_transfers, ccd)
+    trap_managers = AllTrapManager(
+        traps=traps, max_n_transfers=max_n_transfers, ccd=ccd
+    )
 
     # Temporarily expand image, if charge released from traps ever migrates to
     # a different charge packet, at any time during the clocking sequence
@@ -166,7 +171,6 @@ def _clock_charge_in_one_direction(
 
     # Read out one column of pixels through the (column of) traps
     for column_index in window_column_range:
-
         # Monitor the traps in every pixel, or just one (express=1) or a few
         # (express=a few) then replicate their effect
         for express_index in range(n_express_pass):
@@ -276,7 +280,7 @@ def add_cti(
 
     Parameters
     ----------
-    image : [[float]]
+    image : [[float]] or frames.Frame
         The input array of pixel values, assumed to be in units of electrons.
         
         The first dimension is the "row" index, the second is the "column" 
@@ -368,7 +372,7 @@ def add_cti(
 
     Returns
     -------
-    image : [[float]]
+    image : [[float]] or frames.Frame
         The output array of pixel values.
     """
     n_rows_in_image, n_columns_in_image = image.shape
@@ -401,14 +405,14 @@ def add_cti(
         serial_roe = ROE()
 
     # Don't modify the external array passed to this function
-    image = deepcopy(image)
+    image_add_cti = deepcopy(image)
 
     # Parallel clocking
     if parallel_traps is not None:
 
         # Transfer charge in parallel direction
-        image = _clock_charge_in_one_direction(
-            image=image,
+        image_add_cti = _clock_charge_in_one_direction(
+            image=image_add_cti,
             ccd=parallel_ccd,
             roe=parallel_roe,
             traps=parallel_traps,
@@ -423,11 +427,11 @@ def add_cti(
     if serial_traps is not None:
 
         # Switch axes, so clocking happens in other direction
-        image = image.T.copy()
+        image_add_cti = image_add_cti.T.copy()
 
         # Transfer charge in serial direction
-        image = _clock_charge_in_one_direction(
-            image=image,
+        image_add_cti = _clock_charge_in_one_direction(
+            image=image_add_cti,
             ccd=serial_ccd,
             roe=serial_roe,
             traps=serial_traps,
@@ -439,9 +443,21 @@ def add_cti(
         )
 
         # Switch axes back
-        image = image.T
+        image_add_cti = image_add_cti.T
 
-    return image
+    # TODO : Implement as decorator
+
+    if isinstance(image, frames.Frame):
+
+        return image.__class__(
+            array=image_add_cti,
+            mask=image.mask,
+            original_roe_corner=image.original_roe_corner,
+            scans=image.scans,
+            exposure_info=image.exposure_info,
+        )
+
+    return image_add_cti
 
 
 def remove_cti(
@@ -479,7 +495,7 @@ def remove_cti(
 
     Returns
     -------
-    image : [[float]]
+    image : [[float]] or frames.Frame
         The output array of pixel values with CTI removed.
     """
 
@@ -509,4 +525,99 @@ def remove_cti(
         # Improved estimate of image with CTI trails removed
         image_remove_cti += image - image_add_cti
 
+    # TODO : Implement as decorator
+
+    if isinstance(image, frames.Frame):
+
+        return image.__class__(
+            array=image_remove_cti,
+            mask=image.mask,
+            original_roe_corner=image.original_roe_corner,
+            scans=image.scans,
+            exposure_info=image.exposure_info,
+        )
+
     return image_remove_cti
+
+
+def model_for_HST_ACS(date):
+    """
+    Return arcticpy objects that provide a preset CTI model for the Hubble Space 
+    Telescope (HST) Advanced Camera for Surveys (ACS).
+
+    The returned objects are ready to be passed to add_cti() or remove_cti()
+    for parallel clocking.
+
+    Parameters
+    ----------
+    date : float
+        The Julian date. Should not be before the launch date of 2452334.5.
+
+    Returns
+    -------
+    traps : [Trap]
+        A list of trap objects that set the parameters for each trap species. 
+        See traps.py.
+
+    ccd : CCD
+        The CCD object that describes how electrons fill the volume. See ccd.py.
+
+    roe : ROE
+        The ROE object that describes the readout electronics. See roe.py.
+    """
+
+    # Key dates when ACS/WFC configuration changed
+    launch_date = 2452334.5
+    temperature_change_date = 2453920
+    sm4_repair_date = 2454968
+
+    assert date >= launch_date, "Julian date must be after launch, i.e. >= 2452334.5"
+
+    # Trap density
+    if date < sm4_repair_date:
+        trap_initial_density = 0.017845
+        trap_growth_rate = 3.5488e-4
+    else:
+        trap_initial_density = -0.246591 * 1.011
+        trap_growth_rate = 0.000558980 * 1.011
+    total_trap_density = trap_initial_density + trap_growth_rate * (date - launch_date)
+    trap_densities = (
+        np.array([1.27, 3.38, 2.85]) / (1.27 + 3.38 + 2.85) * total_trap_density
+    )
+
+    # Trap release time
+    if date < temperature_change_date:
+        operating_temperature = 273.15 - 77
+    else:
+        operating_temperature = 273.15 - 81
+    sm4_temperature = 273.15 - 81  # K
+    k = 8.617343e-5  # eV / K
+    DeltaE = np.array([0.31, 0.34, 0.44])  # eV
+    trap_release_times = (
+        np.array([0.74, 7.7, 37])
+        * (operating_temperature / (273.15 - 81))
+        * np.exp(
+            DeltaE
+            / (k * sm4_temperature * operating_temperature)
+            * (operating_temperature - sm4_temperature)
+        )
+    )  # pixels
+
+    # Assemble variables to pass to add_cti()
+    traps = [
+        TrapInstantCapture(
+            density=trap_densities[0], release_timescale=trap_release_times[0]
+        ),
+        TrapInstantCapture(
+            density=trap_densities[1], release_timescale=trap_release_times[1]
+        ),
+        TrapInstantCapture(
+            density=trap_densities[2], release_timescale=trap_release_times[2]
+        ),
+    ]
+
+    ccd = CCD(full_well_depth=84700, well_fill_power=0.478, well_notch_depth=0)
+
+    roe = ROE(dwell_times=[1])
+
+    return traps, ccd, roe

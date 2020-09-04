@@ -29,6 +29,8 @@ Contents
     + ROE
     + Trap species
     + Trap managers
+    + Image files
+    + Preset models
 + Examples 
     + Correcting HST images
     + Charge injection lines
@@ -72,7 +74,7 @@ Installation
     + Run the unit tests with `pytest test_arcticpy/`
 + Requires:
     + Python 3 (tested with 3.6.9)
-    + ...
+    + See `requirements.txt`
 
 
 
@@ -97,6 +99,8 @@ A quick summary of the code files and their content:
         These are wrappers for `_clock_charge_in_one_direction()`, which 
         contains the primary nested for loops over an image to add CTI to 
         (in order) each column, express pass (see below), and row.
+        
+        Also contains preset CTI models for e.g. the HST ACS.
     + `ccd.py`  
         Defines the user-facing `CCD` classes that describes how electrons fill 
         the volume inside each (phase of a) pixel in a CCD detector.
@@ -120,6 +124,9 @@ A quick summary of the code files and their content:
     + `test_ccd.py` CCD tests
     + `test_roe.py` ROE tests
     + `test_traps.py` Traps and trap manager tests
++ `examples/` General examples to complement the documentation in this file.
+    + `correct_HST_ACS_image.py` Remove CTI trails from a Hubble image slice
+    + More coming soon...
 
 
 Add/remove CTI
@@ -129,6 +136,8 @@ To add (and remove) CTI trails, the primary inputs are the initial image
 followed by the properties of the CCD, readout electronics (ROE), and trap 
 species, for either or both parallel and serial clocking:
 ```python
+import arcticpy as ac
+
 image_with_cti = ac.add_cti(
     image,
     
@@ -200,6 +209,8 @@ Note that instead of actually moving the charges past the traps in each pixel,
 as happens in the real hardware, the code tracks the occupancies of the traps 
 (see watermarks below) and updates them by scanning over each pixel. This 
 simplifies the code structure and keeps the image array conveniently static.
+
+See the 'Image files' section below for useful functions for loading images.
 
 
 ### Express
@@ -355,7 +366,7 @@ The other options still apply in the same way.
 
 
 ### Trap pumping  
-...
+Coming soon...
 
 
 ### Express matrix  
@@ -457,20 +468,39 @@ way. If different trap types are used, then multiple trap managers are created
 
 
 
+Image files
+-----------
+Convenient loading and saving of images to fits files is available in arcticpy 
+via the autoarray package (https://github.com/Jammy2211/PyAutoArray). 
+
+Cleaner functionality and full documentation for these utilities coming soon.
+```python
+image = ac.acs.FrameACS.from_fits(file_path="HST_ACS_example.fits", quadrant_letter="A")
+```
+
+
+
+Preset models
+-------------
+Instead of creating the CCD, ROE, and Trap species yourself, some preset options 
+are available for common applications.
+
+These functions in `main.py` return objects ready to be passed to `add_cti()` or
+`remove_cti()`:
+```python
+traps, ccd, roe = ac.model_for_HST_ACS(date=2455123)
+```
+which sets up model objects suitable for the Hubble Space Telescope (HST) 
+Advanced Camera for Surveys (ACS), with parameters adjusted for the Julian date.
+
+
+
+
 
 Examples
 ========
+See `examples/correct_HST_ACS_image.py` for an example of correcting CTI in an
+image from the Hubble Space Telescope (HST) Advanced Camera for Surveys (ACS) 
+instrument.
 
-Correcting HST images
----------------------
-
-
-
-Charge injection lines
-----------------------
-
-
-
-Trap pumping
-------------
-
+More coming soon...

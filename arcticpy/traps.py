@@ -44,6 +44,7 @@ class Trap(object):
 
         # Rates
         self.emission_rate = 1 / self.release_timescale
+
         if self.capture_timescale == 0:
             self.capture_rate = np.inf
         else:

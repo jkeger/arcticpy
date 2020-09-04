@@ -24,6 +24,7 @@ frame = ac.acs.FrameACS.from_fits(
 
 # Extract a thin slice of a few columns as an example
 frame = frame[:, 1000:1010]
+frame.mask = frame.mask[:, 1000:1010] # ignore this.
 
 # Plot the initial image
 plt.figure()
@@ -65,6 +66,6 @@ plt.savefig(f"{path}/acs/j8xi61meq_diff.png", dpi=400)
 plt.close()
 
 # Save the corrected image
-frame_corrected.output_to_fits(
-    file_path=f"{path}/acs/j8xi61meq_corrected.fits", overwrite=True
-)
+# image_cti_removed.output_to_fits(
+#    file_path=f"{path}/acs/j8xi61meq_corrected.fits", overwrite=True
+# )

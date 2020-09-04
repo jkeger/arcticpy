@@ -448,7 +448,15 @@ def add_cti(
     # TODO : Implement as decorator
 
     if isinstance(image, frames.Frame):
-        return image.from_frame(frame=image_add_cti, mask=image.mask)
+
+        return image.__class__(
+            array=image_add_cti,
+            mask=image.mask,
+            original_roe_corner=image.original_roe_corner,
+            scans=image.scans,
+            exposure_info=image.exposure_info
+        )
+
     return image_add_cti
 
 
@@ -520,7 +528,15 @@ def remove_cti(
     # TODO : Implement as decorator
 
     if isinstance(image, frames.Frame):
-        return image.from_frame(frame=image_remove_cti, mask=image.mask)
+
+        return image.__class__(
+            array=image_remove_cti,
+            mask=image.mask,
+            original_roe_corner=image.original_roe_corner,
+            scans=image.scans,
+            exposure_info=image.exposure_info
+        )
+
     return image_remove_cti
 
 

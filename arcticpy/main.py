@@ -157,7 +157,9 @@ def _clock_charge_in_one_direction(
 
     # Set up an array of trap managers able to monitor the occupancy of (all types of) traps
     max_n_transfers = n_rows_to_process * len(steps_with_nonzero_dwell_time)
-    trap_managers = AllTrapManager(traps=traps, max_n_transfers=max_n_transfers, ccd=ccd)
+    trap_managers = AllTrapManager(
+        traps=traps, max_n_transfers=max_n_transfers, ccd=ccd
+    )
 
     # Temporarily expand image, if charge released from traps ever migrates to
     # a different charge packet, at any time during the clocking sequence

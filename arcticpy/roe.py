@@ -184,12 +184,22 @@ class ROEAbstract(object):
         sequence, in which every pixel is treated as a single phase, with  
         instant transfer of an entire charge cloud to the next pixel.
          
-        For 3-phase readout, this conceptually represents the following steps, 
-        used for trap pumping:        
+        For three phases, the diagram below conceptually represents the six 
+        steps for trap pumping or see only the first three steps for normal 
+        readout, where the charge clouds in high-potential phases are shifted 
+        continuously left towards the readout register.
         
+        A trap species in (all phases of) pixel p could capture electrons when 
+        the phase is high and a charge cloud is present. The "Capture from" 
+        lines refer to the original pixel that the cloud was in. So in step 3,  
+        the charge cloud originally in pixel p+1 has been moved into pixel p.  
+        For trap pumping, the cloud is then moved back. In normal readout it  
+        would continue moving towards pixel p-1. The "Release to" lines state  
+        the pixel to which electrons released by traps in that phase will move, 
+        essentially into the closest high-potential phase.
+                
         Time          Pixel p-1              Pixel p            Pixel p+1
         Step     Phase2 Phase1 Phase0 Phase2 Phase1 Phase0 Phase2 Phase1 Phase0
-        
         0                     +------+             +------+             +------+
         Capture from          |      |             |   p  |             |      |
         Release to            |      |  p-1     p  |   p  |             |      |
@@ -215,8 +225,7 @@ class ROEAbstract(object):
         Release to     |      |          p  |   p  |   p         |      |
                 -------+      +-------------+      +-------------+      +-------
         
-        The first three of these steps can be used for normal readout.
-        
+        ###
         However, doing this with low values of express means that electrons 
         released from a 'low' phase and moving forwards (e.g. p-1 above) do not
         necessarily have the chance to be recaptured (depending on the release 
@@ -757,8 +766,15 @@ class ROETrapPumping(ROEAbstract):
         
         Parameters (if different to ROE)
         ----------
+        dwell_times : [float]
+            The time between steps in the clocking sequence, in the same units 
+            as the trap capture/release timescales. For trap pumping, this 
+            includes both the forward and reverse transfers, so a full pumping
+            sequence should have an even number of steps, which is assumed here
+            to be double the number of phases per pixel.
+        
         n_pumps : int
-            ###
+            The number of times the charge is pumped back and forth. ###
         """
 
         super().__init__(dwell_times, express_matrix_dtype)

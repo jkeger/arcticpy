@@ -185,18 +185,22 @@ class ROEAbstract(object):
         instant transfer of an entire charge cloud to the next pixel.
          
         For three phases, the diagram below conceptually represents the six 
-        steps for trap pumping or see only the first three steps for normal 
-        readout, where the charge clouds in high-potential phases are shifted 
-        continuously left towards the readout register.
+        steps for trap pumping, where charge clouds in high-potential phases 
+        are shifted first left then back right, or only the first three steps 
+        for normal readout, where the charge clouds are shifted continuously 
+        left towards the readout register.
         
-        A trap species in (all phases of) pixel p could capture electrons when 
-        the phase is high and a charge cloud is present. The "Capture from" 
-        lines refer to the original pixel that the cloud was in. So in step 3,  
-        the charge cloud originally in pixel p+1 has been moved into pixel p.  
-        For trap pumping, the cloud is then moved back. In normal readout it  
-        would continue moving towards pixel p-1. The "Release to" lines state  
-        the pixel to which electrons released by traps in that phase will move, 
-        essentially into the closest high-potential phase.
+        A trap species in a phase of pixel p could capture electrons when that
+        phase's potential is high and a charge cloud is present. The "Capture 
+        from" lines refer to the original pixel that the cloud was in. So in  
+        step 3, the charge cloud originally in pixel p+1 has been moved into 
+        pixel p. For trap pumping, the cloud is then moved back. In normal 
+        readout it would continue moving towards pixel p-1. The "Release to" 
+        lines state the pixel to which electrons released by traps in that phase 
+        will move, essentially into the closest high-potential phase.
+        
+        See TestTrapPumping.test__traps_in_different_phases_make_dipoles() in
+        test_arcticpy/test_main.py for simple examples using this sequence.
                 
         Time          Pixel p-1              Pixel p            Pixel p+1
         Step     Phase2 Phase1 Phase0 Phase2 Phase1 Phase0 Phase2 Phase1 Phase0

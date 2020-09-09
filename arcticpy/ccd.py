@@ -31,7 +31,7 @@ class CCD(object):
                 n_electrons, phase
             )
 
-            f = ccd.cloud_fractional_volume_from_n_electrons_in_phase(
+            f = ccd.well_filling_function(
                 phase
             )
             f(n_electrons)
@@ -163,23 +163,46 @@ class CCD(object):
                 value = self.full_well_depth
             self._well_bloom_level = [value] * self.n_phases
 
-    # Returns a (self-contained) function describing the well-filling model in a single phase
     def cloud_fractional_volume_from_n_electrons_and_phase(
         self, n_electrons, phase=0, surface=False
     ):
-        ccd_phase = self.cloud_fractional_volume_from_n_electrons_in_phase(phase)
-        return ccd_phase(n_electrons, surface)
-
-    # Returns a (self-contained) function describing the well-filling model in any phase
-    def cloud_fractional_volume_from_n_electrons_in_phase(self, phase=0):
+        """ Calculate the fractional volume of a charge cloud.
+        
+        Parameters
+        ----------
+        n_electrons : float
+            The number of electrons in a charge cloud.
+            
+        phase : int
+            The phase of the pixel.
+        
+        Returns
+        -------
+        cloud_fractional_volume : float
+            The volume of the charge cloud, as a fraction of the total volume 
+            of the pixel (or phase).
+            
+        surface : bool
+            #
+            # RJM: RESERVED FOR SURFACE TRAPS
+            #
         """
-        Calculate the total number of charge traps exposed to a charge cloud
-        containing n_electrons. This assumes that charge traps are uniformly
-        distributed through the volume, but that assumption can be relaxed
-        by adjusting this function to reflect the net number of traps seen
-        as a function of charge cloud size. An example of that is provided,
-        for surface traps that are responsible for blooming (which is
-        asymmetric and happens during readout, unlike bleeding). 
+        return self.well_filling_function(phase)(n_electrons, surface)
+
+    def well_filling_function(self, phase=0):
+        """ Return a self-contained function describing the well-filling model.
+        
+        The returned function calculates the fractional volume of charge cloud 
+        in a pixel (and phase) from the number of electrons in the cloud, which
+        is used to calculate the proportion of traps that are reached by the 
+        cloud and can capture charge from it.
+        
+        By default, it is assumed that the traps are uniformly distributed 
+        throughout the volume, but that assumption can be relaxed by adjusting 
+        this function to reflect the net number of traps seen as a function of 
+        charge cloud size. An example would be for surface traps, which are 
+        responsible for blooming (which is asymmetric and happens during 
+        readout, unlike bleeding) and are preset only at the top of a pixel. 
         
         This function embodies the core assumption of a volume-driven CTI
         model like ArCTIC: that traps are either exposed (and have a
@@ -190,15 +213,27 @@ class CCD(object):
         considerable evidence that CCDs in the Hubble Space Telescope are 
         primarily volume-driven; a software algorithm to mimic such behaviour
         also runs much faster.
+        
+        Parameters
+        ----------
+        phase : int
+            The phase of the pixel. Multiple phases may optionally have 
+            different CCD parameters.
+          
+        Returns
+        -------
+        well_filling_function : func
+            A self-contained function describing the well-filling model for this 
+            phase.
         """
 
         def cloud_fractional_volume_from_n_electrons(n_electrons, surface=False):
-            """
+            """ Calculate the fractional volume of charge cloud.
+            
             Parameters
             ----------
             n_electrons : float
-                The size of a charge cloud in a pixel, in units of the number of 
-                electrons.
+                The number of electrons in a charge cloud.
                 
             surface : bool
                 #
@@ -239,6 +274,4 @@ class CCDPhase(object):
         self.well_fill_power = ccd.well_fill_power[phase]
         self.well_notch_depth = ccd.well_notch_depth[phase]
         self.well_bloom_level = ccd.well_bloom_level[phase]
-        self.cloud_fractional_volume_from_n_electrons = ccd.cloud_fractional_volume_from_n_electrons_in_phase(
-            phase
-        )
+        self.cloud_fractional_volume_from_n_electrons = ccd.well_filling_function(phase)

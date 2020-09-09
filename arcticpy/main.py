@@ -210,12 +210,11 @@ def _clock_charge_in_one_direction(
                             n_electrons_released_and_captured += trap_manager.n_electrons_released_and_captured(
                                 n_free_electrons=n_free_electrons,
                                 dwell_time=roe.dwell_times[clocking_step],
-                                ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(
-                                    phase
+                                ccd_filling_function=ccd.well_filling_function(
+                                    phase=phase
                                 ),
                                 express_multiplier=express_multiplier,
                             )
-
                         # Skip updating the image if only monitoring the traps
                         if express_multiplier == 0:
                             continue

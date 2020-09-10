@@ -894,7 +894,8 @@ class ROETrapPumping(ROEAbstract):
         """
         See ROE.save_trap_states_matrix_from_express_matrix()
         
-        ### Explain why different
+        Trap states must be saved after every pump sequence of the same trap
+        until the final one.
         """
         (n_express, n_pixels) = express_matrix.shape
         save_trap_states_matrix = np.zeros((n_express, n_pixels), dtype=bool)

@@ -611,62 +611,34 @@ class TestChargeInjection:
         assert monitor_traps_matrix == pytest.approx(np.ones_like(express_matrix))
 
 
-# class TestTrapPumping:
-#     def test__charge_injection_express_matrix_and_monitor_traps_matrix(self):
-#
-#         injection_level = 1000
-#         image_orig = np.zeros((4, 1)) + injection_level
-#         trap_pixel = 1
-#         trap = ac.TrapInstantCapture(density=100, release_timescale=3)
-#         roe = ac.ROETrapPumping(dwell_times=[1] * 6, n_pumps=2)
-#         ccd = ac.CCD(
-#             well_fill_power=0.5,
-#             full_well_depth=2e5,
-#             fraction_of_traps_per_phase=[1, 0, 0],
-#         )
-#         image_cti = ac.add_cti(
-#             image=image_orig,
-#             parallel_traps=[trap],
-#             parallel_ccd=ccd,
-#             parallel_roe=roe,
-#             parallel_window_range=trap_pixel,
-#         )
-#
-#         print(image_orig.T)
-#
-#         print("")
-#         print(image_cti.T)
-#
-#         ccd = ac.CCD(
-#             well_fill_power=0.5,
-#             full_well_depth=2e5,
-#             fraction_of_traps_per_phase=[0, 1, 0],
-#         )
-#         image_cti = ac.add_cti(
-#             image=image_orig,
-#             parallel_traps=[trap],
-#             parallel_ccd=ccd,
-#             parallel_roe=roe,
-#             parallel_window_range=trap_pixel,
-#         )
-#
-#         print("")
-#         print(image_cti.T)
-#
-#         ccd = ac.CCD(
-#             well_fill_power=0.5,
-#             full_well_depth=2e5,
-#             fraction_of_traps_per_phase=[0, 0, 1],
-#         )
-#         image_cti = ac.add_cti(
-#             image=image_orig,
-#             parallel_traps=[trap],
-#             parallel_ccd=ccd,
-#             parallel_roe=roe,
-#             parallel_window_range=trap_pixel,
-#         )
-#
-#         print("")
-#         print(image_cti.T)
-#
-#         exit()
+class TestTrapPumping:
+    def test__charge_injection_express_matrix_and_monitor_traps_matrix(self):
+
+        n_pumps = 12
+        roe = ac.ROETrapPumping(dwell_times=[1] * 6, n_pumps=n_pumps)
+
+        express = 0
+        (
+            express_matrix,
+            monitor_traps_matrix,
+        ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
+            pixels=2, express=express
+        )
+
+        assert express_matrix == pytest.approx(np.ones((n_pumps, 1)))
+        assert monitor_traps_matrix == pytest.approx(np.ones_like(express_matrix))
+
+        for express in [1, 4, 7]:
+            (
+                express_matrix,
+                monitor_traps_matrix,
+            ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
+                pixels=5, express=express
+            )
+
+            assert express_matrix == pytest.approx(
+                np.transpose(
+                    [np.append([1], np.ones(express) * (n_pumps - 1) / express)]
+                )
+            )
+            assert monitor_traps_matrix == pytest.approx(np.ones_like(express_matrix))

@@ -425,7 +425,9 @@ class ROE(ROEAbstract):
             the CCD, an object with information about the potentials.
         """
 
-        super().__init__(dwell_times, express_matrix_dtype)
+        super().__init__(
+            dwell_times=dwell_times, express_matrix_dtype=express_matrix_dtype
+        )
 
         # Parse inputs
         self.empty_traps_for_first_transfers = empty_traps_for_first_transfers
@@ -778,10 +780,12 @@ class ROETrapPumping(ROEAbstract):
             to be double the number of phases per pixel.
         
         n_pumps : int
-            The number of times the charge is pumped back and forth. ###
+            The number of times the charge is pumped back and forth. 
         """
 
-        super().__init__(dwell_times, express_matrix_dtype)
+        super().__init__(
+            dwell_times=dwell_times, express_matrix_dtype=express_matrix_dtype
+        )
 
         # Parse inputs
         self.n_pumps = n_pumps
@@ -825,16 +829,15 @@ class ROETrapPumping(ROEAbstract):
         """ 
         See ROE.express_matrix_and_monitor_traps_matrix_from_pixels_and_express()
     
-        ### Explain why different
+        Unlike normal clocking, charge is not tranferred from pixel to pixel 
+        until readout, and instead only the one clock sequence for each pixel
+        with traps in is repeated for n_pumps times.
         
         Parameters (if different to ROE.express_matrix_and_monitor_traps_matrix_from_pixels_and_express)
         ----------
-        pixels : int or range
+        pixels : int or [int]
             In this case, specifically only the pixels that contain traps.
-            
-            int:    The number of pixels in the image.
-            range:  The pixels in the image to be processed (can be a subset of 
-                    the entire image).
+            ###WIP Current tests assume only a single pixel has traps
         
         offset, time_window_range : None
             Not used for trap pumping.

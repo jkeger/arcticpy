@@ -929,7 +929,7 @@ class TestTrapPumping:
         # explanation and diagram of the clocking sequence used here
 
         injection_level = 1000
-        image_orig = np.zeros((5, 1)) + injection_level
+        image_pre_cti = np.zeros((5, 1)) + injection_level
         trap_pixel = 2
         trap = ac.TrapInstantCapture(density=100, release_timescale=3)
         roe = ac.ROETrapPumping(dwell_times=[1] * 6, n_pumps=2)
@@ -944,8 +944,8 @@ class TestTrapPumping:
             full_well_depth=2e5,
             fraction_of_traps_per_phase=[1, 0, 0],
         )
-        image_cti = ac.add_cti(
-            image=image_orig,
+        image_post_cti = ac.add_cti(
+            image=image_pre_cti,
             parallel_traps=[trap],
             parallel_ccd=ccd,
             parallel_roe=roe,
@@ -953,15 +953,15 @@ class TestTrapPumping:
         )
 
         # A decrease in charge from pixel p, only a tiny decrease in pixel p+1,
-        assert image_cti[trap_pixel] < image_orig[trap_pixel]
-        assert image_cti[trap_pixel + 1] < image_orig[trap_pixel + 1]
-        assert image_cti[trap_pixel + 1] == pytest.approx(
-            image_orig[trap_pixel + 1], rel=2e-5
+        assert image_post_cti[trap_pixel] < image_pre_cti[trap_pixel]
+        assert image_post_cti[trap_pixel + 1] < image_pre_cti[trap_pixel + 1]
+        assert image_post_cti[trap_pixel + 1] == pytest.approx(
+            image_pre_cti[trap_pixel + 1], rel=2e-5
         )
         # No change to other pixels
-        assert image_cti[:trap_pixel] == pytest.approx(image_orig[:trap_pixel])
-        assert image_cti[trap_pixel + 2 :] == pytest.approx(
-            image_orig[trap_pixel + 2 :]
+        assert image_post_cti[:trap_pixel] == pytest.approx(image_pre_cti[:trap_pixel])
+        assert image_post_cti[trap_pixel + 2 :] == pytest.approx(
+            image_pre_cti[trap_pixel + 2 :]
         )
 
         # Trap in phase 1 of pixel p: Charge is captured from pixel p and
@@ -972,8 +972,8 @@ class TestTrapPumping:
             full_well_depth=2e5,
             fraction_of_traps_per_phase=[0, 1, 0],
         )
-        image_cti = ac.add_cti(
-            image=image_orig,
+        image_post_cti = ac.add_cti(
+            image=image_pre_cti,
             parallel_traps=[trap],
             parallel_ccd=ccd,
             parallel_roe=roe,
@@ -981,12 +981,12 @@ class TestTrapPumping:
         )
 
         # A decrease in charge from pixel p and increase in pixel p+1
-        assert image_cti[trap_pixel] < image_orig[trap_pixel]
-        assert image_cti[trap_pixel + 1] > image_orig[trap_pixel + 1]
+        assert image_post_cti[trap_pixel] < image_pre_cti[trap_pixel]
+        assert image_post_cti[trap_pixel + 1] > image_pre_cti[trap_pixel + 1]
         # No change to other pixels
-        assert image_cti[:trap_pixel] == pytest.approx(image_orig[:trap_pixel])
-        assert image_cti[trap_pixel + 2 :] == pytest.approx(
-            image_orig[trap_pixel + 2 :]
+        assert image_post_cti[:trap_pixel] == pytest.approx(image_pre_cti[:trap_pixel])
+        assert image_post_cti[trap_pixel + 2 :] == pytest.approx(
+            image_pre_cti[trap_pixel + 2 :]
         )
 
         # Trap in phase 2 of pixel p: Charge is captured from pixel p and
@@ -997,8 +997,8 @@ class TestTrapPumping:
             full_well_depth=2e5,
             fraction_of_traps_per_phase=[0, 0, 1],
         )
-        image_cti = ac.add_cti(
-            image=image_orig,
+        image_post_cti = ac.add_cti(
+            image=image_pre_cti,
             parallel_traps=[trap],
             parallel_ccd=ccd,
             parallel_roe=roe,
@@ -1006,15 +1006,51 @@ class TestTrapPumping:
         )
 
         # A decrease in charge from pixel p and increase in pixel p-1
-        assert image_cti[trap_pixel] < image_orig[trap_pixel]
-        assert image_cti[trap_pixel - 1] > image_orig[trap_pixel - 1]
+        assert image_post_cti[trap_pixel] < image_pre_cti[trap_pixel]
+        assert image_post_cti[trap_pixel - 1] > image_pre_cti[trap_pixel - 1]
         # No change to other pixels
-        assert image_cti[: trap_pixel - 1] == pytest.approx(
-            image_orig[: trap_pixel - 1]
+        assert image_post_cti[: trap_pixel - 1] == pytest.approx(
+            image_pre_cti[: trap_pixel - 1]
         )
-        assert image_cti[trap_pixel + 1 :] == pytest.approx(
-            image_orig[trap_pixel + 1 :]
+        assert image_post_cti[trap_pixel + 1 :] == pytest.approx(
+            image_pre_cti[trap_pixel + 1 :]
         )
+
+    def test__trap_pumping_with_express(self):
+
+        injection_level = 1000
+        image_pre_cti = np.zeros((5, 1)) + injection_level
+        trap_pixel = 2
+        trap = ac.TrapInstantCapture(density=100, release_timescale=3)
+        roe = ac.ROETrapPumping(dwell_times=[1] * 6, n_pumps=20)
+
+        # Traps in all phases
+        ccd = ac.CCD(
+            well_fill_power=0.5,
+            full_well_depth=2e5,
+            fraction_of_traps_per_phase=[1, 1, 1],
+        )
+        image_post_cti_0 = ac.add_cti(
+            image=image_pre_cti,
+            parallel_traps=[trap],
+            parallel_ccd=ccd,
+            parallel_roe=roe,
+            parallel_window_range=trap_pixel,
+            parallel_express=0,
+        )
+
+        # Better approximation with increasing express
+        for express, tol in zip([1, 2, 5, 10], [3e-3, 4e-4, 3e-4, 2e-4]):
+            image_post_cti = ac.add_cti(
+                image=image_pre_cti,
+                parallel_traps=[trap],
+                parallel_ccd=ccd,
+                parallel_roe=roe,
+                parallel_window_range=trap_pixel,
+                parallel_express=express,
+            )
+
+            assert image_post_cti == pytest.approx(image_post_cti_0, rel=tol)
 
 
 class TestAddCTIParallelOnly:

@@ -23,7 +23,7 @@ from copy import deepcopy
 
 from autoarray.structures import frames
 
-from arcticpy.roe import ROE
+from arcticpy.roe import ROE, ROETrapPumping
 from arcticpy.ccd import CCD, CCDPhase
 from arcticpy.trap_managers import AllTrapManager
 from arcticpy.traps import TrapInstantCapture
@@ -155,8 +155,15 @@ def _clock_charge_in_one_direction(
         i for i, time in enumerate(roe.dwell_times) if time > 0
     ]
 
-    # Set up an array of trap managers able to monitor the occupancy of (all types of) traps
-    max_n_transfers = n_rows_to_process * len(steps_with_nonzero_dwell_time)
+    # Set up the set of trap managers to monitor the occupancy of all trap species
+    if isinstance(roe, ROETrapPumping):
+        # For trap pumping there is only one pixel and row to process but
+        # multiple transfers back and forth without clearing the watermarks
+        # Note, this allows for many more watermarks than are actually needed
+        # in standard trap-pumping clock sequences
+        max_n_transfers = n_express_pass * len(steps_with_nonzero_dwell_time)
+    else:
+        max_n_transfers = n_rows_to_process * len(steps_with_nonzero_dwell_time)
     trap_managers = AllTrapManager(
         traps=traps, max_n_transfers=max_n_transfers, ccd=ccd
     )
@@ -215,6 +222,7 @@ def _clock_charge_in_one_direction(
                                 ),
                                 express_multiplier=express_multiplier,
                             )
+
                         # Skip updating the image if only monitoring the traps
                         if express_multiplier == 0:
                             continue

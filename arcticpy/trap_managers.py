@@ -40,7 +40,7 @@ class AllTrapManager(UserList):
         max_n_transfers : int
             The number of pixels containing traps that charge will be expected 
             to move. This determines the maximum number of possible capture/
-            release events that could chreate new watermark levels, and is used 
+            release events that could create new watermark levels, and is used 
             to initialise the watermark array to be only as large as needed, for 
             efficiency.
             
@@ -167,7 +167,7 @@ class TrapManager(object):
         max_n_transfers : int
             The number of pixels containing traps that charge will be expected 
             to move. This determines the maximum number of possible capture/
-            release events that could chreate new watermark levels, and is used 
+            release events that could create new watermark levels, and is used 
             to initialise the watermark array to be only as large as needed, for 
             efficiency.
                 
@@ -201,7 +201,7 @@ class TrapManager(object):
                 # This +1 is to ensure there is always at least one zero, even
                 # if all transfers create a new watermark. The zero is used to
                 # find the highest used watermark
-                1 + (self.max_n_transfers * self.n_watermarks_per_transfer),
+                1 + self.max_n_transfers * self.n_watermarks_per_transfer,
                 # This +1 is to make space for the volume column
                 1 + self.n_trap_species,
             ),

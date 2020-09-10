@@ -16,7 +16,7 @@ Three different clocking modes are available:
    
 By default, or if the dwell_times variable has only one element, the pixel-to-
 pixel transfers are assumed to happen instantly, in one step. This recovers the 
-behaviour of earlier version of ArCTIC (written in java, IDL, or C++). If 
+behaviour of earlier versions of ArCTIC (written in java, IDL, or C++). If 
 instead a list of n dwell_times is provided, it is assumed that each pixel 
 contains n phases in which electrons are stored during intermediate steps of the 
 readout sequence. The number of phases should match that in the instance of a 
@@ -198,9 +198,6 @@ class ROEAbstract(object):
         readout it would continue moving towards pixel p-1. The "Release to" 
         lines state the pixel to which electrons released by traps in that phase 
         will move, essentially into the closest high-potential phase.
-        
-        See TestTrapPumping.test__traps_in_different_phases_make_dipoles() in
-        test_arcticpy/test_main.py for simple examples using this sequence.
                 
         Time          Pixel p-1              Pixel p            Pixel p+1
         Step     Phase2 Phase1 Phase0 Phase2 Phase1 Phase0 Phase2 Phase1 Phase0
@@ -228,9 +225,11 @@ class ROEAbstract(object):
         Capture from   |      |             |   p  |             |      |
         Release to     |      |          p  |   p  |   p         |      |
                 -------+      +-------------+      +-------------+      +-------
+                
+        See TestTrapPumping.test__traps_in_different_phases_make_dipoles() in
+        test_arcticpy/test_main.py for simple examples using this sequence.        
         
-        ###
-        However, doing this with low values of express means that electrons 
+        Note: Doing this with low values of express means that electrons 
         released from a 'low' phase and moving forwards (e.g. p-1 above) do not
         necessarily have the chance to be recaptured (depending on the release 
         routines in trap_manager, they could be recaptured at the "bottom" of a 
@@ -242,26 +241,10 @@ class ROEAbstract(object):
         transfers with a high phase that will always allow capture. The release 
         operations omitted are irrelevant, because either they were implemented 
         during the previous step, or the traps must have been empty anyway.
-                
-        Time          Pixel p-1              Pixel p            Pixel p+1
-        Step     Phase2 Phase1 Phase0 Phase2 Phase1 Phase0 Phase2 Phase1 Phase0
         
-        0                     +------+             +------+             +------+
-        Capture from          |      |             |   p  |             |      |
-        Release to            |      |             |   p  |   p     p+1 |      |
-                --------------+      +-------------+      +-------------+      |
-        1              +------+             +------+             +------+
-        Capture from   |      |             |   p  |             |      |
-        Release to     |      |             |   p  |   p     p+1 |      |
-                -------+      +-------------+      +-------------+      +-------
-        2       +------+             +------+             +------+
-        Capture from   |             |   p  |             |      |
-        Release to     |             |   p  |   p     p+1 |      |
-                       +-------------+      +-------------+      +--------------
-        
-        If there are an even number of phases, electrons released into the phase 
-        equidistant from split in half, and sent in both directions. This choice 
-        means that it should always be possible (and fastest) to implement such 
+        If there are an even number of phases, electrons released equidistant 
+        from two high phases are split in half and sent in both directions. This 
+        choice means that it should be possible (and fastest) to implement such 
         readout using only two phases, with a long dwell time in the phase that 
         represents all the 'low' phases.
         """
@@ -757,7 +740,7 @@ class ROETrapPumping(ROEAbstract):
         express_matrix_dtype=float,
     ):
         """ 
-        The readout electronics (ROE) class varient for trap pumping (aka pocket 
+        The readout electronics (ROE) class varient for trap pumping (AKA pocket 
         pumping).
         
         If a uniform image is repeatedly pumped through a CCD, dipoles (positive

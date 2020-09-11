@@ -614,4 +614,65 @@ class TestChargeInjection:
 class TestTrapPumping:
     def test__charge_injection_express_matrix_and_monitor_traps_matrix(self):
 
-        return  ###WIP
+        n_pumps = 12
+        roe = ac.ROETrapPumping(dwell_times=[1] * 6, n_pumps=n_pumps)
+
+        express = 0
+        (
+            express_matrix,
+            monitor_traps_matrix,
+        ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
+            pixels=2, express=express
+        )
+
+        assert express_matrix == pytest.approx(np.ones((n_pumps, 1)))
+        assert monitor_traps_matrix == pytest.approx(np.ones_like(express_matrix))
+
+        for express in [1, 4, 7]:
+            (
+                express_matrix,
+                monitor_traps_matrix,
+            ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
+                pixels=5, express=express
+            )
+
+            assert express_matrix == pytest.approx(
+                np.transpose(
+                    [np.append([1], np.ones(express) * (n_pumps - 1) / express)]
+                )
+            )
+            assert monitor_traps_matrix == pytest.approx(np.ones_like(express_matrix))
+
+    def test__save_trap_states_matrix(self):
+
+        n_pumps = 12
+        roe = ac.ROETrapPumping(dwell_times=[1] * 6, n_pumps=n_pumps)
+
+        express = 0
+        (
+            express_matrix,
+            _,
+        ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
+            pixels=2, express=express
+        )
+        save_trap_states_matrix = roe.save_trap_states_matrix_from_express_matrix(
+            express_matrix=express_matrix
+        )
+        assert save_trap_states_matrix == pytest.approx(
+            np.transpose([np.append(np.ones(n_pumps - 1), [0])])
+        )
+
+        for express in [1, 4, 7]:
+            (
+                express_matrix,
+                _,
+            ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
+                pixels=2, express=express
+            )
+            save_trap_states_matrix = roe.save_trap_states_matrix_from_express_matrix(
+                express_matrix=express_matrix
+            )
+
+            assert save_trap_states_matrix == pytest.approx(
+                np.transpose([np.append(np.ones(express), [0])])
+            )

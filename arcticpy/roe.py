@@ -16,7 +16,7 @@ Three different clocking modes are available:
    
 By default, or if the dwell_times variable has only one element, the pixel-to-
 pixel transfers are assumed to happen instantly, in one step. This recovers the 
-behaviour of earlier version of ArCTIC (written in java, IDL, or C++). If 
+behaviour of earlier versions of ArCTIC (written in java, IDL, or C++). If 
 instead a list of n dwell_times is provided, it is assumed that each pixel 
 contains n phases in which electrons are stored during intermediate steps of the 
 readout sequence. The number of phases should match that in the instance of a 
@@ -184,12 +184,23 @@ class ROEAbstract(object):
         sequence, in which every pixel is treated as a single phase, with  
         instant transfer of an entire charge cloud to the next pixel.
          
-        For 3-phase readout, this conceptually represents the following steps, 
-        used for trap pumping:        
+        For three phases, the diagram below conceptually represents the six 
+        steps for trap pumping, where charge clouds in high-potential phases 
+        are shifted first left then back right, or only the first three steps 
+        for normal readout, where the charge clouds are shifted continuously 
+        left towards the readout register.
         
+        A trap species in a phase of pixel p could capture electrons when that
+        phase's potential is high and a charge cloud is present. The "Capture 
+        from" lines refer to the original pixel that the cloud was in. So in  
+        step 3, the charge cloud originally in pixel p+1 has been moved into 
+        pixel p. For trap pumping, the cloud is then moved back. In normal 
+        readout it would continue moving towards pixel p-1. The "Release to" 
+        lines state the pixel to which electrons released by traps in that phase 
+        will move, essentially into the closest high-potential phase.
+                
         Time          Pixel p-1              Pixel p            Pixel p+1
         Step     Phase2 Phase1 Phase0 Phase2 Phase1 Phase0 Phase2 Phase1 Phase0
-        
         0                     +------+             +------+             +------+
         Capture from          |      |             |   p  |             |      |
         Release to            |      |  p-1     p  |   p  |             |      |
@@ -214,10 +225,11 @@ class ROEAbstract(object):
         Capture from   |      |             |   p  |             |      |
         Release to     |      |          p  |   p  |   p         |      |
                 -------+      +-------------+      +-------------+      +-------
+                
+        See TestTrapPumping.test__traps_in_different_phases_make_dipoles() in
+        test_arcticpy/test_main.py for simple examples using this sequence.        
         
-        The first three of these steps can be used for normal readout.
-        
-        However, doing this with low values of express means that electrons 
+        Note: Doing this with low values of express means that electrons 
         released from a 'low' phase and moving forwards (e.g. p-1 above) do not
         necessarily have the chance to be recaptured (depending on the release 
         routines in trap_manager, they could be recaptured at the "bottom" of a 
@@ -229,26 +241,10 @@ class ROEAbstract(object):
         transfers with a high phase that will always allow capture. The release 
         operations omitted are irrelevant, because either they were implemented 
         during the previous step, or the traps must have been empty anyway.
-                
-        Time          Pixel p-1              Pixel p            Pixel p+1
-        Step     Phase2 Phase1 Phase0 Phase2 Phase1 Phase0 Phase2 Phase1 Phase0
         
-        0                     +------+             +------+             +------+
-        Capture from          |      |             |   p  |             |      |
-        Release to            |      |             |   p  |   p     p+1 |      |
-                --------------+      +-------------+      +-------------+      |
-        1              +------+             +------+             +------+
-        Capture from   |      |             |   p  |             |      |
-        Release to     |      |             |   p  |   p     p+1 |      |
-                -------+      +-------------+      +-------------+      +-------
-        2       +------+             +------+             +------+
-        Capture from   |             |   p  |             |      |
-        Release to     |             |   p  |   p     p+1 |      |
-                       +-------------+      +-------------+      +--------------
-        
-        If there are an even number of phases, electrons released into the phase 
-        equidistant from split in half, and sent in both directions. This choice 
-        means that it should always be possible (and fastest) to implement such 
+        If there are an even number of phases, electrons released equidistant 
+        from two high phases are split in half and sent in both directions. This 
+        choice means that it should be possible (and fastest) to implement such 
         readout using only two phases, with a long dwell time in the phase that 
         represents all the 'low' phases.
         """
@@ -412,7 +408,9 @@ class ROE(ROEAbstract):
             the CCD, an object with information about the potentials.
         """
 
-        super().__init__(dwell_times, express_matrix_dtype)
+        super().__init__(
+            dwell_times=dwell_times, express_matrix_dtype=express_matrix_dtype
+        )
 
         # Parse inputs
         self.empty_traps_for_first_transfers = empty_traps_for_first_transfers
@@ -742,7 +740,7 @@ class ROETrapPumping(ROEAbstract):
         express_matrix_dtype=float,
     ):
         """ 
-        The readout electronics (ROE) class varient for trap pumping (aka pocket 
+        The readout electronics (ROE) class varient for trap pumping (AKA pocket 
         pumping).
         
         If a uniform image is repeatedly pumped through a CCD, dipoles (positive
@@ -757,11 +755,20 @@ class ROETrapPumping(ROEAbstract):
         
         Parameters (if different to ROE)
         ----------
+        dwell_times : [float]
+            The time between steps in the clocking sequence, in the same units 
+            as the trap capture/release timescales. For trap pumping, this 
+            includes both the forward and reverse transfers, so a full pumping
+            sequence should have an even number of steps, which is assumed here
+            to be double the number of phases per pixel.
+        
         n_pumps : int
-            ###
+            The number of times the charge is pumped back and forth. 
         """
 
-        super().__init__(dwell_times, express_matrix_dtype)
+        super().__init__(
+            dwell_times=dwell_times, express_matrix_dtype=express_matrix_dtype
+        )
 
         # Parse inputs
         self.n_pumps = n_pumps
@@ -805,16 +812,15 @@ class ROETrapPumping(ROEAbstract):
         """ 
         See ROE.express_matrix_and_monitor_traps_matrix_from_pixels_and_express()
     
-        ### Explain why different
+        Unlike normal clocking, charge is not tranferred from pixel to pixel 
+        until readout, and instead only the one clock sequence for each pixel
+        with traps in is repeated for n_pumps times.
         
         Parameters (if different to ROE.express_matrix_and_monitor_traps_matrix_from_pixels_and_express)
         ----------
-        pixels : int or range
+        pixels : int or [int]
             In this case, specifically only the pixels that contain traps.
-            
-            int:    The number of pixels in the image.
-            range:  The pixels in the image to be processed (can be a subset of 
-                    the entire image).
+            ###WIP Current tests assume only a single pixel has traps
         
         offset, time_window_range : None
             Not used for trap pumping.
@@ -871,7 +877,8 @@ class ROETrapPumping(ROEAbstract):
         """
         See ROE.save_trap_states_matrix_from_express_matrix()
         
-        ### Explain why different
+        Trap states must be saved after every pump sequence of the same trap
+        until the final one.
         """
         (n_express, n_pixels) = express_matrix.shape
         save_trap_states_matrix = np.zeros((n_express, n_pixels), dtype=bool)

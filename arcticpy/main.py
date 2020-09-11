@@ -23,7 +23,7 @@ from copy import deepcopy
 
 from autoarray.structures import frames
 
-from arcticpy.roe import ROE
+from arcticpy.roe import ROE, ROETrapPumping
 from arcticpy.ccd import CCD, CCDPhase
 from arcticpy.trap_managers import AllTrapManager
 from arcticpy.traps import TrapInstantCapture
@@ -155,8 +155,15 @@ def _clock_charge_in_one_direction(
         i for i, time in enumerate(roe.dwell_times) if time > 0
     ]
 
-    # Set up an array of trap managers able to monitor the occupancy of (all types of) traps
-    max_n_transfers = n_rows_to_process * len(steps_with_nonzero_dwell_time)
+    # Set up the set of trap managers to monitor the occupancy of all trap species
+    if isinstance(roe, ROETrapPumping):
+        # For trap pumping there is only one pixel and row to process but
+        # multiple transfers back and forth without clearing the watermarks
+        # Note, this allows for many more watermarks than are actually needed
+        # in standard trap-pumping clock sequences
+        max_n_transfers = n_express_pass * len(steps_with_nonzero_dwell_time)
+    else:
+        max_n_transfers = n_rows_to_process * len(steps_with_nonzero_dwell_time)
     trap_managers = AllTrapManager(
         traps=traps, max_n_transfers=max_n_transfers, ccd=ccd
     )
@@ -210,8 +217,8 @@ def _clock_charge_in_one_direction(
                             n_electrons_released_and_captured += trap_manager.n_electrons_released_and_captured(
                                 n_free_electrons=n_free_electrons,
                                 dwell_time=roe.dwell_times[clocking_step],
-                                ccd_filling_function=ccd.cloud_fractional_volume_from_n_electrons_in_phase(
-                                    phase
+                                ccd_filling_function=ccd.well_filling_function(
+                                    phase=phase
                                 ),
                                 express_multiplier=express_multiplier,
                             )
@@ -342,11 +349,12 @@ def add_cti(
         For speed, calculate only the effect on this subset of pixels. Defaults
         to range(0, n_pixels) for the full image.
         
-        For a single pixel (e.g. for trap pumping), can enter just the single 
-        integer index, which will be converted to range(index, index + 1).
-        
-        Note that, because of edge effects, you should start the range several
+        Note that, because of edge effects, the range should be started several
         pixels before the actual region of interest.
+        
+        For a single pixel (e.g. for trap pumping), can enter just the single 
+        integer index of the pumping traps to monitor, which will be converted 
+        to range(index, index + 1).
         
     serial_* : *
         The same as the parallel_* objects described above but for serial

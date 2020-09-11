@@ -363,7 +363,27 @@ The other options still apply in the same way.
 
 
 ### Trap pumping  
-Coming soon...
+AKA pocket pumping.
+```python
+roe = ac.ROETrapPumping(
+    # The dwell times here include both the forward and reverse transfers, so 
+    # there should be an even number, usually double the number of phases
+    dwell_times=[1] * 6, 
+    
+    # The number of times the charge is pumped back and forth
+    n_pumps=2
+)
+```
+In this mode, charge is clocked back and forth across traps in a pixel to create
+dipoles as electrons are repeatedly transferred from one pixel to its neighbour.
+
+The pixel index containing the traps should be set using the `window_range`
+argument of `add_cti()`, so that only those charges are pumped.
+
+See the docstring of `ROEAbstract._generate_clock_sequence()` in 
+`arcticpy/roe.py` for a full explanation and diagram, alongside
+`TestTrapPumping.test__traps_in_different_phases_make_dipoles()` 
+in `test_arcticpy/test_main.py` for simple examples.
 
 
 ### Express matrix  

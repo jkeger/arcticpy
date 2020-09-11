@@ -11,55 +11,55 @@ class TestCCD:
             full_well_depth=10000.0, well_notch_depth=0.0, well_fill_power=1.0
         )
 
-        electron_fractional_height = parallel_ccd.cloud_fractional_volume_from_n_electrons_and_phase(
+        electron_fractional_volume = parallel_ccd.cloud_fractional_volume_from_n_electrons_and_phase(
             n_electrons=100.0
         )
 
-        assert electron_fractional_height == 0.01
+        assert electron_fractional_volume == 0.01
 
-        electron_fractional_height = parallel_ccd.cloud_fractional_volume_from_n_electrons_and_phase(
+        electron_fractional_volume = parallel_ccd.cloud_fractional_volume_from_n_electrons_and_phase(
             n_electrons=1000.0
         )
 
-        assert electron_fractional_height == 0.1
+        assert electron_fractional_volume == 0.1
 
-        electron_fractional_height = parallel_ccd.cloud_fractional_volume_from_n_electrons_and_phase(
+        electron_fractional_volume = parallel_ccd.cloud_fractional_volume_from_n_electrons_and_phase(
             n_electrons=1000000.0
         )
 
-        assert electron_fractional_height == 1.0
+        assert electron_fractional_volume == 1.0
 
         parallel_ccd = ac.CCD(
             full_well_depth=10000.0, well_notch_depth=0.0, well_fill_power=0.5
         )
 
-        electron_fractional_height = parallel_ccd.cloud_fractional_volume_from_n_electrons_and_phase(
+        electron_fractional_volume = parallel_ccd.cloud_fractional_volume_from_n_electrons_and_phase(
             n_electrons=100.0
         )
 
-        assert electron_fractional_height == 0.01 ** 0.5
+        assert electron_fractional_volume == 0.01 ** 0.5
 
-        electron_fractional_height = parallel_ccd.cloud_fractional_volume_from_n_electrons_and_phase(
+        electron_fractional_volume = parallel_ccd.cloud_fractional_volume_from_n_electrons_and_phase(
             n_electrons=1000.0
         )
 
-        assert electron_fractional_height == 0.1 ** 0.5
+        assert electron_fractional_volume == 0.1 ** 0.5
 
         parallel_ccd = ac.CCD(
             full_well_depth=100.0, well_notch_depth=90.0, well_fill_power=1.0
         )
 
-        electron_fractional_height = parallel_ccd.cloud_fractional_volume_from_n_electrons_and_phase(
+        electron_fractional_volume = parallel_ccd.cloud_fractional_volume_from_n_electrons_and_phase(
             n_electrons=100.0
         )
 
-        assert electron_fractional_height == 1.0
+        assert electron_fractional_volume == 1.0
 
-        electron_fractional_height = parallel_ccd.cloud_fractional_volume_from_n_electrons_and_phase(
+        electron_fractional_volume = parallel_ccd.cloud_fractional_volume_from_n_electrons_and_phase(
             n_electrons=9.0
         )
 
-        assert electron_fractional_height == 0.0
+        assert electron_fractional_volume == 0.0
 
 
 class TestMultiPhase:

@@ -9,7 +9,7 @@ with open("requirements.txt", "r") as f:
 setuptools.setup(
     name="arcticpy",
     packages=setuptools.find_packages(),
-    version="0.2",
+    version="1.0",
     description="AlgoRithm for Charge Transfer Inefficiency Correction",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -18,7 +18,7 @@ setuptools.setup(
     url="https://github.com/jkeger/arcticpy",
     license="GNU GPLv3+",
     classifiers=[
-        "Development Status :: 3 - Alpha",
+        "Development Status :: 4 - Beta",
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
     ],

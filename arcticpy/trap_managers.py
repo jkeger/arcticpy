@@ -40,7 +40,7 @@ class AllTrapManager(UserList):
         max_n_transfers : int
             The number of pixels containing traps that charge will be expected 
             to move. This determines the maximum number of possible capture/
-            release events that could chreate new watermark levels, and is used 
+            release events that could create new watermark levels, and is used 
             to initialise the watermark array to be only as large as needed, for 
             efficiency.
             
@@ -150,7 +150,7 @@ class AllTrapManager(UserList):
 
 
 class TrapManager(object):
-    def __init__(self, traps, max_n_transfers, ccd=None, phase=0):
+    def __init__(self, traps, max_n_transfers):
         """
         The manager for potentially multiple trap species that are able to use 
         watermarks in the same way as each other.
@@ -167,14 +167,9 @@ class TrapManager(object):
         max_n_transfers : int
             The number of pixels containing traps that charge will be expected 
             to move. This determines the maximum number of possible capture/
-            release events that could chreate new watermark levels, and is used 
+            release events that could create new watermark levels, and is used 
             to initialise the watermark array to be only as large as needed, for 
             efficiency.
-            
-        ccd : arcticpy.CCD
-            Configuration of the CCD in which the electrons will move. Used to 
-            access the number of phases per pixel, and the fractional volume of 
-            a pixel that is filled by a cloud of electrons.
                 
         Attributes
         ----------
@@ -197,9 +192,6 @@ class TrapManager(object):
         """
         if not isinstance(traps, list):
             traps = [traps]
-        if isinstance(phase, list):
-            if len(phase) > 0:
-                raise ValueError("")
         self.traps = deepcopy(traps)
         self._max_n_transfers = max_n_transfers
 
@@ -209,7 +201,7 @@ class TrapManager(object):
                 # This +1 is to ensure there is always at least one zero, even
                 # if all transfers create a new watermark. The zero is used to
                 # find the highest used watermark
-                1 + (self.max_n_transfers * self.n_watermarks_per_transfer),
+                1 + self.max_n_transfers * self.n_watermarks_per_transfer,
                 # This +1 is to make space for the volume column
                 1 + self.n_trap_species,
             ),
@@ -251,9 +243,9 @@ class TrapManager(object):
         )
 
     def fraction_of_traps_exposed_from_n_electrons(
-        self, n_electrons, ccd_filling_function=None
+        self, n_electrons, ccd_filling_function
     ):
-        """ A (self-contained) function describing the well-filling model in any phase """
+        """ Calculate the proportion of traps reached by a charge cloud. """
         return self._fraction_of_traps_exposed_from_n_electrons(
             self, n_electrons, ccd_filling_function
         )
@@ -697,7 +689,7 @@ class TrapManager(object):
     def n_electrons_released_and_captured(
         self,
         n_free_electrons,
-        ccd_filling_function=None,
+        ccd_filling_function,
         dwell_time=1,
         express_multiplier=1,
     ):
@@ -710,9 +702,10 @@ class TrapManager(object):
         n_free_electrons : float
             The number of available electrons for trapping.
             
-        ccd : CCD
-            The object describing the CCD. Must have only a single value for 
-            each parameter, as set by CCD.extract_phase().
+        ccd_filling_function : func
+            A (self-contained) function describing the well-filling model, 
+            returning the fractional volume of charge cloud in a pixel from 
+            the number of electrons in the cloud.
             
         dwell_time : float
             The time spent in this pixel or phase, in the same units as the 
@@ -1020,7 +1013,7 @@ class TrapManagerInstantCapture(TrapManager):
     def n_electrons_captured(
         self,
         n_free_electrons,
-        ccd_filling_function=None,
+        ccd_filling_function,
         dwell_time=1,
         express_multiplier=1,
     ):
@@ -1032,9 +1025,10 @@ class TrapManagerInstantCapture(TrapManager):
         n_free_electrons : float
             The number of available electrons for trapping.
             
-        ccd : CCD
-            The object describing the CCD. Must have only a single value for 
-            each parameter, as set by CCD.extract_phase().
+        ccd_filling_function : func
+            A (self-contained) function describing the well-filling model, 
+            returning the fractional volume of charge cloud in a pixel from 
+            the number of electrons in the cloud.
             
         dwell_time : float
             The time spent in this pixel or phase, in the same units as the 
@@ -1170,7 +1164,7 @@ class TrapManagerInstantCapture(TrapManager):
     def n_electrons_released_and_captured(
         self,
         n_free_electrons,
-        ccd_filling_function=None,
+        ccd_filling_function,
         dwell_time=1,
         express_multiplier=1,
     ):
@@ -1181,9 +1175,10 @@ class TrapManagerInstantCapture(TrapManager):
         n_free_electrons : float
             The number of available electrons for trapping.
             
-        ccd : CCD
-            The object describing the CCD. Must have only a single value for 
-            each parameter, as set by CCD.extract_phase().
+        ccd_filling_function : func
+            A (self-contained) function describing the well-filling model, 
+            returning the fractional volume of charge cloud in a pixel from 
+            the number of electrons in the cloud.
             
         dwell_time : float
             The time spent in this pixel or phase, in the same units as the 

@@ -11,6 +11,11 @@ from arcticpy.traps import (
 )
 from arcticpy.ccd import CCD, CCDPhase
 
+from arcticpy.trap_managers_utils import (
+    cy_n_trapped_electrons_from_watermarks,
+    cy_update_watermark_volumes_for_cloud_below_highest
+)
+
 
 class AllTrapManager(UserList):
     def __init__(self, traps, max_n_transfers, ccd):
@@ -350,8 +355,8 @@ class TrapManager(object):
             The watermarks. See 
             initial_watermarks_from_n_pixels_and_total_traps().
         """
-        return np.sum(
-            (watermarks[:, 0] * watermarks[:, 1:].T).T * self.n_traps_per_pixel
+        return cy_n_trapped_electrons_from_watermarks(
+            watermarks, np.array(self.n_traps_per_pixel, dtype=np.int64)
         )
 
     def empty_all_traps(self):

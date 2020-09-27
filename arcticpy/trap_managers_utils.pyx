@@ -35,7 +35,7 @@ cdef void roll_2d_vertical(np.float64_t[:, :] arr) nogil:
 @cython.boundscheck(False)
 @cython.nonecheck(False)
 @cython.wraparound(False)
-def cy_n_trapped_electrons_from_watermarks(np.float64_t[:, :] watermarks, np.int64_t[:] n_traps_per_pixel):
+def cy_n_trapped_electrons_from_watermarks(np.float64_t[:, :] watermarks, np.float64_t[:] n_traps_per_pixel):
     """ Sum the total number of electrons currently held in traps.
     Parameters
     ----------
@@ -92,3 +92,25 @@ def cy_update_watermark_volumes_for_cloud_below_highest(
         watermarks[watermark_index_above_cloud + 1, 0] = (
             old_fractional_volume - watermarks[watermark_index_above_cloud, 0]
         )
+
+
+
+@cython.boundscheck(False)
+@cython.nonecheck(False)
+@cython.wraparound(False)
+cpdef np.int64_t cy_watermark_index_above_cloud_from_cloud_fractional_volume(
+        np.float64_t cloud_fractional_volume, np.float64_t[:, :] watermarks, np.int64_t max_watermark_index
+):
+    cdef np.float64_t total = 0.0
+    cdef np.int64_t i
+    cdef np.int64_t index = watermarks.shape[0]
+    with nogil:
+        for i in range(watermarks.shape[0]):
+            total += watermarks[i, 0]
+            if cloud_fractional_volume <= total:
+                index = min(index, i)
+
+        if total < cloud_fractional_volume:
+            return max_watermark_index + 1
+        else:
+            return index

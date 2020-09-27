@@ -13,7 +13,8 @@ from arcticpy.ccd import CCD, CCDPhase
 
 from arcticpy.trap_managers_utils import (
     cy_n_trapped_electrons_from_watermarks,
-    cy_update_watermark_volumes_for_cloud_below_highest
+    cy_update_watermark_volumes_for_cloud_below_highest,
+    cy_watermark_index_above_cloud_from_cloud_fractional_volume
 )
 
 
@@ -282,7 +283,7 @@ class TrapManager(object):
     @property
     def n_traps_per_pixel(self):
         """ Number of traps of each species, in each pixel """
-        return np.array([trap.density for trap in self.traps], dtype=float)
+        return np.array([trap.density for trap in self.traps], dtype=np.float64)
 
     @n_traps_per_pixel.setter
     def n_traps_per_pixel(self, values):
@@ -356,7 +357,7 @@ class TrapManager(object):
             initial_watermarks_from_n_pixels_and_total_traps().
         """
         return cy_n_trapped_electrons_from_watermarks(
-            watermarks, np.array(self.n_traps_per_pixel, dtype=np.int64)
+            watermarks, self.n_traps_per_pixel
         )
 
     def empty_all_traps(self):
@@ -385,14 +386,20 @@ class TrapManager(object):
         watermark_index_above_cloud : int
             The index of the first watermark above the cloud.
         """
-        if np.sum(watermarks[:, 0]) < cloud_fractional_volume:
-            return max_watermark_index + 1
-
-        elif cloud_fractional_volume == 0:
+        if cloud_fractional_volume == 0:
             return -1
-
         else:
-            return np.argmax(cloud_fractional_volume <= np.cumsum(watermarks[:, 0]))
+            return cy_watermark_index_above_cloud_from_cloud_fractional_volume(
+                cloud_fractional_volume, watermarks, max_watermark_index
+            )
+#        if np.sum(watermarks[:, 0]) < cloud_fractional_volume:
+#            return max_watermark_index + 1
+#
+#        elif cloud_fractional_volume == 0:
+#            return -1
+#
+#        else:
+#            return np.argmax(cloud_fractional_volume <= np.cumsum(watermarks[:, 0]))
 
     def update_watermark_volumes_for_cloud_below_highest(
         self, watermarks, cloud_fractional_volume, watermark_index_above_cloud
@@ -739,7 +746,8 @@ class TrapManager(object):
             initial_watermarks_from_n_pixels_and_total_traps().
         """
         # Initial watermarks and number of electrons in traps
-        watermarks_initial = deepcopy(self.watermarks)
+        #watermarks_initial = deepcopy(self.watermarks)
+        watermarks_initial = np.array(self.watermarks)
         n_trapped_electrons_initial = self.n_trapped_electrons_from_watermarks(
             watermarks=self.watermarks
         )

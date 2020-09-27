@@ -530,7 +530,7 @@ class ROE(ROEAbstract):
         # Initialise an array with enough pixels to contain the supposed image,
         # including offset
         express_matrix = np.ndarray(
-            (express, n_pixels + offset), dtype=self.express_matrix_dtype
+            (express, n_pixels + offset), dtype=self.express_matrix_dtype,
         )
 
         # Compute the multiplier factors
@@ -579,7 +579,7 @@ class ROE(ROEAbstract):
         # Keep only the spatial region of interest
         express_matrix = express_matrix[:, window_range]
 
-        return express_matrix, monitor_traps_matrix
+        return np.ascontiguousarray(express_matrix), np.ascontiguousarray(monitor_traps_matrix)
 
     def save_trap_states_matrix_from_express_matrix(self, express_matrix):
         """

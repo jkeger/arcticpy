@@ -23,7 +23,7 @@ cdef void roll_2d_vertical(np.float64_t[:, :] arr) nogil:
     # Move all the rows up an index
     for i in range(1, arr.shape[0], 1):
         for j in range(0, arr.shape[1], 1):
-            arr[i, j] = arr[i-1, j]
+            arr[arr.shape[0]-i, j] = arr[arr.shape[0]-i-1, j]
 
     # Put the copied last row into the 0 index
     for j in range(0, arr.shape[1], 1):
@@ -69,7 +69,7 @@ def cy_update_watermark_volumes_for_cloud_below_highest(
 
     with nogil:
         for i in range(0, watermark_index_above_cloud + 1, 1):
-            cumulative_watermark_fractional_volume +=  watermarks[i, 0]
+            cumulative_watermark_fractional_volume += watermarks[i, 0]
 
         # Move one new empty watermark to the start of the list
         #watermarks = np.roll(watermarks, 1, axis=0)

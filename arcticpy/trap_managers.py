@@ -417,33 +417,36 @@ class TrapManager(object):
             The updated watermarks. See 
             initial_watermarks_from_n_pixels_and_total_traps().
         """
+        cy_update_watermark_volumes_for_cloud_below_highest(
+            watermarks, cloud_fractional_volume, watermark_index_above_cloud)
+        return watermarks
         # The volume and cumulative volume of the watermark around the cloud volume
-        watermark_fractional_volume = watermarks[watermark_index_above_cloud, 0]
-        cumulative_watermark_fractional_volume = np.sum(
-            watermarks[: watermark_index_above_cloud + 1, 0]
-        )
+#        watermark_fractional_volume = watermarks[watermark_index_above_cloud, 0]
+#        cumulative_watermark_fractional_volume = np.sum(
+#            watermarks[: watermark_index_above_cloud + 1, 0]
+#        )
 
         # Move one new empty watermark to the start of the list
-        watermarks = np.roll(watermarks, 1, axis=0)
+#        watermarks = np.roll(watermarks, 1, axis=0)
 
         # Re-set the relevant watermarks near the start of the list
-        if watermark_index_above_cloud == 0:
-            watermarks[0] = watermarks[1]
-        else:
-            watermarks[: watermark_index_above_cloud + 1] = watermarks[
-                1 : watermark_index_above_cloud + 2
-            ]
+#        if watermark_index_above_cloud == 0:
+#            watermarks[0] = watermarks[1]
+#        else:
+#            watermarks[: watermark_index_above_cloud + 1] = watermarks[
+#                1 : watermark_index_above_cloud + 2
+#            ]
 
         # Update the new split watermarks' volumes
-        old_fractional_volume = watermark_fractional_volume
-        watermarks[watermark_index_above_cloud, 0] = cloud_fractional_volume - (
-            cumulative_watermark_fractional_volume - watermark_fractional_volume
-        )
-        watermarks[watermark_index_above_cloud + 1, 0] = (
-            old_fractional_volume - watermarks[watermark_index_above_cloud, 0]
-        )
-
-        return watermarks
+#        old_fractional_volume = watermark_fractional_volume
+#        watermarks[watermark_index_above_cloud, 0] = cloud_fractional_volume - (
+#            cumulative_watermark_fractional_volume - watermark_fractional_volume
+#        )
+#        watermarks[watermark_index_above_cloud + 1, 0] = (
+#            old_fractional_volume - watermarks[watermark_index_above_cloud, 0]
+#        )
+#
+#        return watermarks
 
     def updated_watermarks_from_capture_not_enough(
         self, watermarks, watermarks_initial, enough

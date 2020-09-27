@@ -28,6 +28,7 @@ from arcticpy.ccd import CCD, CCDPhase
 from arcticpy.trap_managers import AllTrapManager
 from arcticpy.traps import TrapInstantCapture
 from arcticpy import util
+from arcticpy.main_utils import cy_clock_charge_in_one_direction
 
 
 def _clock_charge_in_one_direction(
@@ -418,43 +419,40 @@ def add_cti(
     # Parallel clocking
     if parallel_traps is not None:
 
-        # Transfer charge in parallel direction
-        image_add_cti = _clock_charge_in_one_direction(
-            image=image_add_cti,
-            ccd=parallel_ccd,
-            roe=parallel_roe,
-            traps=parallel_traps,
-            express=parallel_express,
-            offset=parallel_offset,
-            window_row_range=parallel_window_range,
-            window_column_range=serial_window_range,
-            time_window_range=time_window_range,
+        image_add_cti = cy_clock_charge_in_one_direction(
+            image_add_cti,
+            parallel_ccd,
+            parallel_roe,
+            parallel_traps,
+            parallel_express,
+            parallel_offset,
+            parallel_window_range,
+            serial_window_range,
+            time_window_range,
         )
 
     # Serial clocking
     if serial_traps is not None:
-
         # Switch axes, so clocking happens in other direction
         image_add_cti = image_add_cti.T.copy()
 
         # Transfer charge in serial direction
-        image_add_cti = _clock_charge_in_one_direction(
-            image=image_add_cti,
-            ccd=serial_ccd,
-            roe=serial_roe,
-            traps=serial_traps,
-            express=serial_express,
-            offset=serial_offset,
-            window_row_range=serial_window_range,
-            window_column_range=serial_window_column_range,
-            time_window_range=None,
+        image_add_cti = cy_clock_charge_in_one_direction(
+            image_add_cti,
+            serial_ccd,
+            serial_roe,
+            serial_traps,
+            serial_express,
+            serial_offset,
+            serial_window_range,
+            serial_window_column_range,
+            None,
         )
 
         # Switch axes back
         image_add_cti = image_add_cti.T
 
     # TODO : Implement as decorator
-
     if isinstance(image, frames.Frame):
 
         return image.__class__(

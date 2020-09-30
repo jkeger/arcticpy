@@ -60,10 +60,10 @@ def cy_clock_charge_in_one_direction(
     n_rows_to_process = express_matrix.shape[1]
 
     # Decide in advance which steps need to be evaluated and which can be skipped
-    cdef np.int64_t[:] phases_with_traps = np.array([
+    cdef np.int64_t[::1] phases_with_traps = np.array([
         i for i, frac in enumerate(ccd.fraction_of_traps_per_phase) if frac > 0
     ], dtype=np.int64)
-    cdef np.int64_t[:] steps_with_nonzero_dwell_time = np.array([
+    cdef np.int64_t[::1] steps_with_nonzero_dwell_time = np.array([
         i for i, time in enumerate(roe.dwell_times) if time > 0
     ], dtype=np.int64)
 
@@ -91,9 +91,9 @@ def cy_clock_charge_in_one_direction(
     cdef np.float64_t[:, :] image = np.concatenate((image_in, zero_padding), axis=0)
 
     # Read out one column of pixels through the (column of) traps
-    cdef np.float64_t[:] n_free_electrons
+    cdef np.float64_t[::1] n_free_electrons
     cdef np.int64_t column_index, express_index, row_index, i
-    cdef np.int64_t[:] row_index_read, row_index_write
+    cdef np.int64_t[::1] row_index_read, row_index_write
     cdef np.float64_t n_electrons_released_and_captured, is_high, express_mulitplier
     for column_index in window_column_range:
         # Monitor the traps in every pixel, or just one (express=1) or a few

@@ -14,7 +14,8 @@ from arcticpy.ccd import CCD, CCDPhase
 from arcticpy.trap_managers_utils import (
     cy_n_trapped_electrons_from_watermarks,
     cy_update_watermark_volumes_for_cloud_below_highest,
-    cy_watermark_index_above_cloud_from_cloud_fractional_volume
+    cy_watermark_index_above_cloud_from_cloud_fractional_volume,
+    cy_value_in_cumsum,
 )
 
 
@@ -513,9 +514,8 @@ class TrapManager(object):
         watermarks_copy : np.ndarray
             The updated watermarks copy, if it was provided.
         """
-
         # Number of trap species
-        num_traps = len(watermarks[0, 1:])
+        num_traps = watermarks.shape[1] - 1
 
         # Find the first watermark that is not completely filled for all traps
         watermark_index_not_filled = min(
@@ -634,9 +634,7 @@ class TrapManager(object):
         electrons from watermarks above the cloud.
         """
         # Create the new watermark at the cloud fractional volume
-        if cloud_fractional_volume > 0 and cloud_fractional_volume not in np.cumsum(
-            self.watermarks[:, 0]
-        ):
+        if cloud_fractional_volume > 0 and not cy_value_in_cumsum(cloud_fractional_volume, self.watermarks[:, 0]):
 
             # Update the watermark volumes, duplicated for the initial watermarks
             self.watermarks = self.update_watermark_volumes_for_cloud_below_highest(
@@ -676,9 +674,7 @@ class TrapManager(object):
         )
 
         # Update the watermark volumes, duplicated for the initial watermarks
-        if cloud_fractional_volume > 0 and cloud_fractional_volume not in np.cumsum(
-            self.watermarks[:, 0]
-        ):
+        if cloud_fractional_volume > 0 and not cy_value_in_cumsum(cloud_fractional_volume, self.watermarks[:, 0]):
             self.watermarks = self.update_watermark_volumes_for_cloud_below_highest(
                 watermarks=self.watermarks,
                 cloud_fractional_volume=cloud_fractional_volume,
@@ -1309,9 +1305,8 @@ class TrapManagerTrackTime(TrapManagerInstantCapture):
         watermarks = self.watermarks_converted_to_fill_fractions_from_elapsed_times(
             watermarks=watermarks
         )
-
-        return np.sum(
-            (watermarks[:, 0] * watermarks[:, 1:].T).T * self.n_traps_per_pixel
+        return cy_n_trapped_electrons_from_watermarks(
+            watermarks, self.n_traps_per_pixel
         )
 
     def updated_watermarks_from_capture_not_enough(

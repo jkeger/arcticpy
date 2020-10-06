@@ -389,7 +389,7 @@ class ROE(ROEAbstract):
             express multipliers must be integers. If 
             force_release_away_from_readout is True (no effect if False), then  
             it's slightly more efficient if this requirement is dropped, but the 
-            option to force it is included for backwards compatability.
+            option to force it is included for backwards compatability. 
         
         Attributes
         ----------            
@@ -580,7 +580,7 @@ class ROE(ROEAbstract):
         express_matrix = express_matrix[:, window_range]
 
         return (
-            np.ascontiguousarray(express_matrix),
+            np.ascontiguousarray(express_matrix.astype(float)),
             np.ascontiguousarray(monitor_traps_matrix),
         )
 
@@ -721,7 +721,7 @@ class ROEChargeInjection(ROE):
             express_matrix, time_window_range
         )
 
-        return express_matrix, monitor_traps_matrix
+        return express_matrix.astype(float), monitor_traps_matrix
 
     def save_trap_states_matrix_from_express_matrix(self, express_matrix):
         """
@@ -874,7 +874,7 @@ class ROETrapPumping(ROEAbstract):
         # When to monitor traps
         monitor_traps_matrix = express_matrix > 0
 
-        return express_matrix, monitor_traps_matrix
+        return express_matrix.astype(float), monitor_traps_matrix
 
     def save_trap_states_matrix_from_express_matrix(self, express_matrix):
         """

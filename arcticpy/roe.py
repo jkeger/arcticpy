@@ -579,7 +579,10 @@ class ROE(ROEAbstract):
         # Keep only the spatial region of interest
         express_matrix = express_matrix[:, window_range]
 
-        return np.ascontiguousarray(express_matrix), np.ascontiguousarray(monitor_traps_matrix)
+        return (
+            np.ascontiguousarray(express_matrix),
+            np.ascontiguousarray(monitor_traps_matrix),
+        )
 
     def save_trap_states_matrix_from_express_matrix(self, express_matrix):
         """

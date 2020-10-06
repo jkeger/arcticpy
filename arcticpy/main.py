@@ -420,15 +420,15 @@ def add_cti(
     if parallel_traps is not None:
 
         image_add_cti = cy_clock_charge_in_one_direction(
-            image_add_cti,
-            parallel_ccd,
-            parallel_roe,
-            parallel_traps,
-            parallel_express,
-            parallel_offset,
-            parallel_window_range,
-            serial_window_range,
-            time_window_range,
+            image_in=image_add_cti,
+            ccd=parallel_ccd,
+            roe=parallel_roe,
+            traps=parallel_traps,
+            express=parallel_express,
+            offset=parallel_offset,
+            window_row_range=parallel_window_range,
+            window_column_range=serial_window_range,
+            time_window_range=time_window_range,
         )
 
     # Serial clocking
@@ -438,15 +438,15 @@ def add_cti(
 
         # Transfer charge in serial direction
         image_add_cti = cy_clock_charge_in_one_direction(
-            image_add_cti,
-            serial_ccd,
-            serial_roe,
-            serial_traps,
-            serial_express,
-            serial_offset,
-            serial_window_range,
-            serial_window_column_range,
-            None,
+            image_in=image_add_cti,
+            ccd=serial_ccd,
+            roe=serial_roe,
+            traps=serial_traps,
+            express=serial_express,
+            offset=serial_offset,
+            window_row_range=serial_window_range,
+            window_column_range=serial_window_column_range,
+            time_window_range=None,
         )
 
         # Switch axes back

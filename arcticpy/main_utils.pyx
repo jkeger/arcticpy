@@ -27,6 +27,81 @@ def cy_clock_charge_in_one_direction(
     Add CTI trails to an image by trapping, releasing, and moving electrons 
     along their independent columns.
 
+    Parameters
+    ----------
+    image : [[float]]
+        The input array of pixel values, assumed to be in units of electrons.
+        
+        The first dimension is the "row" index, the second is the "column" 
+        index. By default (for parallel clocking), charge is transferred "up" 
+        from row n to row 0 along each independent column. i.e. the readout 
+        register is above row 0. (For serial clocking, the image is rotated 
+        beforehand, outside of this function, see add_cti().)
+        
+        e.g. (with arbitrary trap parameters)
+        Initial image with one bright pixel in the first three columns:
+            [[0.0,     0.0,     0.0,     0.0  ], 
+             [200.0,   0.0,     0.0,     0.0  ], 
+             [0.0,     200.0,   0.0,     0.0  ], 
+             [0.0,     0.0,     200.0,   0.0  ], 
+             [0.0,     0.0,     0.0,     0.0  ], 
+             [0.0,     0.0,     0.0,     0.0  ]]
+        Final image with CTI trails behind each bright pixel:
+            [[0.0,     0.0,     0.0,     0.0  ], 
+             [196.0,   0.0,     0.0,     0.0  ], 
+             [3.0,     194.1,   0.0,     0.0  ], 
+             [2.0,     3.9,     192.1,   0.0  ], 
+             [1.3,     2.5,     4.8,     0.0  ], 
+             [0.8,     1.5,     2.9,     0.0  ]]
+        
+    roe : ROE
+        An object describing the timing and direction(s) in which electrons are 
+        moved during readout.
+        
+    ccd : CCD
+        An object describing the way in which a cloud of electrons fills the CCD 
+        volume. 
+        
+    traps : [Trap] or [[Trap]]
+        A list of one or more trap objects. To use different types of traps that
+        will require different watermark levels, pass a 2D list of lists, i.e. a 
+        list containing lists of one or more traps for each type. 
+        
+    express : int
+        The number of times the pixel-to-pixel transfers are computed, 
+        determining the balance between accuracy (high values) and speed 
+        (low values) (Massey et al. 2014, section 2.1.5).
+            n_pix   (slower, accurate) Compute every pixel-to-pixel 
+                    transfer. The default 0 = alias for n_pix.
+            k       Recompute on k occasions the effect of each transfer.  
+                    After a few transfers (and e.g. eroded leading edges),  
+                    the incremental effect of subsequent transfers can change.
+            1       (faster, approximate) Compute the effect of each 
+                    transfer only once.
+        Runtime scales approximately as O(express^0.5). ###WIP
+        
+    offset : int (>= 0)
+        The number of (e.g. prescan) pixels separating the supplied image from 
+        the readout register.
+        
+    window_row_range : range
+        The subset of row pixels to model, to save time when only a specific 
+        region of the image is of interest. Defaults to range(0, n_pixels) for 
+        the full image.
+    
+    window_column_range : range
+        The subset of column pixels to model, to save time when only a specific 
+        region of the image is of interest. Defaults to range(0, n_columns) for 
+        the full image.
+        
+    time_window_range : range
+        The subset of transfers to implement. Defaults to range(0, n_pixels) for 
+        the full image. e.g. range(0, n_pixels/3) to do only the first third of 
+        the pixel-to-pixel transfers.
+        
+        The entire readout is still modelled, but only the results from this 
+        subset of transfers are implemented in the final image.
+
     Returns
     -------
     image : [[float]]

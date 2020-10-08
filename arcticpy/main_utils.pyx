@@ -8,10 +8,9 @@ from arcticpy.roe import ROETrapPumping
 from arcticpy.trap_managers import AllTrapManager
 
 
-@cython.boundscheck(False)
-@cython.nonecheck(False)
-@cython.wraparound(False)
-#@cython.profile(True)
+# @cython.boundscheck(False)
+# @cython.nonecheck(False)
+# @cython.wraparound(False)
 def cy_clock_charge_in_one_direction(
     image_in,
     ccd,
@@ -129,7 +128,10 @@ def cy_clock_charge_in_one_direction(
     save_trap_states_matrix = roe.save_trap_states_matrix_from_express_matrix(
         express_matrix=express_matrix
     )
-
+    
+    # Extract and type lots of things that won't be changed
+    cdef np.int64_t n_window_row
+    n_window_row = len(window_row_range)
     cdef np.int64_t n_express_pass, n_rows_to_process
     n_express_pass = express_matrix.shape[0]
     n_rows_to_process = express_matrix.shape[1]
@@ -167,7 +169,7 @@ def cy_clock_charge_in_one_direction(
 
     # Read out one column of pixels through the (column of) traps
     cdef np.float64_t[::1] n_free_electrons
-    cdef np.int64_t column_index, express_index, row_index, i
+    cdef np.int64_t column_index, express_index, row_index, row_start, row_end, i
     cdef np.int64_t[::1] row_index_read, row_index_write
     cdef np.float64_t n_electrons_released_and_captured, is_high, express_mulitplier
     for column_index in window_column_range:
@@ -178,14 +180,15 @@ def cy_clock_charge_in_one_direction(
             # from a previous express pass)
             trap_managers.restore()
 
+            # Set the steps that need to be evaluated (may need to monitor the 
+            # traps and update their occupancies even if express_mulitplier is 
+            # 0, e.g. for a time window)
+            row_start = np.argmax(monitor_traps_matrix[express_index])
+            row_end = n_window_row - np.argmax(monitor_traps_matrix[express_index][::-1])
+
             # Each pixel
-            for row_index in range(0, len(window_row_range), 1):
+            for row_index in range(row_start, row_end):
                 express_multiplier = express_matrix[express_index, row_index]
-                # Skip this step if not needed to be evaluated (may need to
-                # monitor the traps and update their occupancies even if
-                # express_mulitplier is 0, e.g. for a time window)
-                if monitor_traps_matrix[express_index, row_index] == 0:
-                    continue
 
                 for iclocking_step in range(steps_with_nonzero_dwell_time.shape[0]):
                     clocking_step = steps_with_nonzero_dwell_time[iclocking_step]

@@ -30,6 +30,8 @@ from arcticpy.traps import TrapInstantCapture
 from arcticpy import util
 from arcticpy.main_utils import cy_clock_charge_in_one_direction
 
+# cy_clock_charge_in_one_direction = profile(cy_clock_charge_in_one_direction)
+
 
 def add_cti(
     image,

@@ -12,10 +12,11 @@ from arcticpy.traps import (
 from arcticpy.ccd import CCD, CCDPhase
 
 from arcticpy.trap_managers_utils import (
-    cy_n_trapped_electrons_from_watermarks,
-    cy_update_watermark_volumes_for_cloud_below_highest,
-    cy_watermark_index_above_cloud_from_cloud_fractional_volume,
     cy_value_in_cumsum,
+    cy_n_trapped_electrons_from_watermarks,
+    cy_watermark_index_above_cloud_from_cloud_fractional_volume,
+    cy_update_watermark_volumes_for_cloud_below_highest,
+    # cy_collapse_redundant_watermarks,
 )
 
 
@@ -480,6 +481,12 @@ class TrapManager(object):
         watermarks_copy : np.ndarray
             The updated watermarks copy, if it was provided.
         """
+        if watermarks_copy is None:
+            do_copy = False
+            # watermarks_copy = np.zeros_like(watermarks)
+        else:
+            do_copy = True
+
         # Number of trap species
         num_traps = watermarks.shape[1] - 1
 
@@ -493,7 +500,7 @@ class TrapManager(object):
 
         # Skip if none or only one are completely filled
         if watermark_index_not_filled <= 1:
-            if watermarks_copy is not None:
+            if do_copy:
                 return watermarks, watermarks_copy
             else:
                 return watermarks
@@ -502,7 +509,7 @@ class TrapManager(object):
         fractional_volume_filled = np.sum(watermarks[:watermark_index_not_filled, 0])
 
         # Combined fill values
-        if watermarks_copy is not None:
+        if do_copy:
             # Multiple trap species
             if 1 < num_traps:
                 axis = 1
@@ -516,12 +523,12 @@ class TrapManager(object):
 
         # Remove the no-longer-needed overwritten watermarks
         watermarks[:watermark_index_not_filled, :] = 0
-        if watermarks_copy is not None:
+        if do_copy:
             watermarks_copy[:watermark_index_not_filled, :] = 0
 
         # Move the no-longer-needed watermarks to the end of the list
         watermarks = np.roll(watermarks, 1 - watermark_index_not_filled, axis=0)
-        if watermarks_copy is not None:
+        if do_copy:
             watermarks_copy = np.roll(
                 watermarks_copy, 1 - watermark_index_not_filled, axis=0
             )
@@ -529,11 +536,18 @@ class TrapManager(object):
         # Edit the new first watermark
         watermarks[0, 0] = fractional_volume_filled
         watermarks[0, 1:] = self.filled_watermark_value
-        if watermarks_copy is not None:
+        if do_copy:
             watermarks_copy[0, 0] = fractional_volume_filled
             watermarks_copy[0, 1:] = copy_fill_values
 
-        if watermarks_copy is not None:
+        # cy_collapse_redundant_watermarks(
+        #     watermarks=watermarks,
+        #     watermarks_copy=watermarks_copy,
+        #     filled_watermark_value=self.filled_watermark_value,
+        #     do_copy=do_copy,
+        # )
+
+        if do_copy:
             return watermarks, watermarks_copy
         else:
             return watermarks

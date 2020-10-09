@@ -16,7 +16,6 @@ from arcticpy.trap_managers_utils import (
     cy_n_trapped_electrons_from_watermarks,
     cy_watermark_index_above_cloud_from_cloud_fractional_volume,
     cy_update_watermark_volumes_for_cloud_below_highest,
-    # cy_collapse_redundant_watermarks,
 )
 
 
@@ -539,13 +538,6 @@ class TrapManager(object):
         if do_copy:
             watermarks_copy[0, 0] = fractional_volume_filled
             watermarks_copy[0, 1:] = copy_fill_values
-
-        # cy_collapse_redundant_watermarks(
-        #     watermarks=watermarks,
-        #     watermarks_copy=watermarks_copy,
-        #     filled_watermark_value=self.filled_watermark_value,
-        #     do_copy=do_copy,
-        # )
 
         if do_copy:
             return watermarks, watermarks_copy

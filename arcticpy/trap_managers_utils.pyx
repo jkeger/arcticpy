@@ -11,7 +11,7 @@ from libc.math cimport exp
 @cython.boundscheck(False)
 @cython.nonecheck(False)
 @cython.wraparound(False)
-cdef void roll_2d_vertical(np.float64_t[:, :] arr) nogil:
+cdef void roll_2d_vertical_1(np.float64_t[:, :] arr) nogil:
     """ Equivalent to np.roll(arr, 1, axis=0) """
     # Unfortunately we cannot use np.zeros without the gil, so good old 
     # fashioned C is used instead
@@ -120,7 +120,7 @@ cpdef void cy_update_watermark_volumes_for_cloud_below_highest(
             cumulative_watermark_fractional_volume += watermarks[i, 0]
 
         # Move one new empty watermark to the start of the list
-        roll_2d_vertical(watermarks)
+        roll_2d_vertical_1(watermarks)
 
         # Re-set the relevant watermarks near the start of the list
         if watermark_index_above_cloud == 0:
@@ -139,66 +139,3 @@ cpdef void cy_update_watermark_volumes_for_cloud_below_highest(
         watermarks[watermark_index_above_cloud + 1, 0] = (
             old_fractional_volume - watermarks[watermark_index_above_cloud, 0]
         )
-
-
-# @cython.boundscheck(False)
-# @cython.nonecheck(False)
-# @cython.wraparound(False)
-# cpdef void cy_collapse_redundant_watermarks(
-#     np.float64_t[:, :] watermarks,
-#     np.float64_t[:, :] watermarks_copy,
-#     # watermarks,
-#     # watermarks_copy,
-#     filled_watermark_value,
-#     do_copy,
-# ):
-#     """ See collapse_redundant_watermarks() """
-#     # Number of trap species
-#     num_traps = watermarks.shape[1] - 1
-# 
-#     # Find the first watermark that is not completely filled for all traps
-#     watermark_index_not_filled = min(
-#         [
-#             np.argmax(watermarks[:, 1 + i_trap] != filled_watermark_value)
-#             for i_trap in range(num_traps)
-#         ]
-#     )
-# 
-#     # Skip if none or only one are completely filled
-#     if watermark_index_not_filled <= 1:
-#         return
-# 
-#     # Total fractional volume of filled watermarks
-#     fractional_volume_filled = np.sum(watermarks[:watermark_index_not_filled, 0])
-# 
-#     # Combined fill values
-#     if do_copy:
-#         # Multiple trap species
-#         if 1 < num_traps:
-#             axis = 1
-#         else:
-#             axis = None
-#         copy_fill_values = np.sum(
-#             watermarks_copy[:watermark_index_not_filled, 0]
-#             * watermarks_copy[:watermark_index_not_filled, 1:].T,
-#             axis=axis,
-#         ) / np.sum(watermarks_copy[:watermark_index_not_filled, 0])
-# 
-#     # Remove the no-longer-needed overwritten watermarks
-#     watermarks[:watermark_index_not_filled, :] = 0
-#     if do_copy:
-#         watermarks_copy[:watermark_index_not_filled, :] = 0
-# 
-#     # Move the no-longer-needed watermarks to the end of the list
-#     watermarks = np.roll(watermarks, 1 - watermark_index_not_filled, axis=0)
-#     if do_copy:
-#         watermarks_copy = np.roll(
-#             watermarks_copy, 1 - watermark_index_not_filled, axis=0
-#         )
-# 
-#     # Edit the new first watermark
-#     watermarks[0, 0] = fractional_volume_filled
-#     watermarks[0, 1:] = filled_watermark_value
-#     if do_copy:
-#         watermarks_copy[0, 0] = fractional_volume_filled
-#         watermarks_copy[0, 1:] = copy_fill_values

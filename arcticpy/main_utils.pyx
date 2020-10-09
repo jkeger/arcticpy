@@ -140,14 +140,13 @@ def cy_clock_charge_in_one_direction(
     ], dtype=np.int64)
     
     # Extract and type lots of things that won't be changed
-    cdef np.float64_t n_electrons_released_and_captured, is_high, express_mulitplier
-    cdef np.float64_t[::1] n_free_electrons
-    cdef np.int64_t[::1] row_indices, row_index_read, row_index_write
+    cdef np.float64_t n_electrons_released_and_captured, express_mulitplier, n_free_electrons
+    cdef np.int64_t[::1] row_indices, row_index_write
     cdef np.int64_t n_express_pass = express_matrix.shape[0]
     cdef np.int64_t n_rows_to_process = express_matrix.shape[1]
     cdef np.int64_t \
-        column_index, express_index, i_row, row_index, i_clocking_step, clocking_step, \
-        i_phase, phase
+        column_index, express_index, i_row, row_index, row_index_read, i_clocking_step, \
+        clocking_step, i_phase, phase
 
     # Set up the set of trap managers to monitor the occupancy of all trap species
     if isinstance(roe, ROETrapPumping):
@@ -202,23 +201,19 @@ def cy_clock_charge_in_one_direction(
 
                         # Select the relevant pixel (and phase) for the initial charge
                         row_index_read = (
-                            window_row_range[row_index]
-                            + roe_phase.capture_from_which_pixels
+                            window_row_range[row_index] + roe_phase.capture_from_which_pixel
                         )
 
                         # Initial charge (0 if this phase's potential is not high)
-                        n_free_electrons = np.zeros(row_index_read.shape[0])
-                        is_high = roe_phase.is_high
-                        for i in range(row_index_read.shape[0]):
-                            n_free_electrons[i] = (
-                                image[row_index_read[i], column_index] * is_high
-                            )
+                        n_free_electrons = (
+                            image[row_index_read, column_index] * roe_phase.is_high
+                        )
 
                         # Allow electrons to be released from and captured by traps
                         n_electrons_released_and_captured = 0
                         for trap_manager in trap_managers[phase]:
                             n_electrons_released_and_captured += trap_manager.n_electrons_released_and_captured(
-                                n_free_electrons=np.asarray(n_free_electrons),
+                                n_free_electrons=n_free_electrons,
                                 dwell_time=roe.dwell_times[clocking_step],
                                 ccd_filling_function=ccd.well_filling_function(
                                     phase=phase

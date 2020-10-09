@@ -56,7 +56,7 @@ class ROEPhase(object):
     def __init__(
         self,
         is_high,
-        capture_from_which_pixels,
+        capture_from_which_pixel,
         release_to_which_pixels,
         release_fraction_to_pixel,
     ):
@@ -68,8 +68,8 @@ class ROEPhase(object):
         is_high : bool                
             Is the potential held high, i.e. able to contain free electrons?
         
-        capture_from_which_pixels : [int]
-            The relative row number(s) of the charge cloud to capture from.
+        capture_from_which_pixel : int
+            The relative row number of the charge cloud to capture from.
             
         release_to_which_pixels : [int]         
             The relative row number(s) of the charge cloud to release to.
@@ -79,9 +79,7 @@ class ROEPhase(object):
         """
         # Make sure the arrays are arrays
         self.is_high = is_high
-        self.capture_from_which_pixels = np.array(
-            [capture_from_which_pixels], dtype=int
-        ).flatten()
+        self.capture_from_which_pixel = capture_from_which_pixel
         self.release_to_which_pixels = np.array(
             [release_to_which_pixels], dtype=int
         ).flatten()
@@ -279,7 +277,7 @@ class ROEAbstract(object):
             for phase in range(n_phases):
 
                 # Where to capture from?
-                capture_from_which_pixels = (
+                capture_from_which_pixel = (
                     step_prime - phase + ((n_phases - 1) // 2)
                 ) // n_phases
 
@@ -292,7 +290,7 @@ class ROEAbstract(object):
                 )
 
                 # Where to release to?
-                release_to_which_pixels = capture_from_which_pixels + np.arange(
+                release_to_which_pixels = capture_from_which_pixel + np.arange(
                     n_phases_for_release, dtype=int
                 )
 
@@ -300,14 +298,14 @@ class ROEAbstract(object):
                 # readout pixel to instead act on the further-from-readout pixel
                 # (i.e. the same operation but on the next pixel in the loop)
                 if self.force_release_away_from_readout and phase > high_phase:
-                    capture_from_which_pixels += 1
+                    capture_from_which_pixel += 1
                     release_to_which_pixels += 1
 
                 # Compile results
                 roe_phases.append(
                     ROEPhase(
                         is_high=phase == high_phase,
-                        capture_from_which_pixels=capture_from_which_pixels,
+                        capture_from_which_pixel=capture_from_which_pixel,
                         release_to_which_pixels=release_to_which_pixels,
                         release_fraction_to_pixel=release_fraction_to_pixel,
                     )
@@ -328,7 +326,7 @@ class ROEAbstract(object):
                 referred_to_pixels = np.concatenate(
                     (
                         referred_to_pixels,
-                        self.clock_sequence[step][phase].capture_from_which_pixels,
+                        [self.clock_sequence[step][phase].capture_from_which_pixel],
                         self.clock_sequence[step][phase].release_to_which_pixels,
                     )
                 )

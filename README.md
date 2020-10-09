@@ -68,6 +68,7 @@ Installation
 ------------
 + Install the package with `pip install arcticpy`, see https://pypi.org/project/arcticpy/
 + Or download the code with `git clone https://github.com/jkeger/arcticpy.git`
+    + Cython set up: `python setup.py build_ext --inplace`
     + Run the unit tests with `pytest test_arcticpy/`
 + Requires:
     + Python 3 (tested with 3.6.9)
@@ -93,9 +94,10 @@ A quick summary of the code files and their content:
     + `main.py`  
         Contains the primary user-facing functions `add_cti()` and `remove_cti()`.
         
-        These are wrappers for `_clock_charge_in_one_direction()`, which 
-        contains the primary nested for loops over an image to add CTI to 
-        (in order) each column, express pass (see below), and row.
+        These are wrappers for `cy_clock_charge_in_one_direction()`, in 
+        `main_utils.pyx`, which contains the primary nested for loops over an 
+        image to add CTI to (in order) each column, express pass (see below), 
+        and row.
         
         Also contains preset CTI models for e.g. the HST ACS.
     + `ccd.py`  
@@ -107,13 +109,14 @@ A quick summary of the code files and their content:
     + `traps.py`  
         Defines the user-facing `Trap` classes that describes the properties of a 
         single species of traps.    
-    + `trap_managers.py`  
+    + `trap_managers.py` and `trap_managers_utils.pyx`  
         Defines the internal `TrapManager` classes that organise one or many 
         species of traps.
         
         Contains the core function `n_electrons_released_and_captured()` called
-        from `_clock_charge_in_one_direction()` to model the capture and release
-        of electrons and to track the trapped electrons using the "watermarks".
+        from `cy_clock_charge_in_one_direction()` to model the capture and 
+        release of electrons and to track the trapped electrons using the 
+        "watermarks".
     + `util.py`  
         Miscellaneous internal utilities.
 + `test_arcticpy/` Unit test directory

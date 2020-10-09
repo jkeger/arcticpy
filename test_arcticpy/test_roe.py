@@ -345,7 +345,7 @@ class TestClockingSequences:
             assert roe.n_phases == 1
             assert roe.n_steps == 1
             assert roe.clock_sequence[0][0].is_high
-            assert roe.clock_sequence[0][0].capture_from_which_pixels == 0
+            assert roe.clock_sequence[0][0].capture_from_which_pixel == 0
             assert roe.clock_sequence[0][0].release_to_which_pixels == 0
 
     def test__readout_sequence_two_phase_single_phase_high(self):
@@ -361,7 +361,7 @@ class TestClockingSequences:
             phase = step
             assert roe.clock_sequence[step][phase].is_high
             assert (
-                roe.clock_sequence[step][phase].capture_from_which_pixels == 0
+                roe.clock_sequence[step][phase].capture_from_which_pixel == 0
             ), "Step {}, phase {}, capture".format(step, phase)
             assert (
                 roe.clock_sequence[step][phase].release_to_which_pixels == 0
@@ -382,7 +382,7 @@ class TestClockingSequences:
             phase = step
             assert roe.clock_sequence[step][phase].is_high
             assert (
-                roe.clock_sequence[step][phase].capture_from_which_pixels == 0
+                roe.clock_sequence[step][phase].capture_from_which_pixel == 0
             ), "Step {}, phase {}, capture".format(step, phase)
             assert (
                 roe.clock_sequence[step][phase].release_to_which_pixels == 0
@@ -405,7 +405,7 @@ class TestClockingSequences:
             phase = step
             assert roe.clock_sequence[step][phase].is_high
             assert (
-                roe.clock_sequence[step][phase].capture_from_which_pixels == 0
+                roe.clock_sequence[step][phase].capture_from_which_pixel == 0
             ), "Step {}, phase {}, capture".format(step, phase)
             assert (
                 roe.clock_sequence[step][phase].release_to_which_pixels == 0
@@ -430,7 +430,7 @@ class TestClockingSequences:
             phase = step
             assert roe.clock_sequence[step][phase].is_high
             assert (
-                roe.clock_sequence[step][phase].capture_from_which_pixels == 0
+                roe.clock_sequence[step][phase].capture_from_which_pixel == 0
             ), "Step {}, phase {}, capture".format(step, phase)
             assert (
                 roe.clock_sequence[step][phase].release_to_which_pixels == 0
@@ -465,16 +465,16 @@ class TestClockingSequences:
                 == roe.clock_sequence[2][phase].release_to_which_pixels
             )
             assert (
-                roe.clock_sequence[4][phase].capture_from_which_pixels
-                == roe.clock_sequence[2][phase].capture_from_which_pixels
+                roe.clock_sequence[4][phase].capture_from_which_pixel
+                == roe.clock_sequence[2][phase].capture_from_which_pixel
             )
             assert (
                 roe.clock_sequence[5][phase].release_to_which_pixels
                 == roe.clock_sequence[1][phase].release_to_which_pixels
             )
             assert (
-                roe.clock_sequence[5][phase].capture_from_which_pixels
-                == roe.clock_sequence[1][phase].capture_from_which_pixels
+                roe.clock_sequence[5][phase].capture_from_which_pixel
+                == roe.clock_sequence[1][phase].capture_from_which_pixel
             )
 
     def test__readout_sequence_four_phase_single_phase_high(self):
@@ -490,7 +490,7 @@ class TestClockingSequences:
             phase = step
             assert roe.clock_sequence[step][phase].is_high
             assert (
-                roe.clock_sequence[step][phase].capture_from_which_pixels == 0
+                roe.clock_sequence[step][phase].capture_from_which_pixel == 0
             ), "Step {}, phase {}, capture".format(step, phase)
             assert (
                 roe.clock_sequence[step][phase].release_to_which_pixels == 0
@@ -523,7 +523,7 @@ class TestClockingSequences:
             phase = step
             assert roe.clock_sequence[step][phase].is_high
             assert (
-                roe.clock_sequence[step][phase].capture_from_which_pixels == 0
+                roe.clock_sequence[step][phase].capture_from_which_pixel == 0
             ), "Step {}, phase {}, capture".format(step, phase)
             assert (
                 roe.clock_sequence[step][phase].release_to_which_pixels == 0

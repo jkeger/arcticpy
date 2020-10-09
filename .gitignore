@@ -2,12 +2,16 @@
 *.aux
 *.bbl
 *.blg
+*.c
 *.cprof
+*.cpython*
 *.csv
 *.dat
 *.fits
 *.gz
+*.html
 *.log
+*.lprof
 *.mp4
 *.npy
 *.ods

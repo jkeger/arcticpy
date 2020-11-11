@@ -81,7 +81,7 @@ class ROEPhase(object):
         self.is_high = is_high
         self.capture_from_which_pixel = capture_from_which_pixel
         self.release_to_which_pixels = np.array(
-            [release_to_which_pixels], dtype=int
+            [release_to_which_pixels], dtype=np.int64
         ).flatten()
         self.release_fraction_to_pixel = release_fraction_to_pixel
 
@@ -291,7 +291,7 @@ class ROEAbstract(object):
 
                 # Where to release to?
                 release_to_which_pixels = capture_from_which_pixel + np.arange(
-                    n_phases_for_release, dtype=int
+                    n_phases_for_release, dtype=np.int64
                 )
 
                 # Replace capture/release operations that include a closer-to-

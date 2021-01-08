@@ -87,18 +87,31 @@ def add_cti_to_hst_image(express=1):
     input_image = np.array(hdu_list[idx_image].data).astype("float64").T
 
     # Model inputs
-    trap = ac.Trap(density=1, release_timescale=10)
+    trap = ac.TrapInstantCapture(density=1, release_timescale=10)
     ccd = ac.CCD(well_notch_depth=0.01, well_fill_power=0.8, full_well_depth=84700)
+    roe = ac.ROE(
+        empty_traps_for_first_transfers=True,
+        empty_traps_between_columns=True,
+        express_matrix_dtype=int,
+    )  ###
 
     # Select a subset of rows
+    # row_start = 0
+    # row_end = -1
+    # row_start = 200
+    # row_end = 250
     row_start = 0
     row_end = -1
-    # row_start = 200
-    # row_end = 400
 
     # Select a subset of columns
-    column_start = 2662
-    column_end = column_start + 1
+    column_start = 0
+    column_end = 2000
+    # column_start = 2662
+    # column_end = column_start + 1
+    # column_start = 200
+    # column_end = 300
+    # column_start = 200
+    # column_end = 240
 
     # Refine input image
     input_image = input_image[column_start:column_end, row_start:row_end].T
@@ -140,6 +153,25 @@ if __name__ == "__main__":
             input_image, output_image = add_cti_to_hst_image(express=express)
             print(np.amin(input_image), np.amax(input_image))
             print(np.amin(output_image), np.amax(output_image))
+
+            # # Plot the initial image
+            # plt.figure()
+            # im = plt.imshow(X=input_image[1:], aspect="equal", vmin=2150, vmax=2500)
+            # plt.colorbar(im)
+            # plt.axis("off")
+            # plt.savefig("test_input.png", dpi=400)
+            # plt.close()
+            # print(f"Saved test_input.png")
+            #
+            # # Plot the output image
+            # plt.figure()
+            # im = plt.imshow(X=output_image[1:], aspect="equal", vmin=2150, vmax=2500)
+            # plt.colorbar(im)
+            # plt.axis("off")
+            # plt.savefig("test_output.png", dpi=400)
+            # plt.close()
+            # print(f"Saved test_output.png")
+
             return
 
         print("time: ", timeit.timeit(time_wrapper, number=1))
@@ -182,6 +214,27 @@ if __name__ == "__main__":
 
 # Notes
 # -----
-# express                           1       2       5       10
-# date / profile runtime (1 col)
-# 11/09/2020 (Jacob laptop):        5.7     7.0     11.5    18.9    s
+# date : profile runtime (s)
+# express                               0       1       5       10
+# row 200:250, col 200:300, no profiling
+# 09/01/2021 (Jacob laptop), orig:      57.0    3.4
+# 09/01/2021 (Jacob laptop), row-wise:  0.90
+# row-wise, no profiling
+# row 200:400, col 0:1                  8.3
+#              col 0:2                  9.3
+#              col 0:10                 9.5
+#              col 0:20                 10.1
+#              col 0:100                15.1
+#              col 0:200                20.0
+#              col 0:1000               68.2
+#              col 0:2000               141.2
+# row 0:800,   col 0:1                  165.8   1.2     1.9     2.6
+#              col 0:10                 203.6   1.3     2.2     3.4
+#              col 0:100                585.0   3.6     6.8     11.1
+#              col 0:1000                       25.9    50.5    81.0
+#              col 0:2000                       128.5   253.1
+# row 0:-1,    col 0:1                          5.2     7.6
+#              col 0:10                         5.3     8.7
+#              col 0:100                        17.1    32.6
+#              col 0:1000                       408.3   795.3
+#              col 0:2000                       934.1   1829.5

@@ -60,20 +60,20 @@ class ROEPhase(object):
         release_to_which_pixels,
         release_fraction_to_pixel,
     ):
-        """ 
+        """
         Stored information about the electrostatic potentials in a specific phase.
-        
+
         Parameters
         ----------
-        is_high : bool                
+        is_high : bool
             Is the potential held high, i.e. able to contain free electrons?
-        
+
         capture_from_which_pixels : [int]
             The relative row number(s) of the charge cloud to capture from.
-            
-        release_to_which_pixels : [int]         
+
+        release_to_which_pixels : [int]
             The relative row number(s) of the charge cloud to release to.
-        
+
         release_fraction_to_pixel : float
             The fraction of the electrons to be released into this pixel.
         """
@@ -92,22 +92,22 @@ class ROEAbstract(object):
     def __init__(self, dwell_times, express_matrix_dtype):
         """
         Bare core methods that are shared by all types of ROE.
-        
+
         Parameters
         ----------
         dwell_times : float or [float]
-            The time between steps in the clocking sequence, in the same units 
+            The time between steps in the clocking sequence, in the same units
             as the trap capture/release timescales. This can be a single float
             for single-step clocking, or a list for multi-step clocking; the
-            number of steps in the clocking sequence is inferred from the length 
-            of this list. The default value, [1], produces instantaneous 
+            number of steps in the clocking sequence is inferred from the length
+            of this list. The default value, [1], produces instantaneous
             transfer between adjacent pixels, with no intermediate phases.
-        
+
         express_matrix_dtype : type (int or float)
-            Old versions of this algorithm assumed (unnecessarily) that all 
-            express multipliers must be integers. If 
-            force_release_away_from_readout is True (no effect if False), then  
-            it's slightly more efficient if this requirement is dropped, but the 
+            Old versions of this algorithm assumed (unnecessarily) that all
+            express multipliers must be integers. If
+            force_release_away_from_readout is True (no effect if False), then
+            it's slightly more efficient if this requirement is dropped, but the
             option to force it is included for backwards compatability.
         """
         # Parse inputs
@@ -145,60 +145,60 @@ class ROEAbstract(object):
         """
         The state of the readout electronics at each step of a clocking sequence
         for basic CCD readout with the potential in a single phase held high.
-        
-        This function assumes a particular type of sequence that gives sensible 
+
+        This function assumes a particular type of sequence that gives sensible
         behaviours set by the user with only self.n_steps and self.n_phases.
-        Some variables are set up to be able to account for different and/or 
-        more complicated sequences in the future, but this is essentially a 
+        Some variables are set up to be able to account for different and/or
+        more complicated sequences in the future, but this is essentially a
         work in progress to become readily customisable by the user.
-        
+
         Current intended options are primarily:
         self.n_steps = self.n_phases = 1 (default)
         self.n_steps = self.n_phases = 3 (Hubble style)
         self.n_steps = self.n_phases = 4 (Euclid style)
-        And works automatically for trap pumping too, by always making the full 
+        And works automatically for trap pumping too, by always making the full
         reverse sequence and just ignoring it in normal non-trap-pumping mode.
-        
+
         Returns
-        -------        
+        -------
         clock_sequence : [[ROEPhase]]
-            An array of, for each step in a clock sequence, for each phase of 
+            An array of, for each step in a clock sequence, for each phase of
             the CCD, an object with information about the potentials.
-        
+
         Assumptions:
          * Instant transfer between phases; no traps en route.
-         * Electrons released from traps in 'low' phases may be recaptured into 
+         * Electrons released from traps in 'low' phases may be recaptured into
            the same traps or at the bottom of the (nonexistent) potential well,
            depending on the trap_manager functions.
-         * At the end of the step, electrons released from traps in 'low' phases 
-           are moved instantly to the charge cloud in the nearest 'high' phase. 
-           The electrons are exposed to no traps en route (which is reasonable 
+         * At the end of the step, electrons released from traps in 'low' phases
+           are moved instantly to the charge cloud in the nearest 'high' phase.
+           The electrons are exposed to no traps en route (which is reasonable
            if their capture timescale is nonzero).
-         * Electrons that move in this way to trailing charge clouds (higher  
-           pixel numbers) can/will be captured during step of readout. Electrons 
-           that move to forward charge clouds would be difficult, and are 
-           handled by the difference between conceptualisation and 
-           implementation of the sequence. 
-        
-        If self.n_steps=1, this generates the most simplistic readout clocking 
-        sequence, in which every pixel is treated as a single phase, with  
+         * Electrons that move in this way to trailing charge clouds (higher
+           pixel numbers) can/will be captured during step of readout. Electrons
+           that move to forward charge clouds would be difficult, and are
+           handled by the difference between conceptualisation and
+           implementation of the sequence.
+
+        If self.n_steps=1, this generates the most simplistic readout clocking
+        sequence, in which every pixel is treated as a single phase, with
         instant transfer of an entire charge cloud to the next pixel.
-         
-        For three phases, the diagram below conceptually represents the six 
-        steps for trap pumping, where charge clouds in high-potential phases 
-        are shifted first left then back right, or only the first three steps 
-        for normal readout, where the charge clouds are shifted continuously 
+
+        For three phases, the diagram below conceptually represents the six
+        steps for trap pumping, where charge clouds in high-potential phases
+        are shifted first left then back right, or only the first three steps
+        for normal readout, where the charge clouds are shifted continuously
         left towards the readout register.
-        
+
         A trap species in a phase of pixel p could capture electrons when that
-        phase's potential is high and a charge cloud is present. The "Capture 
-        from" lines refer to the original pixel that the cloud was in. So in  
-        step 3, the charge cloud originally in pixel p+1 has been moved into 
-        pixel p. For trap pumping, the cloud is then moved back. In normal 
-        readout it would continue moving towards pixel p-1. The "Release to" 
-        lines state the pixel to which electrons released by traps in that phase 
+        phase's potential is high and a charge cloud is present. The "Capture
+        from" lines refer to the original pixel that the cloud was in. So in
+        step 3, the charge cloud originally in pixel p+1 has been moved into
+        pixel p. For trap pumping, the cloud is then moved back. In normal
+        readout it would continue moving towards pixel p-1. The "Release to"
+        lines state the pixel to which electrons released by traps in that phase
         will move, essentially into the closest high-potential phase.
-                
+
         Time          Pixel p-1              Pixel p            Pixel p+1
         Step     Phase2 Phase1 Phase0 Phase2 Phase1 Phase0 Phase2 Phase1 Phase0
         0                     +------+             +------+             +------+
@@ -212,7 +212,7 @@ class ROEAbstract(object):
         2       +------+             +------+             +------+
         Capture from   |             |   p  |             |      |
         Release to     |             |   p  |   p     p+1 |      |
-                       +-------------+      +-------------+      +--------------        
+                       +-------------+      +-------------+      +--------------
         3                     +------+             +------+             +------+
         Capture from          |      |             |  p+1 |             |      |
         Release to            |      |   p     p+1 |  p+1 |             |      |
@@ -225,27 +225,27 @@ class ROEAbstract(object):
         Capture from   |      |             |   p  |             |      |
         Release to     |      |          p  |   p  |   p         |      |
                 -------+      +-------------+      +-------------+      +-------
-                
+
         See TestTrapPumping.test__traps_in_different_phases_make_dipoles() in
-        test_arcticpy/test_main.py for simple examples using this sequence.        
-        
-        Note: Doing this with low values of express means that electrons 
+        test_arcticpy/test_main.py for simple examples using this sequence.
+
+        Note: Doing this with low values of express means that electrons
         released from a 'low' phase and moving forwards (e.g. p-1 above) do not
-        necessarily have the chance to be recaptured (depending on the release 
-        routines in trap_manager, they could be recaptured at the "bottom" of a 
-        nonexistent potential well, and that is fairly likely because of the 
-        large volume of their charge cloud). If they do not get captured, and 
-        tau_c << tau_r (as is usually the case), then this produces a spurious 
-        leakage of charge from traps. To give them more opportunity to be 
-        recaptured, we make sure we always end each series of phase-to-phase 
-        transfers with a high phase that will always allow capture. The release 
-        operations omitted are irrelevant, because either they were implemented 
+        necessarily have the chance to be recaptured (depending on the release
+        routines in trap_manager, they could be recaptured at the "bottom" of a
+        nonexistent potential well, and that is fairly likely because of the
+        large volume of their charge cloud). If they do not get captured, and
+        tau_c << tau_r (as is usually the case), then this produces a spurious
+        leakage of charge from traps. To give them more opportunity to be
+        recaptured, we make sure we always end each series of phase-to-phase
+        transfers with a high phase that will always allow capture. The release
+        operations omitted are irrelevant, because either they were implemented
         during the previous step, or the traps must have been empty anyway.
-        
-        If there are an even number of phases, electrons released equidistant 
-        from two high phases are split in half and sent in both directions. This 
-        choice means that it should be possible (and fastest) to implement such 
-        readout using only two phases, with a long dwell time in the phase that 
+
+        If there are an even number of phases, electrons released equidistant
+        from two high phases are split in half and sent in both directions. This
+        choice means that it should be possible (and fastest) to implement such
+        readout using only two phases, with a long dwell time in the phase that
         represents all the 'low' phases.
         """
 
@@ -318,7 +318,7 @@ class ROEAbstract(object):
 
     def _generate_pixels_accessed_during_clocking(self):
         """
-        Return a list of (the relative coordinates to) charge clouds that are 
+        Return a list of (the relative coordinates to) charge clouds that are
         accessed during the clocking sequence, i.e. p-1, p or p+1 in the diagram
         above.
         """
@@ -347,64 +347,64 @@ class ROE(ROEAbstract):
     ):
         """
         The primary readout electronics (ROE) class.
-        
+
         Parameters
         ----------
         dwell_times : float or [float]
-            The time between steps in the clocking sequence, in the same units 
+            The time between steps in the clocking sequence, in the same units
             as the trap capture/release timescales. This can be a single float
             for single-step clocking, or a list for multi-step clocking; the
-            number of steps in the clocking sequence is inferred from the length 
-            of this list. The default value, [1], produces instantaneous 
+            number of steps in the clocking sequence is inferred from the length
+            of this list. The default value, [1], produces instantaneous
             transfer between adjacent pixels, with no intermediate phases.
-            
+
         empty_traps_for_first_transfers : bool
-            If True and if using express != n_pixels, then tweak the express 
+            If True and if using express != n_pixels, then tweak the express
             algorithm to treat every first pixel-to-pixel transfer separately
-            to the rest. 
-            
+            to the rest.
+
             Physically, the first ixel that a charge cloud finds itself in will
-            start with empty traps; whereas every subsequent transfer sees traps 
-            that may have been filled previously. With the default express 
-            algorithm, this means the inherently different first-transfer would 
-            be replicated many times for some pixels but not others. This 
-            modification prevents that issue by modelling the first single 
-            transfer for each pixel separately and then using the express 
+            start with empty traps; whereas every subsequent transfer sees traps
+            that may have been filled previously. With the default express
+            algorithm, this means the inherently different first-transfer would
+            be replicated many times for some pixels but not others. This
+            modification prevents that issue by modelling the first single
+            transfer for each pixel separately and then using the express
             algorithm normally for the remainder.
-                   
+
         empty_traps_between_columns : bool
-            True:  each column has independent traps (appropriate for parallel 
+            True:  each column has independent traps (appropriate for parallel
                    clocking)
             False: each column moves through the same traps, which therefore
-                   preserve occupancy, allowing trails to extend onto the next 
+                   preserve occupancy, allowing trails to extend onto the next
                    column (appropriate for serial clocking, if all prescan and
                    overscan pixels are included in the image array).
-                  
+
         force_release_away_from_readout : bool
-            If True then force electrons to be released in a pixel further from 
+            If True then force electrons to be released in a pixel further from
             the readout.
-        
+
         express_matrix_dtype : type : int or float
-            Old versions of this algorithm assumed (unnecessarily) that all 
-            express multipliers must be integers. If 
-            force_release_away_from_readout is True (no effect if False), then  
-            it's slightly more efficient if this requirement is dropped, but the 
+            Old versions of this algorithm assumed (unnecessarily) that all
+            express multipliers must be integers. If
+            force_release_away_from_readout is True (no effect if False), then
+            it's slightly more efficient if this requirement is dropped, but the
             option to force it is included for backwards compatability.
-        
+
         Attributes
-        ----------            
+        ----------
         n_steps : int
             The number of steps in the clocking sequence.
-            
+
         n_phases : int
-            The assumed number of phases in the CCD. This is determined from the 
-            type, and the number of steps in, the clock sequence. For normal 
-            readout, the number of clocking steps should be the same as the 
-            number of CCD phases. This need not true in general, so it is 
+            The assumed number of phases in the CCD. This is determined from the
+            type, and the number of steps in, the clock sequence. For normal
+            readout, the number of clocking steps should be the same as the
+            number of CCD phases. This need not true in general, so it is
             defined in a function rather than in __init__.
-            
+
         clock_sequence : [[ROEPhase]]
-            An array of, for each step in a clock sequence, for each phase of 
+            An array of, for each step in a clock sequence, for each phase of
             the CCD, an object with information about the potentials.
         """
 
@@ -431,18 +431,18 @@ class ROE(ROEAbstract):
 
     def restrict_time_span_of_express_matrix(self, express_matrix, time_window_range):
         """
-        Remove rows of an express_multiplier matrix that are outside a temporal 
-        region of interest if express were zero. 
-        
+        Remove rows of an express_multiplier matrix that are outside a temporal
+        region of interest if express were zero.
+
         Could just remove all other rows; this method is more general.
 
         Parameters
         ----------
         express_matrix : [[float]]
             The express multiplier value for each pixel-to-pixel transfer.
-            
+
         time_window_range : range
-            The subset of transfers to implement. 
+            The subset of transfers to implement.
         """
 
         if time_window_range is not None:
@@ -462,41 +462,41 @@ class ROE(ROEAbstract):
     def express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
         self, pixels, express=0, offset=0, time_window_range=None
     ):
-        """ Calculate the matrices of express multipliers and when to monitor traps.
-        
-        To reduce runtime, instead of calculating the effects of every 
-        pixel-to-pixel transfer, it is possible to approximate readout by 
-        processing each transfer once (Anderson et al. 2010) or a few times 
+        """Calculate the matrices of express multipliers and when to monitor traps.
+
+        To reduce runtime, instead of calculating the effects of every
+        pixel-to-pixel transfer, it is possible to approximate readout by
+        processing each transfer once (Anderson et al. 2010) or a few times
         (Massey et al. 2014, section 2.1.5), then multiplying the effect of
         that transfer by the number of transfers it represents. This function
-        computes the multiplicative factor, and returns it in a matrix that can 
+        computes the multiplicative factor, and returns it in a matrix that can
         be easily looped over.
 
         Parameters
         ----------
         pixels : int or range
             The number of pixels in the image, or the subset of pixels to model.
-                    
+
         express : int
-            The number of times the pixel-to-pixel transfers are computed, 
-            determining the balance between accuracy (high values) and speed 
+            The number of times the pixel-to-pixel transfers are computed,
+            determining the balance between accuracy (high values) and speed
             (low values).
-                n_pix   (slower, accurate) Compute every pixel-to-pixel 
+                n_pix   (slower, accurate) Compute every pixel-to-pixel
                         transfer. The default 0 = alias for n_pix.
-                k       Recompute on k occasions the effect of each transfer.  
-                        After a few transfers (and e.g. eroded leading edges),  
-                        the incremental effect of subsequent transfers can 
+                k       Recompute on k occasions the effect of each transfer.
+                        After a few transfers (and e.g. eroded leading edges),
+                        the incremental effect of subsequent transfers can
                         change.
-                1       (faster, approximate) Compute the effect of each 
+                1       (faster, approximate) Compute the effect of each
                         transfer only once.
             Runtime scales approximately as O(express^0.5). ###WIP
-        
+
         offset : int (>= 0)
-            Consider all pixels to be offset by this number of pixels from the 
-            readout register. Useful if working out the matrix for a postage  
-            stamp image, or to account for prescan pixels whose data is not 
+            Consider all pixels to be offset by this number of pixels from the
+            readout register. Useful if working out the matrix for a postage
+            stamp image, or to account for prescan pixels whose data is not
             stored.
-            
+
         time_window_range : range
             The subset of transfers to implement.
 
@@ -504,10 +504,10 @@ class ROE(ROEAbstract):
         -------
         express_matrix : [[float]]
             The express multiplier value for each pixel-to-pixel transfer.
-        
+
         monitor_traps_matrix : [[bool]]
-            For each pixel-to-pixel transfer, set True if the release and 
-            capture of charge needs to be monitored. 
+            For each pixel-to-pixel transfer, set True if the release and
+            capture of charge needs to be monitored.
         """
 
         if isinstance(pixels, int):
@@ -583,30 +583,30 @@ class ROE(ROEAbstract):
 
     def save_trap_states_matrix_from_express_matrix(self, express_matrix):
         """
-        Return the accompanying array to the express matrix of when to save 
+        Return the accompanying array to the express matrix of when to save
         trap occupancy states.
-        
-        Allows the next express iteration can continue from an (approximately) 
+
+        Allows the next express iteration can continue from an (approximately)
         suitable configuration.
-        
-        If the traps are empty (rather than restored), the first capture in each 
-        express loop is different from the rest: many electrons are lost. This 
-        behaviour may be appropriate for the first pixel-to-pixel transfer of 
-        each charge cloud, but is not for subsequent transfers. It particularly 
-        causes problems if the first transfer is used to represent many 
-        transfers, through the express mechanism, as the large loss of electrons 
+
+        If the traps are empty (rather than restored), the first capture in each
+        express loop is different from the rest: many electrons are lost. This
+        behaviour may be appropriate for the first pixel-to-pixel transfer of
+        each charge cloud, but is not for subsequent transfers. It particularly
+        causes problems if the first transfer is used to represent many
+        transfers, through the express mechanism, as the large loss of electrons
         is multiplied up, replicated throughout many.
 
         Parameters
         ----------
         express_matrix : [[float]]
             The express multiplier value for each pixel-to-pixel transfer.
-         
+
         Returns
         -------
         save_trap_states_matrix : [[bool]]
-            For each pixel-to-pixel transfer, set True to store the trap 
-            occupancy levels, so the next express iteration can continue from an 
+            For each pixel-to-pixel transfer, set True to store the trap
+            occupancy levels, so the next express iteration can continue from an
             (approximately) suitable configuration.
         """
         (n_express, n_pixels) = express_matrix.shape
@@ -634,22 +634,22 @@ class ROEChargeInjection(ROE):
     ):
         """
         The readout electronics (ROE) class varient for charge injection modes.
-        
-        This implies that electrons are directly created by a charge injection 
-        structure at the end of a CCD, then clocked the same number of times 
-        through all of the pixels to the readout register, compared with the 
-        standard case where electrons start in image pixels at different 
+
+        This implies that electrons are directly created by a charge injection
+        structure at the end of a CCD, then clocked the same number of times
+        through all of the pixels to the readout register, compared with the
+        standard case where electrons start in image pixels at different
         distances from readout.
-        
+
         Parameters (if different to ROE)
         ----------
         n_pixel_transfers : int
-            The number of pixels between the charge injection structure and the 
-            readout register, through which the electrons are transferred. 
-            Defaults to the number of pixels in the supplied image. However, 
-            this need not be the case if the image supplied is a reduced portion 
-            of the entire image (to speed up runtime) or charge injection and 
-            readout continued for more than the number of pixels in the 
+            The number of pixels between the charge injection structure and the
+            readout register, through which the electrons are transferred.
+            Defaults to the number of pixels in the supplied image. However,
+            this need not be the case if the image supplied is a reduced portion
+            of the entire image (to speed up runtime) or charge injection and
+            readout continued for more than the number of pixels in the
             detector.
         """
 
@@ -670,14 +670,18 @@ class ROEChargeInjection(ROE):
         )
 
     def express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
-        self, pixels, express=0, offset=0, time_window_range=None,
+        self,
+        pixels,
+        express=0,
+        offset=0,
+        time_window_range=None,
     ):
-        """ 
+        """
         See ROE.express_matrix_and_monitor_traps_matrix_from_pixels_and_express()
-        
-        For charge injection, all charges are clocked the same number of times 
+
+        For charge injection, all charges are clocked the same number of times
         through all the self.n_pixel_transfers pixels to the readout register.
-        
+
         Parameters (if different to ROE.express_matrix_and_monitor_traps_matrix_from_pixels_and_express)
         ----------
         offset : int
@@ -723,9 +727,9 @@ class ROEChargeInjection(ROE):
     def save_trap_states_matrix_from_express_matrix(self, express_matrix):
         """
         See ROE.save_trap_states_matrix_from_express_matrix().
-        
-        The first pixel in each column will always encounter empty traps, after 
-        every pixel-to-pixel transfer. So never save any trap occupancy between 
+
+        The first pixel in each column will always encounter empty traps, after
+        every pixel-to-pixel transfer. So never save any trap occupancy between
         transfers.
         """
         return np.zeros(express_matrix.shape, dtype=bool)
@@ -739,31 +743,31 @@ class ROETrapPumping(ROEAbstract):
         empty_traps_for_first_transfers=True,
         express_matrix_dtype=float,
     ):
-        """ 
-        The readout electronics (ROE) class varient for trap pumping (AKA pocket 
+        """
+        The readout electronics (ROE) class varient for trap pumping (AKA pocket
         pumping).
-        
+
         If a uniform image is repeatedly pumped through a CCD, dipoles (positive
-        -negative pairs in adjacent pixels) are created wherever there are traps 
-        in certain phases. Because the trap class knows nothing about the CCD, 
-        they are assumed to be in every pixel. This would create overlapping 
-        dipoles and, ultimately, no change. The location of the traps should 
-        therefore be specified in the "window" variable passed to 
-        arcticpy.add_cti(), so only those particular pixels are pumped, and 
-        traps in those pixels activated. The phase of the traps should be 
+        -negative pairs in adjacent pixels) are created wherever there are traps
+        in certain phases. Because the trap class knows nothing about the CCD,
+        they are assumed to be in every pixel. This would create overlapping
+        dipoles and, ultimately, no change. The location of the traps should
+        therefore be specified in the "window" variable passed to
+        arcticpy.add_cti(), so only those particular pixels are pumped, and
+        traps in those pixels activated. The phase of the traps should be
         specified in arcticpy.CCD().
-        
+
         Parameters (if different to ROE)
         ----------
         dwell_times : [float]
-            The time between steps in the clocking sequence, in the same units 
-            as the trap capture/release timescales. For trap pumping, this 
+            The time between steps in the clocking sequence, in the same units
+            as the trap capture/release timescales. For trap pumping, this
             includes both the forward and reverse transfers, so a full pumping
             sequence should have an even number of steps, which is assumed here
             to be double the number of phases per pixel.
-        
+
         n_pumps : int
-            The number of times the charge is pumped back and forth. 
+            The number of times the charge is pumped back and forth.
         """
 
         super().__init__(
@@ -809,19 +813,19 @@ class ROETrapPumping(ROEAbstract):
     def express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
         self, pixels, express=0, offset=None, time_window_range=None
     ):
-        """ 
+        """
         See ROE.express_matrix_and_monitor_traps_matrix_from_pixels_and_express()
-    
-        Unlike normal clocking, charge is not tranferred from pixel to pixel 
+
+        Unlike normal clocking, charge is not tranferred from pixel to pixel
         until readout, and instead only the one clock sequence for each pixel
         with traps in is repeated for n_pumps times.
-        
+
         Parameters (if different to ROE.express_matrix_and_monitor_traps_matrix_from_pixels_and_express)
         ----------
         pixels : int or [int]
             In this case, specifically only the pixels that contain traps.
             ###WIP Current tests assume only a single pixel has traps
-        
+
         offset, time_window_range : None
             Not used for trap pumping.
         """
@@ -876,7 +880,7 @@ class ROETrapPumping(ROEAbstract):
     def save_trap_states_matrix_from_express_matrix(self, express_matrix):
         """
         See ROE.save_trap_states_matrix_from_express_matrix()
-        
+
         Trap states must be saved after every pump sequence of the same trap
         until the final one.
         """

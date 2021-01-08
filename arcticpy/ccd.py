@@ -15,19 +15,19 @@ class CCD(object):
         well_bloom_level=None,
     ):
         """
-        A model describing how electrons fill the volume inside each phase of 
-        a pixel in a CCD detector. 
-        
-        By default, each pixel is assumed to have only a single phase. To 
-        specify a multi-phase device (which will need a corresponding clocking 
-        sequence to be defined in readout electronics) specify the fraction of 
-        traps as a list, and optionally different values for the other 
-        parameters as lists too. If the trap density is uniform, then the ratio 
-        of full_well_depth to fraction_of_traps_per_phase will be the same in 
-        all phases. 
+        A model describing how electrons fill the volume inside each phase of
+        a pixel in a CCD detector.
+
+        By default, each pixel is assumed to have only a single phase. To
+        specify a multi-phase device (which will need a corresponding clocking
+        sequence to be defined in readout electronics) specify the fraction of
+        traps as a list, and optionally different values for the other
+        parameters as lists too. If the trap density is uniform, then the ratio
+        of full_well_depth to fraction_of_traps_per_phase will be the same in
+        all phases.
 
         All the following are equivalent:
-            ccd.cloud_fractional_volume_from_n_electrons_and_phase(
+            ccd.cloud_fractional_volumes_from_n_electrons_and_phase(
                 n_electrons, phase
             )
 
@@ -37,40 +37,40 @@ class CCD(object):
             f(n_electrons)
 
             p = ac.CCDPhase(ccd, phase)
-            p.cloud_fractional_volume_from_n_electrons(n_electrons)
-        
-        
+            p.cloud_fractional_volumes_from_n_electrons(n_electrons)
+
+
         Parameters
         ----------
         fraction_of_traps_per_phase : float or [float]
-            Assuming that traps have uniform density throughout the CCD, for 
-            multi-phase clocking, this specifies the physical width of each 
-            phase. This is used only to distribute the traps between phases. 
-            The units do not matter and can be anything from microns to light 
-            years, or fractions of a pixel. Only the fractional widths are ever 
-            returned. If this is an array then you can optionally also enter 
+            Assuming that traps have uniform density throughout the CCD, for
+            multi-phase clocking, this specifies the physical width of each
+            phase. This is used only to distribute the traps between phases.
+            The units do not matter and can be anything from microns to light
+            years, or fractions of a pixel. Only the fractional widths are ever
+            returned. If this is an array then you can optionally also enter
             lists of any/all of the other parameters for each phase.
-            
+
         full_well_depth : float or [float]
-            The maximum number of electrons that can be contained within a 
-            pixel/phase. For multiphase clocking, if only one value is supplied, 
-            that is (by default) replicated to all phases. However, different 
-            physical widths of phases can be set by specifying the full well 
-            depth as a list containing different values. If the potential in 
-            more than one phase is held high during any stage in the clocking 
-            cycle, their full well depths are added together. This value is 
+            The maximum number of electrons that can be contained within a
+            pixel/phase. For multiphase clocking, if only one value is supplied,
+            that is (by default) replicated to all phases. However, different
+            physical widths of phases can be set by specifying the full well
+            depth as a list containing different values. If the potential in
+            more than one phase is held high during any stage in the clocking
+            cycle, their full well depths are added together. This value is
             indpependent of the fraction of traps allocated to each phase.
-            
+
         well_notch_depth : float or [float]
-            The number of electrons that fit inside a 'notch' at the bottom of a 
-            potential well, occupying negligible volume and therefore being 
-            immune to trapping. These electrons still count towards the full 
+            The number of electrons that fit inside a 'notch' at the bottom of a
+            potential well, occupying negligible volume and therefore being
+            immune to trapping. These electrons still count towards the full
             well depth. The notch depth can, in  principle, vary between phases.
-            
+
         well_fill_power : float or [float]
-            The exponent in a power-law model of the volume occupied by a cloud 
+            The exponent in a power-law model of the volume occupied by a cloud
             of electrons. This can, in principle, vary between phases.
-            
+
         well_bloom_level : float or [float]
             Acts similarly to a notch, but for surface traps.
             Default value is full_well_depth - i.e. no blooming is possible.
@@ -163,25 +163,25 @@ class CCD(object):
                 value = self.full_well_depth
             self._well_bloom_level = [value] * self.n_phases
 
-    def cloud_fractional_volume_from_n_electrons_and_phase(
+    def cloud_fractional_volumes_from_n_electrons_and_phase(
         self, n_electrons, phase=0, surface=False
     ):
-        """ Calculate the fractional volume of a charge cloud.
-        
+        """Calculate the fractional volume of a charge cloud.
+
         Parameters
         ----------
-        n_electrons : float
-            The number of electrons in a charge cloud.
-            
+        n_electrons : [float]
+            The number of electrons in a charge cloud in each column.
+
         phase : int
             The phase of the pixel.
-        
+
         Returns
         -------
-        cloud_fractional_volume : float
-            The volume of the charge cloud, as a fraction of the total volume 
-            of the pixel (or phase).
-            
+        cloud_fractional_volume : [float]
+            The volume of the charge cloud, as a fraction of the total volume
+            of the pixel (or phase), in each column.
+
         surface : bool
             #
             # RJM: RESERVED FOR SURFACE TRAPS
@@ -190,64 +190,67 @@ class CCD(object):
         return self.well_filling_function(phase)(n_electrons, surface)
 
     def well_filling_function(self, phase=0):
-        """ Return a self-contained function describing the well-filling model.
-        
-        The returned function calculates the fractional volume of charge cloud 
-        in a pixel (and phase) from the number of electrons in the cloud, which
-        is used to calculate the proportion of traps that are reached by the 
-        cloud and can capture charge from it.
-        
-        By default, it is assumed that the traps are uniformly distributed 
-        throughout the volume, but that assumption can be relaxed by adjusting 
-        this function to reflect the net number of traps seen as a function of 
-        charge cloud size. An example would be for surface traps, which are 
-        responsible for blooming (which is asymmetric and happens during 
-        readout, unlike bleeding) and are preset only at the top of a pixel. 
-        
+        """Return a self-contained function describing the well-filling model.
+
+        The returned function calculates the fractional volumes of charge clouds
+        in a pixel (and phase) from the number of electrons in the cloud in each
+        column, which are used to calculate the proportion of traps that are
+        reached by the cloud and can capture charge from it.
+
+        By default, it is assumed that the traps are uniformly distributed
+        throughout the volume, but that assumption can be relaxed by adjusting
+        this function to reflect the net number of traps seen as a function of
+        charge cloud size. An example would be for surface traps, which are
+        responsible for blooming (which is asymmetric and happens during
+        readout, unlike bleeding) and are preset only at the top of a pixel.
+
         This function embodies the core assumption of a volume-driven CTI
         model like ArCTIC: that traps are either exposed (and have a
         constant capture timescale, which may be zero for instant capture),
         or unexposed and therefore unavailable. This behaviour differs from
         a density-driven CTI model, in which traps may capture an electron
-        anywhere in a pixel, but at varying capture probability. There is 
-        considerable evidence that CCDs in the Hubble Space Telescope are 
+        anywhere in a pixel, but at varying capture probability. There is
+        considerable evidence that CCDs in the Hubble Space Telescope are
         primarily volume-driven; a software algorithm to mimic such behaviour
         also runs much faster.
-        
+
         Parameters
         ----------
         phase : int
-            The phase of the pixel. Multiple phases may optionally have 
+            The phase of the pixel. Multiple phases may optionally have
             different CCD parameters.
-          
+
         Returns
         -------
         well_filling_function : func
-            A self-contained function describing the well-filling model for this 
+            A self-contained function describing the well-filling model for this
             phase.
         """
 
-        def cloud_fractional_volume_from_n_electrons(n_electrons, surface=False):
-            """ Calculate the fractional volume of charge cloud.
-            
+        def cloud_fractional_volumes_from_n_electrons(n_electrons, surface=False):
+            """Calculate the fractional volume of charge cloud.
+
             Parameters
             ----------
-            n_electrons : float
-                The number of electrons in a charge cloud.
-                
+            n_electrons : [float]
+                The number of electrons in a charge cloud in each column.
+
             surface : bool
                 #
                 # RJM: RESERVED FOR SURFACE TRAPS
                 #
-           
+
             Returns
             -------
-            volume : float
-                The fraction of traps of this species exposed.
+            volumes : [float]
+                The fraction of traps of this species exposed in each column.
             """
-            if n_electrons == 0:
-                return 0
+            if type(n_electrons) is float:
+                n_electrons = np.array([n_electrons])
+            elif type(n_electrons) is list:
+                n_electrons = np.array(n_electrons)
 
+            # Set well parameters for surface or standard traps
             if surface:
                 empty = self.blooming_level[phase]
                 beta = 1
@@ -256,13 +259,13 @@ class CCD(object):
                 beta = self.well_fill_power[phase]
             well_range = self.full_well_depth[phase] - empty
 
-            volume = (
-                util.set_min_max((n_electrons - empty) / well_range, 0, 1)
+            volumes = (
+                util.set_array_min_max((n_electrons - empty) / well_range, 0, 1)
             ) ** beta
 
-            return volume
+            return volumes
 
-        return cloud_fractional_volume_from_n_electrons
+        return cloud_fractional_volumes_from_n_electrons
 
 
 class CCDPhase(object):
@@ -274,4 +277,6 @@ class CCDPhase(object):
         self.well_fill_power = ccd.well_fill_power[phase]
         self.well_notch_depth = ccd.well_notch_depth[phase]
         self.well_bloom_level = ccd.well_bloom_level[phase]
-        self.cloud_fractional_volume_from_n_electrons = ccd.well_filling_function(phase)
+        self.cloud_fractional_volumes_from_n_electrons = ccd.well_filling_function(
+            phase
+        )

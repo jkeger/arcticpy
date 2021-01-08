@@ -56,14 +56,17 @@ class TestExpressMatrix:
                     express_matrix,
                     _,
                 ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
-                    pixels=pixels, express=express, offset=offset,
+                    pixels=pixels,
+                    express=express,
+                    offset=offset,
                 )
 
                 (
                     express_matrix_manual_offset,
                     _,
                 ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
-                    pixels=pixels + offset, express=express,
+                    pixels=pixels + offset,
+                    express=express,
                 )
 
                 assert express_matrix[:] == pytest.approx(
@@ -258,7 +261,10 @@ class TestExpressMatrix:
             express_matrix_c,
             monitor_traps_matrix_c,
         ) = roe.express_matrix_and_monitor_traps_matrix_from_pixels_and_express(
-            pixels, express, offset=offset, time_window_range=range(9, total_pixels),
+            pixels,
+            express,
+            offset=offset,
+            time_window_range=range(9, total_pixels),
         )
         (
             express_matrix_d,

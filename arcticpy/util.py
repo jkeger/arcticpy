@@ -11,6 +11,14 @@ def set_min_max(value, min, max):
         return value
 
 
+def set_array_min_max(values, min, max):
+    """ Fix an array of values between a minimum and maximum. """
+    values[values < min] = min
+    values[values > max] = max
+
+    return values
+
+
 def update_fits_header_info(
     ext_header,
     parallel_clocker=None,
@@ -20,7 +28,7 @@ def update_fits_header_info(
     parallel_ccd=None,
     serial_ccd=None,
 ):
-    """ Update a fits header to include the parallel CTI settings.
+    """Update a fits header to include the parallel CTI settings.
 
     Params
     -----------

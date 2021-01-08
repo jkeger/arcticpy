@@ -5,61 +5,93 @@ import arcticpy as ac
 
 
 class TestCCD:
-    def test__electron_fractional_height_from_electrons__gives_correct_value(self,):
+    def test__single_electron_fractional_height_from_electrons(
+        self,
+    ):
 
         parallel_ccd = ac.CCD(
             full_well_depth=10000.0, well_notch_depth=0.0, well_fill_power=1.0
         )
 
-        electron_fractional_volume = parallel_ccd.cloud_fractional_volume_from_n_electrons_and_phase(
-            n_electrons=100.0
+        electron_fractional_volumes = (
+            parallel_ccd.cloud_fractional_volumes_from_n_electrons_and_phase(
+                n_electrons=100.0
+            )
         )
 
-        assert electron_fractional_volume == 0.01
+        assert electron_fractional_volumes == 0.01
 
-        electron_fractional_volume = parallel_ccd.cloud_fractional_volume_from_n_electrons_and_phase(
-            n_electrons=1000.0
+        electron_fractional_volumes = (
+            parallel_ccd.cloud_fractional_volumes_from_n_electrons_and_phase(
+                n_electrons=1000.0
+            )
         )
 
-        assert electron_fractional_volume == 0.1
+        assert electron_fractional_volumes == 0.1
 
-        electron_fractional_volume = parallel_ccd.cloud_fractional_volume_from_n_electrons_and_phase(
-            n_electrons=1000000.0
+        electron_fractional_volumes = (
+            parallel_ccd.cloud_fractional_volumes_from_n_electrons_and_phase(
+                n_electrons=1000000.0
+            )
         )
 
-        assert electron_fractional_volume == 1.0
+        assert electron_fractional_volumes == 1.0
 
         parallel_ccd = ac.CCD(
             full_well_depth=10000.0, well_notch_depth=0.0, well_fill_power=0.5
         )
 
-        electron_fractional_volume = parallel_ccd.cloud_fractional_volume_from_n_electrons_and_phase(
-            n_electrons=100.0
+        electron_fractional_volumes = (
+            parallel_ccd.cloud_fractional_volumes_from_n_electrons_and_phase(
+                n_electrons=100.0
+            )
         )
 
-        assert electron_fractional_volume == 0.01 ** 0.5
+        assert electron_fractional_volumes == 0.01 ** 0.5
 
-        electron_fractional_volume = parallel_ccd.cloud_fractional_volume_from_n_electrons_and_phase(
-            n_electrons=1000.0
+        electron_fractional_volumes = (
+            parallel_ccd.cloud_fractional_volumes_from_n_electrons_and_phase(
+                n_electrons=1000.0
+            )
         )
 
-        assert electron_fractional_volume == 0.1 ** 0.5
+        assert electron_fractional_volumes == 0.1 ** 0.5
 
         parallel_ccd = ac.CCD(
             full_well_depth=100.0, well_notch_depth=90.0, well_fill_power=1.0
         )
 
-        electron_fractional_volume = parallel_ccd.cloud_fractional_volume_from_n_electrons_and_phase(
-            n_electrons=100.0
+        electron_fractional_volumes = (
+            parallel_ccd.cloud_fractional_volumes_from_n_electrons_and_phase(
+                n_electrons=100.0
+            )
         )
 
-        assert electron_fractional_volume == 1.0
+        assert electron_fractional_volumes == 1.0
 
-        electron_fractional_volume = parallel_ccd.cloud_fractional_volume_from_n_electrons_and_phase(
-            n_electrons=9.0
+        electron_fractional_volumes = (
+            parallel_ccd.cloud_fractional_volumes_from_n_electrons_and_phase(
+                n_electrons=9.0
+            )
         )
 
-        assert electron_fractional_volume == 0.0
+        assert electron_fractional_volumes == 0.0
+
+    def test__electron_fractional_heights_from_electrons(
+        self,
+    ):
+
+        parallel_ccd = ac.CCD(
+            full_well_depth=10000.0, well_notch_depth=0.0, well_fill_power=1.0
+        )
+
+        electron_fractional_volumes = (
+            parallel_ccd.cloud_fractional_volumes_from_n_electrons_and_phase(
+                n_electrons=[10.0, 100.0, 1000.0]
+            )
+        )
+
+        assert electron_fractional_volumes == pytest.approx([0.001, 0.01, 0.1])
 
 
 class TestMultiPhase:

@@ -1,3 +1,6 @@
+Deprecated, see https://github.com/jkeger/arctic
+
+
 ArCTIC python
 =============
 
